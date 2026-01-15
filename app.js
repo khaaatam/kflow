@@ -5,13 +5,10 @@ const qrcode = require('qrcode-terminal');
 const path = require('path');
 const os = require('os'); // Buat deteksi OS (HP atau PC)
 
-// --- 1. CONFIG USER (WHITELIST) ---
+// --- 1. CONFIG USER (VERSI FINAL: CUKUP NOMOR HP AJA) ---
 const DAFTAR_USER = {
-    '193836185837720:92@lid': 'Tami', // ID PC Lu
-    '193836185837720@lid': 'Tami',
-    '6289608506367:92@c.us': 'Tami',  // ID HP Lu (Versi 1)
-    '6289608506367@c.us': 'Tami',     // ID HP Lu (Versi 2)
-    '6283806618448@c.us': 'Dini'      // ID Dini
+    '6289608506367@c.us': 'Tami',  // ID Utama
+    '6283806618448@c.us': 'Fransiska'   // ID Dini
 };
 
 // --- 2. CONFIG SYSTEM ---
@@ -128,8 +125,16 @@ client.on('disconnected', (reason) => {
 client.on('message_create', async msg => {
     try {
         const text = msg.body.toLowerCase().trim();
-        const senderId = msg.author || msg.from;
+
+        // --- LOGIKA BARU: NORMALISASI ID ---
+        // Kita ambil info kontak aslinya, biar mau chat dari PC/HP ID-nya tetep sama
+        const contact = await msg.getContact();
+        const senderId = contact.number + '@c.us'; // Kita paksa formatnya jadi @c.us
+
+        // Tentukan mau bales kemana
         const chatDestination = msg.fromMe ? msg.to : msg.from;
+
+        // Cek Whitelist (Sekarang kuncinya pasti @c.us semua)
         const namaPengirim = DAFTAR_USER[senderId];
 
         // !cekid (Bisa siapa aja)
