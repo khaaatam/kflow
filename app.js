@@ -1,3 +1,9 @@
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+
+// Masukin API Key lu disini
+const genAI = new GoogleGenerativeAI("AIzaSyCAxtpRMP5F6ZZMaYq547vKVls2PUTQ_z4");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
 const express = require('express');
 const mysql = require('mysql2');
 const { Client, LocalAuth } = require('whatsapp-web.js');
@@ -184,6 +190,52 @@ client.on('message_create', async msg => {
                     rep += `\n${r.jenis === 'masuk' ? '🟢' : '🔴'} [${r.sumber}] ${formatRupiah(r.nominal)} - ${r.keterangan}`;
                 });
                 try { await client.sendMessage(chatDestination, rep); } catch (e) { }
+            });
+        }
+
+        // !analisa
+        else if (text.startsWith('!analisa')) {
+            // 1. Kasih tau user bot lagi mikir (React)
+            try { await msg.react('🤔'); } catch (e) { }
+
+            // 2. Ambil 50 transaksi terakhir dari DB
+            const sql = "SELECT * FROM transaksi ORDER BY id DESC LIMIT 50";
+            db.query(sql, async (err, rows) => {
+                if (err || rows.length === 0) return client.sendMessage(chatDestination, "Data transaksi kosong, gw gabisa analisa.");
+
+                // 3. Format data biar bisa dibaca AI
+                let dataTransaksi = rows.map(r =>
+                    `- ${r.tanggal}: ${r.jenis} Rp${r.nominal} (${r.keterangan}) oleh ${r.sumber}`
+                ).join("\n");
+
+                // 4. Bikin Prompt (Perintah buat AI)
+                // Gw bikin gayanya agak 'Toxic' biar seru roastingannya
+                const prompt = `
+                    Kamu adalah Asisten Keuangan Pribadi yang lucu, agak sarkas, tapi bijak.
+                    Ini adalah data keuangan pasangan (Tami & Dini):
+                    
+                    ${dataTransaksi}
+                    
+                    Tugasmu:
+                    1. Hitung sekilas total pengeluaran vs pemasukan.
+                    2. Cari pengeluaran yang paling boros/gak penting.
+                    3. Roasting (ejek) mereka kalau boros, puji kalau hemat.
+                    4. Kasih saran keuangan singkat yang actionable.
+                    
+                    Jawab dalam Bahasa Indonesia gaul (lo-gw). Jangan terlalu panjang, maksimal 3 paragraf. Pake emoji.
+                `;
+
+                try {
+                    // 5. Kirim ke Gemini
+                    const result = await model.generateContent(prompt);
+                    const response = result.response.text();
+
+                    // 6. Kirim balesan ke WA
+                    await client.sendMessage(chatDestination, "🤖 *ANALISA GEMINI:*\n\n" + response);
+                } catch (error) {
+                    console.log(error);
+                    client.sendMessage(chatDestination, "Duh, otak gw lagi error. Coba lagi nanti ya.");
+                }
             });
         }
 
