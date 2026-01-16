@@ -245,7 +245,36 @@ client.on('message_create', async msg => {
             });
         }
 
-        // !roasting)
+        // !tanya / !ai
+        else if (text.startsWith('!tanya') || text.startsWith('!ai')) {
+            // 1. Ambil pertanyaan user (hapus kata '!tanya' di depan)
+            // msg.body itu teks aslinya (case sensitive), kita slice biar rapi
+            const splitText = msg.body.split(' ');
+            const pertanyaan = splitText.slice(1).join(' ');
+
+            // Cek kalo user cuma ketik "!tanya" doang tanpa pertanyaan
+            if (!pertanyaan) {
+                return client.sendMessage(chatDestination, "Mau nanya apa bang? Ketik: `!tanya Resep nasi goreng enak`");
+            }
+
+            try {
+                // 2. Kasih reaction biar keliatan lagi mikir
+                await msg.react('🧠');
+
+                // 3. Kirim pertanyaan ke Gemini
+                const result = await model.generateContent(pertanyaan);
+                const jawaban = result.response.text();
+
+                // 4. Kirim balasan ke WA
+                await client.sendMessage(chatDestination, jawaban);
+
+            } catch (error) {
+                console.error("Error AI Tanya:", error);
+                await client.sendMessage(chatDestination, "Aduh, otak gw lagi error. Coba tanya yg lain.");
+            }
+        }
+
+        // !roasting
         else if (text.startsWith('!roasting') || text.startsWith('!julid')) {
             // 1. Kasih reaksi biar tau bot lagi mikir
             try { await msg.react('🔥'); } catch (e) { }
