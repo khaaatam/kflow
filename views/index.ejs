@@ -2,98 +2,143 @@
 <html lang="id">
 <head>
     <title>Keuangan Couple 👩‍❤️‍👨</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .card { border-radius: 15px; border: none; }
+        .btn-circle { border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+    </style>
 </head>
-<body class="bg-light p-4">
-    <div class="container" style="max-width: 900px;">
+<body class="bg-light p-3">
+    <div class="container" style="max-width: 800px;">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>💰 Dashboard Keuangan</h2>
+            <h3 class="fw-bold text-primary">💰 Dompet Couple</h3>
             <div>
-                <span class="badge bg-success">Bot On</span>
-                <span class="badge bg-primary">Online</span>
+                <span class="badge bg-success rounded-pill">Bot On</span>
+                <a href="/" class="btn btn-sm btn-outline-primary ms-1">🔄</a>
             </div>
         </div>
 
-        <div class="row mb-4">
+        <div class="row g-3 mb-4">
             <div class="col-md-6">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white fw-bold text-center">🏆 Siapa Paling Boros?</div>
-                    <div class="card-body"><canvas id="chartBoros"></canvas></div>
+                <div class="card shadow-sm h-100 p-3">
+                    <h6 class="text-center text-muted mb-3">Siapa Paling Boros?</h6>
+                    <div style="max-height: 200px; display: flex; justify-content: center;">
+                        <canvas id="chartBoros"></canvas>
+                    </div>
                 </div>
             </div>
             <div class="col-md-6">
-                <div class="card shadow-sm h-100">
-                    <div class="card-header bg-white fw-bold text-center">⚖️ Pemasukan vs Pengeluaran</div>
-                    <div class="card-body"><canvas id="chartCashflow"></canvas></div>
+                <div class="card shadow-sm h-100 p-3">
+                    <h6 class="text-center text-muted mb-3">Cashflow</h6>
+                    <div style="max-height: 200px; display: flex; justify-content: center;">
+                        <canvas id="chartCashflow"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="card mb-4 shadow-sm">
-            <div class="card-body">
-                <form action="/tambah" method="POST" class="row g-2">
-                    <div class="col-3">
-                        <select name="jenis" class="form-select">
-                            <option value="masuk">Pemasukan</option>
-                            <option value="keluar">Pengeluaran</option>
-                        </select>
+        <div class="d-grid gap-2 mb-4">
+            <button class="btn btn-primary shadow-sm fw-bold py-2" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                ➕ Tambah Transaksi Manual
+            </button>
+        </div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-white fw-bold py-3">📜 Riwayat Transaksi</div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" style="font-size: 14px;">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tgl</th>
+                                <th>Oleh</th>
+                                <th>Ket</th>
+                                <th class="text-end">Nominal</th>
+                                <th class="text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% data.forEach(d => { 
+                                // Format Tanggal buat HTML input (YYYY-MM-DDTHH:mm)
+                                const rawDate = new Date(d.tanggal);
+                                // Trik biar jamnya pas sama WIB (Offset +7 jam manual kalo di server UTC, atau pake toISOString kalo lokal bener)
+                                // Kita pake trik slice sederhana:
+                                const isoDate = new Date(rawDate.getTime() - (rawDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                            %>
+                            <tr>
+                                <td class="text-muted" style="font-size: 12px;">
+                                    <%= rawDate.toLocaleDateString('id-ID', {day: 'numeric', month: 'short'}) %><br>
+                                    <%= rawDate.toLocaleTimeString('id-ID', {hour: '2-digit', minute: '2-digit'}) %>
+                                </td>
+                                <td>
+                                    <span class="badge <%= d.sumber == 'Tami' ? 'bg-primary' : 'bg-danger' %> bg-opacity-75">
+                                        <%= d.sumber %>
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="fw-bold <%= d.jenis == 'masuk' ? 'text-success' : 'text-danger' %>">
+                                        <%= d.jenis == 'masuk' ? '🟢' : '🔴' %>
+                                    </span> 
+                                    <%= d.keterangan %>
+                                </td>
+                                <td class="text-end fw-bold">
+                                    <%= Number(d.nominal).toLocaleString('id-ID') %>
+                                </td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-light text-warning border" 
+                                        onclick="editData('<%= d.id %>', '<%= d.jenis %>', '<%= d.nominal %>', '<%= d.keterangan %>', '<%= d.sumber %>', '<%= isoDate %>')">
+                                        ✏️
+                                    </button>
+                                    <a href="/hapus/<%= d.id %>" class="btn btn-sm btn-light text-danger border ms-1" onclick="return confirm('Hapus?')">🗑️</a>
+                                </td>
+                            </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalTambah" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">➕ Input Manual</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/tambah" method="POST">
+                    <div class="modal-body">
+                        <div class="row g-2">
+                            <div class="col-6 mb-2">
+                                <label class="form-label small text-muted">Jenis</label>
+                                <select name="jenis" class="form-select">
+                                    <option value="keluar">🔴 Pengeluaran</option>
+                                    <option value="masuk">🟢 Pemasukan</option>
+                                </select>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <label class="form-label small text-muted">Nominal (Rp)</label>
+                                <input type="number" name="nominal" class="form-control" required>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small text-muted">Keterangan</label>
+                            <input type="text" name="keterangan" class="form-control" placeholder="Beli apa..." required>
+                        </div>
                     </div>
-                    <div class="col-4">
-                        <input type="number" name="nominal" class="form-control" placeholder="Rp 0" required>
-                    </div>
-                    <div class="col-3">
-                        <input type="text" name="keterangan" class="form-control" placeholder="Ket..." required>
-                    </div>
-                    <div class="col-2">
+                    <div class="modal-footer">
                         <button type="submit" class="btn btn-primary w-100">Simpan</button>
                     </div>
                 </form>
             </div>
         </div>
-
-        <div class="card shadow-sm">
-            <div class="card-header bg-white fw-bold">📜 Riwayat Transaksi</div>
-            <div class="card-body p-0">
-                <table class="table table-striped mb-0 align-middle">
-                    <thead>
-                        <tr>
-                            <th>Waktu</th>
-                            <th>Oleh</th>
-                            <th>Jenis</th>
-                            <th>Nominal</th>
-                            <th>Keterangan</th>
-                            <th class="text-end">Aksi</th> </tr>
-                    </thead>
-                    <tbody>
-                        <% data.forEach(d => { %>
-                        <tr>
-                            <td><%= new Date(d.tanggal).toLocaleString('id-ID') %></td>
-                            <td><span class="badge bg-secondary"><%= d.sumber %></span></td>
-                            <td class="<%= d.jenis == 'masuk' ? 'text-success' : 'text-danger' %> fw-bold">
-                                <%= d.jenis.toUpperCase() %>
-                            </td>
-                            <td>
-                                <%= Number(d.nominal).toLocaleString('id-ID', { style: 'currency', currency: 'IDR' }) %>
-                            </td>
-                            <td><%= d.keterangan %></td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-warning me-1" 
-                                    onclick="editData('<%= d.id %>', '<%= d.jenis %>', '<%= d.nominal %>', '<%= d.keterangan %>')">
-                                    ✏️
-                                </button>
-                                <a href="/hapus/<%= d.id %>" class="btn btn-sm btn-danger" onclick="return confirm('Yakin hapus data ini?')">🗑️</a>
-                            </td>
-                        </tr>
-                        <% }) %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
     </div>
 
     <div class="modal fade" id="modalEdit" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">✏️ Edit Transaksi</h5>
@@ -102,25 +147,43 @@
                 <form action="/update" method="POST">
                     <div class="modal-body">
                         <input type="hidden" name="id" id="editId">
-                        <div class="mb-3">
-                            <label>Jenis</label>
-                            <select name="jenis" id="editJenis" class="form-select">
-                                <option value="masuk">Pemasukan</option>
-                                <option value="keluar">Pengeluaran</option>
-                            </select>
+                        
+                        <div class="row g-2 mb-3">
+                            <div class="col-7">
+                                <label class="form-label small text-muted">Tanggal & Jam</label>
+                                <input type="datetime-local" name="tanggal" id="editTanggal" class="form-control" required>
+                            </div>
+                            <div class="col-5">
+                                <label class="form-label small text-muted">Pelaku</label>
+                                <select name="sumber" id="editSumber" class="form-select">
+                                    <option value="Tami">Tami</option>
+                                    <option value="Dini">Dini</option>
+                                    <option value="WEB">WEB</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label>Nominal</label>
-                            <input type="number" name="nominal" id="editNominal" class="form-control" required>
+
+                        <div class="row g-2 mb-3">
+                            <div class="col-5">
+                                <label class="form-label small text-muted">Jenis</label>
+                                <select name="jenis" id="editJenis" class="form-select">
+                                    <option value="keluar">🔴 Keluar</option>
+                                    <option value="masuk">🟢 Masuk</option>
+                                </select>
+                            </div>
+                            <div class="col-7">
+                                <label class="form-label small text-muted">Nominal</label>
+                                <input type="number" name="nominal" id="editNominal" class="form-control" required>
+                            </div>
                         </div>
+
                         <div class="mb-3">
-                            <label>Keterangan</label>
+                            <label class="form-label small text-muted">Keterangan</label>
                             <input type="text" name="keterangan" id="editKet" class="form-control" required>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                        <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+                        <button type="submit" class="btn btn-warning w-100 text-white fw-bold">Update Data</button>
                     </div>
                 </form>
             </div>
@@ -129,41 +192,45 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // 1. Logic Grafik (Sama kayak sebelumnya)
+        // Data Grafik
         const dataOrang = <%- JSON.stringify(statsOrang) %>;
         const dataJenis = <%- JSON.stringify(statsJenis) %>;
 
+        // Grafik Pie (Orang)
         new Chart(document.getElementById('chartBoros'), {
             type: 'pie',
             data: {
-                labels: dataOrang.map(item => item.sumber),
+                labels: dataOrang.map(d => d.sumber),
                 datasets: [{
-                    data: dataOrang.map(item => item.total),
-                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'], hoverOffset: 4
+                    data: dataOrang.map(d => d.total),
+                    backgroundColor: ['#0d6efd', '#dc3545', '#ffc107'], hoverOffset: 4
                 }]
-            }
+            },
+            options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
         });
 
+        // Grafik Donut (Cashflow)
         new Chart(document.getElementById('chartCashflow'), {
             type: 'doughnut',
             data: {
-                labels: dataJenis.map(item => item.jenis.toUpperCase()),
+                labels: dataJenis.map(d => d.jenis.toUpperCase()),
                 datasets: [{
-                    data: dataJenis.map(item => item.total),
+                    data: dataJenis.map(d => d.total),
                     backgroundColor: ['#198754', '#dc3545'], hoverOffset: 4
                 }]
-            }
+            },
+            options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
         });
 
-        // 2. Logic Modal Edit
-        function editData(id, jenis, nominal, ket) {
-            // Isi form di dalam modal dengan data lama
+        // LOGIC TOMBOL EDIT (Masukin data ke modal)
+        function editData(id, jenis, nominal, ket, sumber, tanggal) {
             document.getElementById('editId').value = id;
             document.getElementById('editJenis').value = jenis;
             document.getElementById('editNominal').value = nominal;
             document.getElementById('editKet').value = ket;
+            document.getElementById('editSumber').value = sumber; // Set Siapa
+            document.getElementById('editTanggal').value = tanggal; // Set Kapan
             
-            // Munculin Modal
             new bootstrap.Modal(document.getElementById('modalEdit')).show();
         }
     </script>

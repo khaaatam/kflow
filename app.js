@@ -76,12 +76,18 @@ app.get('/hapus/:id', (req, res) => {
     db.query('DELETE FROM transaksi WHERE id = ?', [req.params.id], () => res.redirect('/'));
 });
 
+// --- FITUR UPDATE DATA (VERSI LENGKAP) ---
 app.post('/update', (req, res) => {
-    const { id, jenis, nominal, keterangan } = req.body;
-    db.query('UPDATE transaksi SET jenis=?, nominal=?, keterangan=? WHERE id=?',
-        [jenis, nominal, keterangan, id], () => res.redirect('/'));
-});
+    const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
 
+    // Query update lebih lengkap (nambah sumber & tanggal)
+    const sql = 'UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?';
+
+    db.query(sql, [jenis, nominal, keterangan, sumber, tanggal, id], (err) => {
+        if (err) console.log('Gagal update:', err);
+        res.redirect('/');
+    });
+});
 // --- 5. CONFIG BOT (HYBRID PC & HP) ---
 // Logic ini otomatis deteksi: Kalo di HP pake path Termux, kalo di PC pake default.
 const isTermux = process.platform === 'android';
