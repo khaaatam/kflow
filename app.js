@@ -1,17 +1,18 @@
 const express = require('express');
 const mysql = require('mysql2');
 const { Client, LocalAuth } = require('whatsapp-web.js');
+const { GoogleGenerativeAI } = require("@google/generative-ai"); // Balikin AI nya
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 const os = require('os');
 
 // --- 1. CONFIG USER (WHITELIST) ---
 const DAFTAR_USER = {
-    '193836185837720:92@lid': 'Tami', // ID PC Lu
+    '193836185837720:92@lid': 'Tami', 
     '193836185837720@lid': 'Tami',
-    '6289608506367:92@c.us': 'Tami',  // ID HP Lu (Versi 1)
-    '6289608506367@c.us': 'Tami',     // ID HP Lu (Versi 2)
-    '6283806618448@c.us': 'Dini'      // ID Dini
+    '6289608506367:92@c.us': 'Tami',  
+    '6289608506367@c.us': 'Tami',     
+    '6283806618448@c.us': 'Dini'      
 };
 
 // --- 2. CONFIG SYSTEM ---
@@ -27,7 +28,12 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 
-// --- 3. DATABASE (CONNECTION POOL) ---
+// --- 3. CONFIG AI (GEMINI) ---
+// GANTI API KEY LU DI BAWAH INI 👇
+const genAI = new GoogleGenerativeAI("ISI_API_KEY_LU_DISINI");
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Pake yg gratis
+
+// --- 4. DATABASE (CONNECTION POOL) ---
 const db = mysql.createPool({
     host: 'localhost',
     user: 'root',
@@ -40,7 +46,7 @@ const db = mysql.createPool({
     keepAliveInitialDelay: 0
 });
 
-// --- 4. WEB DASHBOARD ---
+// --- 5. WEB DASHBOARD ---
 app.get('/', (req, res) => {
     const qHistory = "SELECT * FROM transaksi ORDER BY id DESC LIMIT 50";
     const qChartOrang = "SELECT sumber, SUM(nominal) as total FROM transaksi WHERE jenis='keluar' GROUP BY sumber";
@@ -78,28 +84,17 @@ app.post('/update', (req, res) => {
         [jenis, nominal, keterangan, id], () => res.redirect('/'));
 });
 
-// --- 5. CONFIG BOT (HYBRID PC & HP) ---
+// --- 6. CONFIG BOT (HYBRID) ---
 const isTermux = process.platform === 'android';
 let puppeteerConfig = {
     headless: true,
-    args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu'
-    ]
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
 };
 
 if (isTermux) {
     console.log('📱 Mode: ANDROID (Termux Detected)');
     puppeteerConfig.executablePath = '/data/data/com.termux/files/usr/bin/chromium-browser';
-    puppeteerConfig.args.push(
-        '--no-first-run',
-        '--no-zygote',
-        '--single-process',
-        '--disable-accelerated-2d-canvas',
-        '--disable-software-rasterizer'
-    );
+    puppeteerConfig.args.push('--no-first-run', '--no-zygote', '--single-process', '--disable-accelerated-2d-canvas', '--disable-software-rasterizer');
 } else {
     console.log('💻 Mode: PC (Windows/Linux Detected)');
 }
@@ -109,7 +104,6 @@ const client = new Client({
     puppeteer: puppeteerConfig
 });
 
-// --- EVENT LISTENER BOT ---
 client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 
 client.on('ready', async () => {
@@ -119,7 +113,6 @@ client.on('ready', async () => {
 
 client.on('disconnected', (reason) => {
     console.log('⚠️ Koneksi WA putus!', reason);
-    console.log('🔄 Mencoba nyambung ulang...');
     client.destroy().then(() => { client.initialize(); });
 });
 
@@ -137,16 +130,16 @@ client.on('message_create', async msg => {
 
         if (!namaPengirim) return;
 
-        // --- AUTO LOGGER (Rekam semua chat Tami & Dini) ---
+        // AUTO LOGGER (Rekam semua chat)
         const sqlLog = "INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)";
         db.query(sqlLog, [namaPengirim, rawText], (err) => {
             if (err) console.error('❌ Gagal log chat:', err.message);
         });
 
         if (!text.startsWith('!')) return;
-
         console.log(`✅ [${namaPengirim}] Command: ${text}`);
 
+        // --- COMMAND KEUANGAN ---
         if (text.startsWith('!in') || text.startsWith('!out')) {
             const parts = rawText.split(' ');
             if (parts.length < 3) return;
@@ -161,9 +154,7 @@ client.on('message_create', async msg => {
             });
         }
         else if (text.startsWith('!saldo')) {
-            const sql = `SELECT 
-                (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='masuk') as masuk,
-                (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='keluar') as keluar`;
+            const sql = `SELECT (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='masuk') as masuk, (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='keluar') as keluar`;
             db.query(sql, async (err, result) => {
                 if (err) return;
                 const { masuk, keluar } = result[0];
@@ -176,15 +167,59 @@ client.on('message_create', async msg => {
             db.query(sql, async (err, rows) => {
                 if (rows.length === 0) return client.sendMessage(chatDestination, "Belum ada transaksi hari ini.");
                 let rep = `📅 *REKAP HARI INI*\n`;
-                rows.forEach(r => {
-                    rep += `\n${r.jenis === 'masuk' ? '🟢' : '🔴'} [${r.sumber}] ${formatRupiah(r.nominal)} - ${r.keterangan}`;
-                });
+                rows.forEach(r => { rep += `\n${r.jenis === 'masuk' ? '🟢' : '🔴'} [${r.sumber}] ${formatRupiah(r.nominal)} - ${r.keterangan}`; });
                 try { await client.sendMessage(chatDestination, rep); } catch (e) { }
             });
         }
         else if (text.startsWith('!ayang')) {
             try { await msg.react('❤️'); } catch (e) { }
             try { await client.sendMessage(chatDestination, "Sabar yaa sayang. ayangmu lagi sibuk kyknya. nanti aku bales kalo udh gk sibuk❤️"); } catch (e) { }
+        }
+
+        // --- COMMAND AI (GEMINI) ---
+        else if (text.startsWith('!ai') || text.startsWith('!analisa')) {
+            const promptUser = rawText.replace(/!ai|!analisa/i, '').trim();
+            if (!promptUser) return client.sendMessage(chatDestination, "Mau nanya apa sayang?");
+            
+            await msg.react('🤖');
+
+            // 1. Ambil "Ingatan" dari Database Memori
+            db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 5", async (err, rows) => {
+                let contextMemori = "";
+                if (!err && rows.length > 0) {
+                    contextMemori = "Ingatan tentang user:\n" + rows.map(r => "- " + r.fakta).join("\n");
+                }
+
+                // 2. Gabungin Prompt User + Memori
+                const finalPrompt = `
+                Kamu adalah asisten pribadi untuk pasangan Tami dan Dini.
+                Gaya bicara: Santai, gaul, dan sedikit humoris.
+                ${contextMemori}
+                
+                Pertanyaan User (${namaPengirim}): ${promptUser}
+                `;
+
+                try {
+                    const result = await model.generateContent(finalPrompt);
+                    const response = await result.response;
+                    await client.sendMessage(chatDestination, response.text());
+                } catch (error) {
+                    console.error("AI Error:", error.message);
+                    await client.sendMessage(chatDestination, "Aduh, otakku lagi error nih. Coba lagi nanti ya.");
+                }
+            });
+        }
+        
+        // --- COMMAND MEMORI (Buat ngajarin AI) ---
+        else if (text.startsWith('!ingat')) {
+            const faktaBaru = rawText.replace(/!ingat/i, '').trim();
+            if (!faktaBaru) return;
+            
+            db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], async (err) => {
+                if (!err) {
+                    await client.sendMessage(chatDestination, "Oke, aku simpen di otak ya!");
+                }
+            });
         }
 
     } catch (error) { console.log('❌ Error Logic:', error); }
