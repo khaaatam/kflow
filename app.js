@@ -75,20 +75,11 @@ app.get('/hapus/:id', (req, res) => {
     db.query('DELETE FROM transaksi WHERE id = ?', [req.params.id], () => res.redirect('/'));
 });
 
-// --- REVISI LOGIC UPDATE ---
 app.post('/update', (req, res) => {
     const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
-
-    // FIX: Masukin 'sumber' dan 'tanggal' ke query SQL
-    const sql = "UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?";
-
-    // Pastikan urutan values sama dengan tanda tanya (?) di atas
+    const sql = 'UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?';
     db.query(sql, [jenis, nominal, keterangan, sumber, tanggal, id], (err) => {
-        if (err) {
-            console.error("❌ Gagal Update:", err.message);
-            return res.send("Gagal Update: " + err.message);
-        }
-        console.log(`✏️ Data ID ${id} berhasil diupdate jadi: ${jenis}, ${nominal}, ${sumber}`);
+        if (err) console.log('Gagal update:', err);
         res.redirect('/');
     });
 });
@@ -97,13 +88,24 @@ app.post('/update', (req, res) => {
 const isTermux = process.platform === 'android';
 let puppeteerConfig = {
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
+    args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+    ]
 };
 
 if (isTermux) {
     console.log('📱 Mode: ANDROID (Termux Detected)');
     puppeteerConfig.executablePath = '/data/data/com.termux/files/usr/bin/chromium-browser';
-    puppeteerConfig.args.push('--no-first-run', '--no-zygote', '--single-process', '--disable-accelerated-2d-canvas', '--disable-software-rasterizer');
+    puppeteerConfig.args.push(
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',
+        '--disable-accelerated-2d-canvas',
+        '--disable-software-rasterizer'
+    );
 } else {
     console.log('💻 Mode: PC (Windows/Linux Detected)');
 }
@@ -118,10 +120,15 @@ client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 client.on('ready', async () => {
     console.log('✅ BOT SIAP! Dashboard: http://localhost:3000');
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
+
+    // Auto-Cleanup Chat Log > 3 Bulan
+    const sqlCleanup = "DELETE FROM full_chat_logs WHERE waktu < DATE_SUB(NOW(), INTERVAL 3 MONTH)";
+    db.query(sqlCleanup, (err) => { if (!err) console.log('🧹 Cleanup Chat Log Sukses'); });
 });
 
 client.on('disconnected', (reason) => {
     console.log('⚠️ Koneksi WA putus!', reason);
+    console.log('🔄 Mencoba nyambung ulang...');
     client.destroy().then(() => { client.initialize(); });
 });
 
@@ -164,8 +171,28 @@ client.on('message_create', async msg => {
             return client.sendMessage(chatDestination, menu);
         }
 
+        // --- REVISI COMMAND !INGAT (Cerewet Mode) ---
+        else if (text.startsWith('!ingat')) {
+            const faktaBaru = rawText.replace(/!ingat/i, '').trim();
+
+            // 1. Cek kalo user cuma ngetik !ingat doang
+            if (!faktaBaru) {
+                return client.sendMessage(chatDestination, "Kasih tau dong apa yang harus aku inget? Contoh: `!ingat Tami suka nasgor`");
+            }
+
+            db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], async (err) => {
+                // 2. Cek kalo ada error Database (Misal tabel belum dibuat)
+                if (err) {
+                    console.error("❌ Gagal simpan memori:", err.message);
+                    return client.sendMessage(chatDestination, "Gagal nyimpen ingatan bos. Error: " + err.message);
+                }
+                // 3. Sukses
+                await client.sendMessage(chatDestination, "Oke, tersimpan di memori!");
+            });
+        }
+
         // --- COMMAND KEUANGAN ---
-        if (text.startsWith('!in') || text.startsWith('!out')) {
+        else if (text.startsWith('!in') || text.startsWith('!out')) {
             const parts = rawText.split(' ');
             if (parts.length < 3) return;
             const jenis = text.startsWith('!in') ? 'masuk' : 'keluar';
@@ -223,27 +250,6 @@ client.on('message_create', async msg => {
                 }
             });
         }
-
-        // --- REVISI COMMAND !INGAT (Cerewet Mode) ---
-        else if (text.startsWith('!ingat')) {
-            const faktaBaru = rawText.replace(/!ingat/i, '').trim();
-
-            // 1. Cek kalo user cuma ngetik !ingat doang
-            if (!faktaBaru) {
-                return client.sendMessage(chatDestination, "Kasih tau dong apa yang harus aku inget? Contoh: `!ingat Tami suka nasgor`");
-            }
-
-            db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], async (err) => {
-                // 2. Cek kalo ada error Database (Misal tabel belum dibuat)
-                if (err) {
-                    console.error("❌ Gagal simpan memori:", err.message);
-                    return client.sendMessage(chatDestination, "Gagal nyimpen ingatan bos. Error: " + err.message);
-                }
-                // 3. Sukses
-                await client.sendMessage(chatDestination, "Oke, tersimpan di memori!");
-            });
-        }
-
     } catch (error) { console.log('❌ Error Logic:', error); }
 });
 
