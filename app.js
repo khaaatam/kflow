@@ -14,7 +14,7 @@ const os = require('os'); // Buat deteksi OS (HP atau PC)
 // --- 1. CONFIG USER (VERSI FINAL: CUKUP NOMOR HP AJA) ---
 const DAFTAR_USER = {
     '6289608506367@c.us': 'Tami',  // ID Utama
-    '6283806618448@c.us': 'Fransiska'   // ID Dini
+    '6283806618448@c.us': 'Dini'   // ID Dini
 };
 
 // --- 2. CONFIG SYSTEM ---
