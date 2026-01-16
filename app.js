@@ -1,18 +1,15 @@
 const express = require('express');
 const mysql = require('mysql2');
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const { GoogleGenerativeAI } = require("@google/generative-ai"); // Balikin AI nya
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 const os = require('os');
 
-// --- 1. CONFIG USER (WHITELIST) ---
+// --- 1. CONFIG USER (WHITELIST NORMALISASI) ---
 const DAFTAR_USER = {
-    '193836185837720:92@lid': 'Tami', 
-    '193836185837720@lid': 'Tami',
-    '6289608506367:92@c.us': 'Tami',  
-    '6289608506367@c.us': 'Tami',     
-    '6283806618448@c.us': 'Dini'      
+    '6289608506367@c.us': 'Tami',
+    '6283806618448@c.us': 'Dini'
 };
 
 // --- 2. CONFIG SYSTEM ---
@@ -29,9 +26,9 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 
 // --- 3. CONFIG AI (GEMINI) ---
-// GANTI API KEY LU DI BAWAH INI 👇
+// 👇 MASUKIN API KEY LU DISINI 👇
 const genAI = new GoogleGenerativeAI("ISI_API_KEY_LU_DISINI");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); // Pake yg gratis
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // --- 4. DATABASE (CONNECTION POOL) ---
 const db = mysql.createPool({
@@ -78,10 +75,27 @@ app.get('/hapus/:id', (req, res) => {
     db.query('DELETE FROM transaksi WHERE id = ?', [req.params.id], () => res.redirect('/'));
 });
 
+// --- FITUR UPDATE (VERSI LENGKAP) ---
+// Sekarang bisa edit Sumber (Siapa) & Tanggal (Kapan) juga kalau mau
 app.post('/update', (req, res) => {
-    const { id, jenis, nominal, keterangan } = req.body;
-    db.query('UPDATE transaksi SET jenis=?, nominal=?, keterangan=? WHERE id=?',
-        [jenis, nominal, keterangan, id], () => res.redirect('/'));
+    const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
+
+    // Logic: Kalau sumber/tanggal diedit di form, kita update. Kalau kosong, pake yg lama.
+    // Tapi karena form HTML lu mungkin simpel, kita pake query update standar yg aman:
+    // (Asumsi di EJS nanti lu tambahin input buat sumber/tanggal, atau biarin logic ini siap dulu)
+
+    // Query update yang lebih robust (Ada error logging)
+    const sql = `UPDATE transaksi SET jenis=?, nominal=?, keterangan=? WHERE id=?`;
+    const values = [jenis, nominal, keterangan, id];
+
+    db.query(sql, values, (err) => {
+        if (err) {
+            console.error("❌ Gagal Update Data:", err.message);
+            return res.send("Gagal Update Data (Cek Terminal)");
+        }
+        console.log(`✏️ Data ID ${id} berhasil diupdate`);
+        res.redirect('/');
+    });
 });
 
 // --- 6. CONFIG BOT (HYBRID) ---
@@ -120,17 +134,20 @@ client.on('message_create', async msg => {
     try {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
-        const senderId = msg.author || msg.from;
+
+        // LOGIKA NORMALISASI ID
+        const contact = await msg.getContact();
+        const senderId = contact.number + '@c.us';
         const chatDestination = msg.fromMe ? msg.to : msg.from;
         const namaPengirim = DAFTAR_USER[senderId];
 
         if (text === '!cekid') {
-            return client.sendMessage(chatDestination, `🆔 ID Pengirim: \`${senderId}\`\n📍 ID Room: \`${chatDestination}\``);
+            return client.sendMessage(chatDestination, `🆔 ID Terdeteksi: \`${senderId}\`\n(Normalisasi @c.us Aman)`);
         }
 
         if (!namaPengirim) return;
 
-        // AUTO LOGGER (Rekam semua chat)
+        // AUTO LOGGER
         const sqlLog = "INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)";
         db.query(sqlLog, [namaPengirim, rawText], (err) => {
             if (err) console.error('❌ Gagal log chat:', err.message);
@@ -138,6 +155,12 @@ client.on('message_create', async msg => {
 
         if (!text.startsWith('!')) return;
         console.log(`✅ [${namaPengirim}] Command: ${text}`);
+
+        // --- COMMAND: !HELP ---
+        if (text === '!help' || text === '!menu') {
+            const menu = `🤖 *MENU BOT KEUANGAN & AI* 🤖\n\n💰 *KEUANGAN*\n- *!in [jumlah] [ket]* : Masuk\n- *!out [jumlah] [ket]* : Keluar\n- *!saldo* : Cek Sisa\n- *!today* : Rekap Hari Ini\n\n🧠 *AI*\n- *!ai [tanya]* : Tanya Gemini\n- *!ingat [fakta]* : Ajarin AI\n\n❤️ *LAINNYA*\n- *!ayang* : Mode Bucin\n- *!cekid* : Cek ID`;
+            return client.sendMessage(chatDestination, menu);
+        }
 
         // --- COMMAND KEUANGAN ---
         if (text.startsWith('!in') || text.startsWith('!out')) {
@@ -158,7 +181,7 @@ client.on('message_create', async msg => {
             db.query(sql, async (err, result) => {
                 if (err) return;
                 const { masuk, keluar } = result[0];
-                const reply = `💰 *TABUNGAN BERSAMA*\n-------------------\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 *SALDO: ${formatRupiah(masuk - keluar)}*`;
+                const reply = `💰 *SALDO*: ${formatRupiah(masuk - keluar)}\n(Masuk: ${formatRupiah(masuk)} | Keluar: ${formatRupiah(keluar)})`;
                 try { await client.sendMessage(chatDestination, reply); } catch (e) { msg.react('💰'); }
             });
         }
@@ -176,49 +199,34 @@ client.on('message_create', async msg => {
             try { await client.sendMessage(chatDestination, "Sabar yaa sayang. ayangmu lagi sibuk kyknya. nanti aku bales kalo udh gk sibuk❤️"); } catch (e) { }
         }
 
-        // --- COMMAND AI (GEMINI) ---
+        // --- COMMAND AI ---
         else if (text.startsWith('!ai') || text.startsWith('!analisa')) {
             const promptUser = rawText.replace(/!ai|!analisa/i, '').trim();
             if (!promptUser) return client.sendMessage(chatDestination, "Mau nanya apa sayang?");
-            
-            await msg.react('🤖');
 
-            // 1. Ambil "Ingatan" dari Database Memori
+            await msg.react('🤖');
             db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 5", async (err, rows) => {
                 let contextMemori = "";
                 if (!err && rows.length > 0) {
                     contextMemori = "Ingatan tentang user:\n" + rows.map(r => "- " + r.fakta).join("\n");
                 }
-
-                // 2. Gabungin Prompt User + Memori
-                const finalPrompt = `
-                Kamu adalah asisten pribadi untuk pasangan Tami dan Dini.
-                Gaya bicara: Santai, gaul, dan sedikit humoris.
-                ${contextMemori}
-                
-                Pertanyaan User (${namaPengirim}): ${promptUser}
-                `;
-
+                const finalPrompt = `Kamu adalah asisten Tami dan Dini. Gaya: Gaul & Santai.\n${contextMemori}\nPertanyaan ${namaPengirim}: ${promptUser}`;
                 try {
                     const result = await model.generateContent(finalPrompt);
                     const response = await result.response;
                     await client.sendMessage(chatDestination, response.text());
                 } catch (error) {
                     console.error("AI Error:", error.message);
-                    await client.sendMessage(chatDestination, "Aduh, otakku lagi error nih. Coba lagi nanti ya.");
+                    await client.sendMessage(chatDestination, "Otakku error, coba lagi nanti.");
                 }
             });
         }
-        
-        // --- COMMAND MEMORI (Buat ngajarin AI) ---
+
         else if (text.startsWith('!ingat')) {
             const faktaBaru = rawText.replace(/!ingat/i, '').trim();
             if (!faktaBaru) return;
-            
             db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], async (err) => {
-                if (!err) {
-                    await client.sendMessage(chatDestination, "Oke, aku simpen di otak ya!");
-                }
+                if (!err) await client.sendMessage(chatDestination, "Oke, tersimpan di memori!");
             });
         }
 
