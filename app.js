@@ -239,6 +239,56 @@ client.on('message_create', async msg => {
             });
         }
 
+        // !roasting)
+        else if (text.startsWith('!roasting') || text.startsWith('!julid')) {
+            // 1. Kasih reaksi biar tau bot lagi mikir
+            try { await msg.react('🔥'); } catch (e) { }
+
+            // 2. Ambil 20 Transaksi Terakhir dari Database
+            const sql = "SELECT * FROM transaksi ORDER BY id DESC LIMIT 20";
+
+            db.query(sql, async (err, rows) => {
+                if (err) return client.sendMessage(chatDestination, "Database error, lu selamet dari roastingan hari ini.");
+                if (rows.length === 0) return client.sendMessage(chatDestination, "Data masih kosong, mau roasting angin?");
+
+                // 3. Format data biar bisa dibaca AI
+                // Contoh: "- 2024-01-16: [KELUAR] Rp 50.000 (Beli Seblak) oleh Dini"
+                let dataLaporan = rows.map(r => {
+                    const tgl = new Date(r.tanggal).toISOString().split('T')[0];
+                    return `- ${tgl}: [${r.jenis.toUpperCase()}] Rp ${r.nominal} (${r.keterangan}) oleh ${r.sumber}`;
+                }).join('\n');
+
+                // 4. Bikin Prompt "Persona Julid"
+                const prompt = `
+                    Peran: Kamu adalah asisten keuangan pribadi yang mulutnya pedas, sarkas, julid, dan galak.
+                    Tugas: Analisis 20 transaksi terakhir dari pasangan 'Tami' dan 'Dini' di bawah ini.
+                    
+                    Data Transaksi:
+                    ${dataLaporan}
+
+                    Instruksi:
+                    1. Gunakan bahasa Indonesia gaul, santai, dan ekspresif (pake kata kayak: anjir, woy, gila, wkwk, dll).
+                    2. Cari pengeluaran yang boros, aneh, atau terlalu sering (misal kebanyakan jajan/kopi). ROASTING habis-habisan!
+                    3. Kalau kebanyakan uang keluar daripada masuk, marahin mereka.
+                    4. Jangan ngasih saran bijak yang membosankan. Kasih saran yang "ngenyek" atau nyindir.
+                    5. Puji SEDIKIT saja kalau ada pemasukan gede, tapi tetep curiga itu duit darimana.
+                    6. Jawab maksimal 2-3 paragraf pendek biar enak dibaca di WA.
+                `;
+
+                // 5. Kirim ke Gemini
+                try {
+                    const result = await model.generateContent(prompt);
+                    const balasanAI = result.response.text();
+
+                    // Kirim balik ke WA
+                    await client.sendMessage(chatDestination, balasanAI);
+                } catch (error) {
+                    console.error("Error AI:", error);
+                    await client.sendMessage(chatDestination, "Aduh, mulut gw lagi sariawan (Error AI). Coba lagi nanti.");
+                }
+            });
+        }
+
         // !ayang
         else if (text.startsWith('!ayang')) {
             try { await msg.react('❤️'); } catch (e) { }
