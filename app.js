@@ -8,8 +8,8 @@ const os = require('os');
 
 // --- 1. CONFIG USER (WHITELIST NORMALISASI) ---
 const DAFTAR_USER = {
-    '6289608506367@c.us': 'Tami',      
-    '6283806618448@c.us': 'Dini'       
+    '6289608506367@c.us': 'Tami',
+    '6283806618448@c.us': 'Dini'
 };
 
 // --- 2. CONFIG SYSTEM ---
@@ -27,8 +27,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // --- 3. CONFIG AI (GEMINI) ---
 // 👇 MASUKIN API KEY LU DISINI 👇
-const genAI = new GoogleGenerativeAI("ISI_API_KEY_LU_DISINI");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const genAI = new GoogleGenerativeAI("AIzaSyD7C7AkOOUKfVAmylvb9UKYXlCjp_JpyCg");
+const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
 // --- 4. DATABASE (CONNECTION POOL) ---
 const db = mysql.createPool({
@@ -78,10 +78,10 @@ app.get('/hapus/:id', (req, res) => {
 // --- REVISI LOGIC UPDATE ---
 app.post('/update', (req, res) => {
     const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
-    
+
     // FIX: Masukin 'sumber' dan 'tanggal' ke query SQL
     const sql = "UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?";
-    
+
     // Pastikan urutan values sama dengan tanda tanya (?) di atas
     db.query(sql, [jenis, nominal, keterangan, sumber, tanggal, id], (err) => {
         if (err) {
@@ -131,7 +131,7 @@ client.on('message_create', async msg => {
         const text = rawText.toLowerCase().trim();
 
         const contact = await msg.getContact();
-        const senderId = contact.number + '@c.us'; 
+        const senderId = contact.number + '@c.us';
         const chatDestination = msg.fromMe ? msg.to : msg.from;
         const namaPengirim = DAFTAR_USER[senderId];
 
@@ -196,7 +196,7 @@ client.on('message_create', async msg => {
         else if (text.startsWith('!ai') || text.startsWith('!analisa')) {
             const promptUser = rawText.replace(/!ai|!analisa/i, '').trim();
             if (!promptUser) return client.sendMessage(chatDestination, "Mau nanya apa sayang?");
-            
+
             await msg.react('🤖');
             db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 5", async (err, rows) => {
                 let contextMemori = "";
