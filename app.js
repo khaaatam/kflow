@@ -130,24 +130,24 @@ client.on('message_create', async msg => {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
 
-        // --- LOGIKA NORMALISASI ID (GOLDEN LOGIC) ---
-        // 1. Ambil kontak asli pengirim
+        // --- 1. LOGIKA NORMALISASI ID (GOLDEN LOGIC) ---
+        // Ambil kontak asli, paksa ambil nomornya, tambah @c.us
         const contact = await msg.getContact();
-
-        // 2. Paksa format jadi @c.us (Nomor HP murni)
-        // Jadi mau chat dari PC (@lid) atau HP, bot taunya ini nomor HP lu.
         const senderId = contact.number + '@c.us';
 
-        // 3. Tentukan mau bales kemana (Grup/Japri)
+        // Tentukan tujuan balesan
         const chatDestination = msg.fromMe ? msg.to : msg.from;
 
-        // 4. Cek Whitelist (Pake senderId yang udah dinormalisasi)
+        // Cek Whitelist (Pake senderId yang udah dinormalisasi)
         const namaPengirim = DAFTAR_USER[senderId];
 
+        // --- CEK APAKAH LOGIC JALAN ---
+        // Kalau lu ketik !cekid, dia wajib kasih liat ID hasil normalisasi
         if (text === '!cekid') {
-            return client.sendMessage(chatDestination, `🆔 ID Terdeteksi: \`${senderId}\`\n(Normalisasi @c.us Aman)`);
+            return client.sendMessage(chatDestination, `🆔 ID Terdeteksi: \`${senderId}\`\n👤 User: ${namaPengirim || 'Gak Dikenal'}`);
         }
 
+        // Gatekeeper: Kalau gak dikenal, stop disini.
         if (!namaPengirim) return;
 
         // AUTO LOGGER
