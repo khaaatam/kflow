@@ -130,9 +130,18 @@ client.on('message_create', async msg => {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
 
+        // --- LOGIKA NORMALISASI ID (GOLDEN LOGIC) ---
+        // 1. Ambil kontak asli pengirim
         const contact = await msg.getContact();
+
+        // 2. Paksa format jadi @c.us (Nomor HP murni)
+        // Jadi mau chat dari PC (@lid) atau HP, bot taunya ini nomor HP lu.
         const senderId = contact.number + '@c.us';
+
+        // 3. Tentukan mau bales kemana (Grup/Japri)
         const chatDestination = msg.fromMe ? msg.to : msg.from;
+
+        // 4. Cek Whitelist (Pake senderId yang udah dinormalisasi)
         const namaPengirim = DAFTAR_USER[senderId];
 
         if (text === '!cekid') {
