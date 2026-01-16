@@ -214,11 +214,24 @@ client.on('message_create', async msg => {
                 }
             });
         }
+
+        // --- REVISI COMMAND !INGAT (Cerewet Mode) ---
         else if (text.startsWith('!ingat')) {
             const faktaBaru = rawText.replace(/!ingat/i, '').trim();
-            if (!faktaBaru) return;
+
+            // 1. Cek kalo user cuma ngetik !ingat doang
+            if (!faktaBaru) {
+                return client.sendMessage(chatDestination, "Kasih tau dong apa yang harus aku inget? Contoh: `!ingat Tami suka nasgor`");
+            }
+
             db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], async (err) => {
-                if (!err) await client.sendMessage(chatDestination, "Oke, tersimpan di memori!");
+                // 2. Cek kalo ada error Database (Misal tabel belum dibuat)
+                if (err) {
+                    console.error("❌ Gagal simpan memori:", err.message);
+                    return client.sendMessage(chatDestination, "Gagal nyimpen ingatan bos. Error: " + err.message);
+                }
+                // 3. Sukses
+                await client.sendMessage(chatDestination, "Oke, tersimpan di memori!");
             });
         }
 
