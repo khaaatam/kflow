@@ -8,8 +8,8 @@ const os = require('os');
 
 // --- 1. CONFIG USER (WHITELIST NORMALISASI) ---
 const DAFTAR_USER = {
-    '6289608506367@c.us': 'Tami',
-    '6283806618448@c.us': 'Dini'
+    '6289608506367@c.us': 'Tami',      
+    '6283806618448@c.us': 'Dini'       
 };
 
 // --- 2. CONFIG SYSTEM ---
@@ -75,25 +75,20 @@ app.get('/hapus/:id', (req, res) => {
     db.query('DELETE FROM transaksi WHERE id = ?', [req.params.id], () => res.redirect('/'));
 });
 
-// --- FITUR UPDATE (VERSI LENGKAP) ---
-// Sekarang bisa edit Sumber (Siapa) & Tanggal (Kapan) juga kalau mau
+// --- REVISI LOGIC UPDATE ---
 app.post('/update', (req, res) => {
     const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
-
-    // Logic: Kalau sumber/tanggal diedit di form, kita update. Kalau kosong, pake yg lama.
-    // Tapi karena form HTML lu mungkin simpel, kita pake query update standar yg aman:
-    // (Asumsi di EJS nanti lu tambahin input buat sumber/tanggal, atau biarin logic ini siap dulu)
-
-    // Query update yang lebih robust (Ada error logging)
-    const sql = `UPDATE transaksi SET jenis=?, nominal=?, keterangan=? WHERE id=?`;
-    const values = [jenis, nominal, keterangan, id];
-
-    db.query(sql, values, (err) => {
+    
+    // FIX: Masukin 'sumber' dan 'tanggal' ke query SQL
+    const sql = "UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?";
+    
+    // Pastikan urutan values sama dengan tanda tanya (?) di atas
+    db.query(sql, [jenis, nominal, keterangan, sumber, tanggal, id], (err) => {
         if (err) {
-            console.error("❌ Gagal Update Data:", err.message);
-            return res.send("Gagal Update Data (Cek Terminal)");
+            console.error("❌ Gagal Update:", err.message);
+            return res.send("Gagal Update: " + err.message);
         }
-        console.log(`✏️ Data ID ${id} berhasil diupdate`);
+        console.log(`✏️ Data ID ${id} berhasil diupdate jadi: ${jenis}, ${nominal}, ${sumber}`);
         res.redirect('/');
     });
 });
@@ -135,9 +130,8 @@ client.on('message_create', async msg => {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
 
-        // LOGIKA NORMALISASI ID
         const contact = await msg.getContact();
-        const senderId = contact.number + '@c.us';
+        const senderId = contact.number + '@c.us'; 
         const chatDestination = msg.fromMe ? msg.to : msg.from;
         const namaPengirim = DAFTAR_USER[senderId];
 
@@ -156,7 +150,6 @@ client.on('message_create', async msg => {
         if (!text.startsWith('!')) return;
         console.log(`✅ [${namaPengirim}] Command: ${text}`);
 
-        // --- COMMAND: !HELP ---
         if (text === '!help' || text === '!menu') {
             const menu = `🤖 *MENU BOT KEUANGAN & AI* 🤖\n\n💰 *KEUANGAN*\n- *!in [jumlah] [ket]* : Masuk\n- *!out [jumlah] [ket]* : Keluar\n- *!saldo* : Cek Sisa\n- *!today* : Rekap Hari Ini\n\n🧠 *AI*\n- *!ai [tanya]* : Tanya Gemini\n- *!ingat [fakta]* : Ajarin AI\n\n❤️ *LAINNYA*\n- *!ayang* : Mode Bucin\n- *!cekid* : Cek ID`;
             return client.sendMessage(chatDestination, menu);
@@ -203,7 +196,7 @@ client.on('message_create', async msg => {
         else if (text.startsWith('!ai') || text.startsWith('!analisa')) {
             const promptUser = rawText.replace(/!ai|!analisa/i, '').trim();
             if (!promptUser) return client.sendMessage(chatDestination, "Mau nanya apa sayang?");
-
+            
             await msg.react('🤖');
             db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 5", async (err, rows) => {
                 let contextMemori = "";
@@ -221,7 +214,6 @@ client.on('message_create', async msg => {
                 }
             });
         }
-
         else if (text.startsWith('!ingat')) {
             const faktaBaru = rawText.replace(/!ingat/i, '').trim();
             if (!faktaBaru) return;
