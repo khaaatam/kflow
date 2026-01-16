@@ -1,7 +1,8 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Masukin API Key lu disini
+// --- API KEY GOOGLE AI (GEMINI) ---
 const genAI = new GoogleGenerativeAI("AIzaSyD7C7AkOOUKfVAmylvb9UKYXlCjp_JpyCg");
+// Pake model yang RPM-nya lumayan (sesuai SS lu tadi: 2.5-flash-lite atau 2.5-flash)
 const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
 
 const express = require('express');
@@ -9,9 +10,9 @@ const mysql = require('mysql2');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
-const os = require('os'); // Buat deteksi OS (HP atau PC)
+const os = require('os'); 
 
-// --- 1. CONFIG USER (VERSI FINAL: CUKUP NOMOR HP AJA) ---
+// --- 1. CONFIG USER (WHITELIST) ---
 const DAFTAR_USER = {
     '6289608506367@c.us': 'Tami',  // ID Utama
     '6283806618448@c.us': 'Dini'   // ID Dini
@@ -30,17 +31,16 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 
-// --- 3. DATABASE (VERSI CONNECTION POOL - ANTI PUTUS) ---
-// Kita ganti createConnection jadi createPool biar koneksi stabil di HP
+// --- 3. DATABASE (CONNECTION POOL) ---
 const db = mysql.createPool({
-    host: 'localhost',
-    user: 'root',
-    password: '',
+    host: 'localhost', 
+    user: 'root', 
+    password: '', 
     database: 'kflow_db',
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    enableKeepAlive: true, // Biar gak gampang diputus sama MariaDB
+    enableKeepAlive: true, 
     keepAliveInitialDelay: 0
 });
 
@@ -56,7 +56,7 @@ app.get('/', (req, res) => {
             if (err) { console.log(err); return res.send("Error DB Chart Orang"); }
             db.query(qChartJenis, (err, resJenis) => {
                 if (err) { console.log(err); return res.send("Error DB Chart Jenis"); }
-                res.render('index', {
+                res.render('index', { 
                     data: resHistory,
                     statsOrang: resOrang,
                     statsJenis: resJenis
@@ -68,7 +68,7 @@ app.get('/', (req, res) => {
 
 app.post('/tambah', (req, res) => {
     const { jenis, nominal, keterangan } = req.body;
-    db.query("INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, 'WEB')",
+    db.query("INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, 'WEB')", 
         [jenis, nominal, keterangan], () => res.redirect('/'));
 });
 
@@ -76,21 +76,17 @@ app.get('/hapus/:id', (req, res) => {
     db.query('DELETE FROM transaksi WHERE id = ?', [req.params.id], () => res.redirect('/'));
 });
 
-// --- FITUR UPDATE DATA (VERSI LENGKAP) ---
 app.post('/update', (req, res) => {
     const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
-
-    // Query update lebih lengkap (nambah sumber & tanggal)
     const sql = 'UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?';
-
     db.query(sql, [jenis, nominal, keterangan, sumber, tanggal, id], (err) => {
         if (err) console.log('Gagal update:', err);
         res.redirect('/');
     });
 });
+
 // --- 5. CONFIG BOT (HYBRID PC & HP) ---
-// Logic ini otomatis deteksi: Kalo di HP pake path Termux, kalo di PC pake default.
-const isTermux = process.platform === 'android';
+const isTermux = process.platform === 'android'; 
 let puppeteerConfig = {
     headless: true,
     args: [
@@ -107,7 +103,7 @@ if (isTermux) {
     puppeteerConfig.args.push(
         '--no-first-run',
         '--no-zygote',
-        '--single-process', // Hemat RAM di HP
+        '--single-process', 
         '--disable-accelerated-2d-canvas',
         '--disable-software-rasterizer'
     );
@@ -120,12 +116,15 @@ const client = new Client({
     puppeteer: puppeteerConfig
 });
 
-// --- EVENT LISTENER BOT ---
 client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 
 client.on('ready', async () => {
     console.log('✅ BOT SIAP! Dashboard: http://localhost:3000');
-    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
+    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch(e){}
+
+    // Auto-Cleanup Chat Log > 3 Bulan
+    const sqlCleanup = "DELETE FROM full_chat_logs WHERE waktu < DATE_SUB(NOW(), INTERVAL 3 MONTH)";
+    db.query(sqlCleanup, (err) => { if(!err) console.log('🧹 Cleanup Chat Log Sukses'); });
 });
 
 client.on('disconnected', (reason) => {
@@ -134,214 +133,204 @@ client.on('disconnected', (reason) => {
     client.destroy().then(() => { client.initialize(); });
 });
 
+// --- 6. LOGIC UTAMA (MESSAGE HANDLER) ---
 client.on('message_create', async msg => {
     try {
-        const text = msg.body.toLowerCase().trim();
-
-        // --- LOGIKA BARU: NORMALISASI ID ---
-        // Kita ambil info kontak aslinya, biar mau chat dari PC/HP ID-nya tetep sama
+        const text = msg.body.trim(); 
+        const textLower = text.toLowerCase(); 
         const contact = await msg.getContact();
-        const senderId = contact.number + '@c.us'; // Kita paksa formatnya jadi @c.us
-
-        // Tentukan mau bales kemana
+        const senderId = contact.number + '@c.us'; // Paksa format ID
         const chatDestination = msg.fromMe ? msg.to : msg.from;
+        const namaPengirim = DAFTAR_USER[senderId]; 
 
-        // Cek Whitelist (Sekarang kuncinya pasti @c.us semua)
-        const namaPengirim = DAFTAR_USER[senderId];
+        // Security Check
+        if (!namaPengirim) return; 
 
-        // !cekid (Bisa siapa aja)
-        if (text === '!cekid') {
-            return client.sendMessage(chatDestination, `🆔 ID Pengirim: \`${senderId}\`\n📍 ID Room: \`${chatDestination}\``);
+        // [A] CCTV / PENYADAP (Simpan chat natural buat AI belajar)
+        if (!text.startsWith('!')) {
+            if (text.length > 0) {
+                db.query("INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)", [namaPengirim, text]);
+            }
+            return; 
         }
-
-        if (!namaPengirim || !text.startsWith('!')) return;
 
         console.log(`✅ [${namaPengirim}] Command: ${text}`);
 
-        // !in / !out
-        if (text.startsWith('!in') || text.startsWith('!out')) {
-            const parts = msg.body.split(' ');
-            if (parts.length < 3) return;
-            const jenis = text.startsWith('!in') ? 'masuk' : 'keluar';
-            const nominal = parseInt(parts[1]);
-            const ket = parts.slice(2).join(' ');
-            if (isNaN(nominal)) return;
+        // --- COMMAND LIST ---
 
-            const sql = "INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?)";
-            db.query(sql, [jenis, nominal, ket, namaPengirim], async (err) => {
-                if (!err) { try { await msg.react('✅'); } catch (e) { } }
-            });
+        // 1. HELP (MENU BANTUAN) 🆘
+        if (textLower === '!help' || textLower === '!menu') {
+            const menu = `
+🤖 *MENU BOT KEUANGAN* 🤖
+
+*💰 KEUANGAN*
+• \`!in [jumlah] [ket]\` : Catat Pemasukan
+• \`!out [jumlah] [ket]\` : Catat Pengeluaran
+• \`!saldo\` : Cek Tabungan
+• \`!today\` : Transaksi Hari Ini
+• \`!roasting\` : Minta AI Marah-marah soal duit
+• \`!analisa\` : Analisa Keuangan Serius
+
+*🧠 PERSONAL ASSISTANT*
+• \`!ai [tanya]\` : Tanya Apapun (Pinter)
+• \`!tanya [tanya]\` : Sama kayak !ai
+• \`!ingat [fakta]\` : Suruh bot inget sesuatu
+• \`!lupa\` : Hapus ingatan terakhir
+
+*⚙️ LAINNYA*
+• \`!cekid\` : Cek ID WhatsApp
+• \`!ayang\` : Fitur Bucin (Buat Dini)
+• \`!help\` : Liat Menu Ini
+`;
+            await client.sendMessage(chatDestination, menu);
         }
 
-        // !saldo
-        else if (text.startsWith('!saldo')) {
-            const sql = `SELECT 
-                (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='masuk') as masuk,
-                (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='keluar') as keluar`;
-            db.query(sql, async (err, result) => {
-                if (err) return;
-                const { masuk, keluar } = result[0];
-                const reply = `💰 *TABUNGAN BERSAMA*\n-------------------\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 *SALDO: ${formatRupiah(masuk - keluar)}*`;
-                try { await client.sendMessage(chatDestination, reply); } catch (e) { msg.react('💰'); }
-            });
-        }
-
-        // !today
-        else if (text.startsWith('!today')) {
-            const sql = "SELECT * FROM transaksi WHERE DATE(tanggal) = CURDATE() ORDER BY id DESC";
-            db.query(sql, async (err, rows) => {
-                if (rows.length === 0) return client.sendMessage(chatDestination, "Belum ada transaksi hari ini.");
-                let rep = `📅 *REKAP HARI INI*\n`;
-                rows.forEach(r => {
-                    rep += `\n${r.jenis === 'masuk' ? '🟢' : '🔴'} [${r.sumber}] ${formatRupiah(r.nominal)} - ${r.keterangan}`;
-                });
-                try { await client.sendMessage(chatDestination, rep); } catch (e) { }
-            });
-        }
-
-        // !analisa
-        else if (text.startsWith('!analisa')) {
-            // 1. Kasih tau user bot lagi mikir (React)
-            try { await msg.react('🤔'); } catch (e) { }
-
-            // 2. Ambil 50 transaksi terakhir dari DB
-            const sql = "SELECT * FROM transaksi ORDER BY id DESC LIMIT 50";
-            db.query(sql, async (err, rows) => {
-                if (err || rows.length === 0) return client.sendMessage(chatDestination, "Data transaksi kosong, gw gabisa analisa.");
-
-                // 3. Format data biar bisa dibaca AI
-                let dataTransaksi = rows.map(r =>
-                    `- ${r.tanggal}: ${r.jenis} Rp${r.nominal} (${r.keterangan}) oleh ${r.sumber}`
-                ).join("\n");
-
-                // 4. Bikin Prompt (Perintah buat AI)
-                // Gw bikin gayanya agak 'Toxic' biar seru roastingannya
-                const prompt = `
-                    Kamu adalah Asisten Keuangan Pribadi yang lucu, agak sarkas, tapi bijak.
-                    Ini adalah data keuangan pasangan (Tami & Dini):
-                    
-                    ${dataTransaksi}
-                    
-                    Tugasmu:
-                    1. Hitung sekilas total pengeluaran vs pemasukan.
-                    2. Cari pengeluaran yang paling boros/gak penting.
-                    3. Roasting (ejek) mereka kalau boros, puji kalau hemat.
-                    4. Kasih saran keuangan singkat yang actionable.
-                    
-                    Jawab dalam Bahasa Indonesia gaul (lo-gw). Jangan terlalu panjang, maksimal 3 paragraf. Pake emoji.
-                `;
-
-                try {
-                    // 5. Kirim ke Gemini
-                    const result = await model.generateContent(prompt);
-                    const response = result.response.text();
-
-                    // 6. Kirim balesan ke WA
-                    await client.sendMessage(chatDestination, "🤖 *ANALISA GEMINI:*\n\n" + response);
-                } catch (error) {
-                    console.log(error);
-                    client.sendMessage(chatDestination, "Duh, otak gw lagi error. Coba lagi nanti ya.");
-                }
-            });
-        }
-
-        // !tanya / !ai
-        else if (text.startsWith('!tanya') || text.startsWith('!ai')) {
-            // 1. Ambil pertanyaan user (hapus kata '!tanya' di depan)
-            // msg.body itu teks aslinya (case sensitive), kita slice biar rapi
+        // 2. AI PERSONAL ASSISTANT + DIGITAL TWIN 🧠
+        else if (textLower.startsWith('!ai') || textLower.startsWith('!tanya')) {
             const splitText = msg.body.split(' ');
             const pertanyaan = splitText.slice(1).join(' ');
 
-            // Cek kalo user cuma ketik "!tanya" doang tanpa pertanyaan
-            if (!pertanyaan) {
-                return client.sendMessage(chatDestination, "Mau nanya apa bang? Ketik: `!tanya Resep nasi goreng enak`");
-            }
+            if (!pertanyaan) return client.sendMessage(chatDestination, "Nanya apa? Contoh: `!ai Menurut lu Dini lagi bete gak?`");
 
             try {
-                // 2. Kasih reaction biar keliatan lagi mikir
                 await msg.react('🧠');
 
-                // 3. Kirim pertanyaan ke Gemini
-                const result = await model.generateContent(pertanyaan);
-                const jawaban = result.response.text();
+                // Ambil Data: Memori, Chat Log (Digital Twin), Transaksi
+                const qMemori = "SELECT fakta FROM memori";
+                const qChatAsli = "SELECT * FROM full_chat_logs ORDER BY id DESC LIMIT 50";
+                const qTransaksi = "SELECT * FROM transaksi ORDER BY id DESC LIMIT 5";
 
-                // 4. Kirim balasan ke WA
-                await client.sendMessage(chatDestination, jawaban);
+                const [rowsMemori, rowsChat, rowsTransaksi] = await Promise.all([
+                    db.promise().query(qMemori),
+                    db.promise().query(qChatAsli),
+                    db.promise().query(qTransaksi)
+                ]);
 
+                const historyChat = rowsChat[0].length > 0 ? rowsChat[0].reverse().map(c => `${c.nama_pengirim}: "${c.pesan}"`).join('\n') : "(Belum ada chat)";
+                const listMemori = rowsMemori[0].length > 0 ? rowsMemori[0].map(m => `- ${m.fakta}`).join('\n') : "(Kosong)";
+                const listTransaksi = rowsTransaksi[0].map(r => `- ${r.tanggal}: ${r.jenis} Rp${r.nominal} (${r.keterangan})`).join('\n');
+
+                const prompt = `
+                    Peran: Kamu adalah 'AI Personal Assistant' di grup chat Tami & Dini.
+                    
+                    [CONTEXT CHAT TERAKHIR]:
+                    ${historyChat}
+
+                    [INGATAN TENTANG USER]:
+                    ${listMemori}
+
+                    [DATA KEUANGAN]:
+                    ${listTransaksi}
+
+                    [PERTANYAAN USER]: "${pertanyaan}"
+
+                    INSTRUKSI:
+                    1. Jawab berdasarkan context chat & ingatan.
+                    2. Tiru gaya bahasa Tami (santai/gaul) dari chat log.
+                    3. Analisa mood/situasi dari chat log jika ditanya.
+                `;
+
+                const result = await model.generateContent(prompt);
+                await client.sendMessage(chatDestination, result.response.text());
             } catch (error) {
-                console.error("Error AI Tanya:", error);
-                await client.sendMessage(chatDestination, "Aduh, otak gw lagi error. Coba tanya yg lain.");
+                console.error(error);
+                await client.sendMessage(chatDestination, "Otak nge-lag.");
             }
         }
 
-        // !roasting
-        else if (text.startsWith('!roasting') || text.startsWith('!julid')) {
-            // 1. Kasih reaksi biar tau bot lagi mikir
-            try { await msg.react('🔥'); } catch (e) { }
-
-            // 2. Ambil 20 Transaksi Terakhir dari Database
-            const sql = "SELECT * FROM transaksi ORDER BY id DESC LIMIT 20";
-
-            db.query(sql, async (err, rows) => {
-                if (err) return client.sendMessage(chatDestination, "Database error, lu selamet dari roastingan hari ini.");
-                if (rows.length === 0) return client.sendMessage(chatDestination, "Data masih kosong, mau roasting angin?");
-
-                // 3. Format data biar bisa dibaca AI
-                // Contoh: "- 2024-01-16: [KELUAR] Rp 50.000 (Beli Seblak) oleh Dini"
-                let dataLaporan = rows.map(r => {
-                    const tgl = new Date(r.tanggal).toISOString().split('T')[0];
-                    return `- ${tgl}: [${r.jenis.toUpperCase()}] Rp ${r.nominal} (${r.keterangan}) oleh ${r.sumber}`;
-                }).join('\n');
-
-                // 4. Bikin Prompt "Persona Julid"
-                const prompt = `
-                    Peran: Kamu adalah asisten keuangan pribadi yang mulutnya pedas, sarkas, julid, dan galak.
-                    Tugas: Analisis 20 transaksi terakhir dari pasangan 'Tami' dan 'Dini' di bawah ini.
-                    
-                    Data Transaksi:
-                    ${dataLaporan}
-
-                    Instruksi:
-                    1. Gunakan bahasa Indonesia gaul, santai, dan ekspresif (pake kata kayak: anjir, woy, gila, wkwk, dll).
-                    2. Cari pengeluaran yang boros, aneh, atau terlalu sering (misal kebanyakan jajan/kopi). ROASTING habis-habisan!
-                    3. Kalau kebanyakan uang keluar daripada masuk, marahin mereka.
-                    4. Jangan ngasih saran bijak yang membosankan. Kasih saran yang "ngenyek" atau nyindir.
-                    5. Puji SEDIKIT saja kalau ada pemasukan gede, tapi tetep curiga itu duit darimana.
-                    6. Jawab maksimal 2-3 paragraf pendek biar enak dibaca di WA.
-                `;
-
-                // 5. Kirim ke Gemini
-                try {
-                    const result = await model.generateContent(prompt);
-                    const balasanAI = result.response.text();
-
-                    // Kirim balik ke WA
-                    await client.sendMessage(chatDestination, balasanAI);
-                } catch (error) {
-                    console.error("Error AI:", error);
-                    await client.sendMessage(chatDestination, "Aduh, mulut gw lagi sariawan (Error AI). Coba lagi nanti.");
-                }
+        // 3. MENAMBAH INGATAN
+        else if (textLower.startsWith('!ingat')) {
+            const fakta = msg.body.split(' ').slice(1).join(' ');
+            if (!fakta) return client.sendMessage(chatDestination, "Contoh: `!ingat Dini suka warna ungu`");
+            db.query("INSERT INTO memori (fakta) VALUES (?)", [fakta], (err) => {
+                if(!err) client.sendMessage(chatDestination, `✅ Oke, diinget: "${fakta}"`);
             });
         }
 
-        // !ayang
-        else if (text.startsWith('!ayang')) {
-            try { await msg.react('❤️'); } catch (e) { }
-            try { await client.sendMessage(chatDestination, "Sabar yaa sayang. ayangmu lagi sibuk kyknya. nanti aku bales kalo udh gk sibuk❤️"); } catch (e) { }
+        // 4. HAPUS INGATAN
+        else if (textLower.startsWith('!lupa')) {
+             db.query("DELETE FROM memori ORDER BY id DESC LIMIT 1", () => client.sendMessage(chatDestination, "🗑️ Ingatan terakhir dihapus."));
+        }
+
+        // 5. TRANSAKSI (!in / !out)
+        else if (textLower.startsWith('!in') || textLower.startsWith('!out')) {
+            const parts = msg.body.split(' ');
+            if (parts.length < 3) return;
+            const jenis = textLower.startsWith('!in') ? 'masuk' : 'keluar';
+            const nominal = parseInt(parts[1]);
+            const ket = parts.slice(2).join(' ');
+
+            if (isNaN(nominal)) return;
+            db.query("INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?)", [jenis, nominal, ket, namaPengirim], async (err) => {
+                if (!err) { try { await msg.react('✅'); } catch (e) {} }
+            });
+        }
+
+        // 6. SALDO
+        else if (textLower.startsWith('!saldo')) {
+            const sql = `SELECT (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='masuk') as masuk, (SELECT COALESCE(SUM(nominal),0) FROM transaksi WHERE jenis='keluar') as keluar`;
+            db.query(sql, async (err, res) => {
+                if (err) return;
+                const { masuk, keluar } = res[0];
+                client.sendMessage(chatDestination, `💰 *SALDO KITA*\nMasuk: ${formatRupiah(masuk)}\nKeluar: ${formatRupiah(keluar)}\n💵 *SISA: ${formatRupiah(masuk - keluar)}*`);
+            });
+        }
+
+        // 7. TODAY RECAP
+        else if (textLower.startsWith('!today')) {
+            db.query("SELECT * FROM transaksi WHERE DATE(tanggal) = CURDATE() ORDER BY id DESC", (err, rows) => {
+                if (rows.length === 0) return client.sendMessage(chatDestination, "Hari ini belum jajan.");
+                let rep = `📅 *HARI INI*\n` + rows.map(r => `\n${r.jenis === 'masuk' ? '🟢' : '🔴'} [${r.sumber}] ${formatRupiah(r.nominal)} - ${r.keterangan}`).join('');
+                client.sendMessage(chatDestination, rep);
+            });
+        }
+
+        // 8. ROASTING KEUANGAN
+        else if (textLower.startsWith('!roasting')) {
+            await msg.react('🔥');
+            db.query("SELECT * FROM transaksi ORDER BY id DESC LIMIT 20", async (err, rows) => {
+                if (rows.length === 0) return client.sendMessage(chatDestination, "Data kosong.");
+                const dataTx = rows.map(r => `- ${r.tanggal}: [${r.jenis}] ${r.nominal} (${r.keterangan}) oleh ${r.sumber}`).join('\n');
+                const prompt = `Roasting pengeluaran ini dengan gaya bahasa gaul, sarkas, pedas:\n${dataTx}`;
+                try {
+                    const result = await model.generateContent(prompt);
+                    await client.sendMessage(chatDestination, result.response.text());
+                } catch(e) { client.sendMessage(chatDestination, "Error AI"); }
+            });
+        }
+
+        // 9. ANALISA SERIUS
+        else if (textLower.startsWith('!analisa')) {
+            await msg.react('🤔');
+            db.query("SELECT * FROM transaksi ORDER BY id DESC LIMIT 50", async (err, rows) => {
+                if (rows.length === 0) return client.sendMessage(chatDestination, "Data kosong.");
+                const dataTx = rows.map(r => `- ${r.tanggal}: ${r.jenis} ${r.nominal} (${r.keterangan})`).join('\n');
+                const prompt = `Analisa keuangan ini. Beri insight pemasukan vs pengeluaran, pos boros, dan saran actionable. Gaya bahasa santai.\n${dataTx}`;
+                try {
+                    const result = await model.generateContent(prompt);
+                    await client.sendMessage(chatDestination, `📊 *ANALISA KEUANGAN*\n\n${result.response.text()}`);
+                } catch(e) { client.sendMessage(chatDestination, "Error AI"); }
+            });
+        }
+
+        // 10. AYANG
+        else if (textLower.startsWith('!ayang')) {
+            await msg.react('❤️');
+            client.sendMessage(chatDestination, "Sabar ya sayang. ayangmu lagi sibuk kyknya. nanti aku bales kalo udh gk sibuk❤️");
+        }
+        
+        // 11. CEK ID
+        else if (textLower === '!cekid') {
+            client.sendMessage(chatDestination, `🆔 ID: \`${senderId}\``);
         }
 
     } catch (error) { console.log('❌ Error Logic:', error); }
 });
 
-// --- 6. JANTUNG BUATAN (ANTI-SLEEP) ---
-// Ini ditaruh paling bawah biar terus mompa koneksi DB & CPU
+// --- 7. JANTUNG BUATAN ---
 setInterval(() => {
-    db.query('SELECT 1', (err) => {
-        if (err) console.error('⚠️ Detak jantung DB gagal:', err.message);
-        // Uncomment baris bawah kalo mau liat log detak jantungnya
-        // else console.log('❤️ Ba-dum (Sistem Hidup)'); 
-    });
-}, 30000); // 30 detik sekali
+    db.query('SELECT 1', (err) => { if (err) console.error('⚠️ Detak jantung DB gagal'); });
+}, 30000);
 
 client.initialize();
 app.listen(3000);
