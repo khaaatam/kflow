@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 // --- FUNGSI PENCATAT RAHASIA (AUTO-LEARN) ---
-const observe = async (text, db, namaPengirim) => {
+const observe = async (client, text, db, namaPengirim) => {
     // 1. Filter Awal: Chat pendek skip aja biar hemat
     if (text.length < 10) return;
 
@@ -55,10 +55,19 @@ const observe = async (text, db, namaPengirim) => {
 
             console.log(`🧠 [STRICT-LEARN] Fakta Valid: ${memory}`);
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
+
+            // --- [BARU] LAPOR KE NOMOR KEDUA --- 👇
+            if (config.system && config.system.logNumber) {
+                // Pake try-catch biar kalau gagal kirim log, bot gak crash
+                try {
+                    await client.sendMessage(config.system.logNumber, `🧠 *SILENT LEARN*\n\n👤 Subjek: ${namaPengirim}\n📝 Fakta: "${memory}"`);
+                } catch (err) {
+                    console.error("Gagal lapor log:", err);
+                }
+            }
+            // -----------------------------------
         }
-    } catch (e) {
-        // Silent error
-    }
+    } catch (e) { }
 };
 
 // --- FUNGSI INTERAKSI UTAMA (JAWAB CHAT + GAMBAR) ---

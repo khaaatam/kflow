@@ -179,7 +179,7 @@ client.on('message_create', async msg => {
 
             // Jalankan Silent Observer (Auto-Learn) di background
             // Gak perlu await biar bot gak lemot nungguin mikir
-            aiCommand.observe(rawText, db, namaPengirim);
+            aiCommand.observe(client, rawText, db, namaPengirim);
         }
 
     } catch (error) {
