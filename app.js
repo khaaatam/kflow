@@ -177,6 +177,10 @@ client.on('message_create', async msg => {
         } else {
             // === JALUR OBROLAN BIASA ===
 
+            // [FIX ANTI-LOOP] 
+            // Kalau chatnya mengandung kata kunci Log System, JANGAN diobservasi.
+            if (rawText.includes('🧠 SILENT LEARN') || rawText.includes('🖥️ SYSTEM LOG')) return;
+
             // Jalankan Silent Observer (Auto-Learn) di background
             // Gak perlu await biar bot gak lemot nungguin mikir
             aiCommand.observe(client, rawText, db, namaPengirim);
