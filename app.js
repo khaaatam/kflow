@@ -10,6 +10,7 @@ const systemCommand = require('./commands/system');
 const financeCommand = require('./commands/finance');
 const aiCommand = require('./commands/ai');
 const reminderCommand = require('./commands/reminder');
+const adminCommand = require('./commands/admin');
 
 // --- 1. SETUP SYSTEM ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
@@ -122,46 +123,69 @@ client.on('message_create', async msg => {
         // 1. Normalisasi ID
         const contact = await msg.getContact();
         const senderId = contact.number + '@c.us';
-        const namaPengirim = config.users[senderId]; // Cek whitelist
 
-        // --- GATEKEEPER ---
-        // Kalau bukan Tami/Dini, bot pura-pura mati (return)
+        // ---------------------------------------------------------
+        // LEVEL 1: PRIORITAS TERTINGGI (ADMIN & SECURITY)
+        // ---------------------------------------------------------
+
+        // A. Cek Command Admin (!resetmemori, dll)
+        // Ini ditaruh paling atas biar gak peduli siapa yang kirim, logic admin yang nentuin (isOwner).
+        // Kalau return true, berarti stop di sini.
+        if (await adminCommand(client, msg, text, db)) return;
+
+        // B. Gatekeeper (Filter User)
+        // Cek apakah pengirim ada di daftar 'config.users' (Lu atau Dini)
+        const namaPengirim = config.users[senderId];
+
+        // Kalau orang asing, bot diem aja (pura-pura mati)
         if (!namaPengirim) return;
 
-        // 2. LOGGING CHAT (PENTING BUAT HISTORY)
-        // Simpan SEMUA chat (walaupun bukan command)
+
+        // ---------------------------------------------------------
+        // LEVEL 2: PENCATATAN (LOGGING)
+        // ---------------------------------------------------------
+
+        // Simpan SEMUA chat dari Lu/Dini ke database (buat konteks AI nanti)
         db.query("INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)", [namaPengirim, rawText], (err) => {
             if (err) console.error('❌ Gagal log chat:', err.message);
         });
 
-        // --- 3. AUTO-LEARNING (SILENT OBSERVER) ---
-        // Jalankan background process buat analisa chat ini
-        // Syarat: Bukan command (karena command udah ada logic sendiri)
-        if (!text.startsWith('!')) {
-            // Panggil fungsi observe dari aiCommand (tanpa await biar gak bikin lemot)
-            aiCommand.observe(rawText, db, namaPengirim);
-        }
 
-        // --- 4. EKSEKUSI COMMAND ---
+        // ---------------------------------------------------------
+        // LEVEL 3: ROUTER LOGIC (COMMAND vs OBROLAN)
+        // ---------------------------------------------------------
+
         if (text.startsWith('!')) {
+            // === JALUR COMMAND ===
             console.log(`✅ [${namaPengirim}] Command: ${text}`);
 
-            // Router Command
+            // 1. System Utility (!ping, dll)
             await systemCommand(client, msg, text, senderId, namaPengirim);
+
+            // 2. Finance (!jajan, !saldo)
             await financeCommand(client, msg, text, db, namaPengirim);
 
-            // Panggil fungsi interact (bukan observe) buat ngejawab !ai
+            // 3. AI Interaksi (!ai, !analisa)
             await aiCommand.interact(client, msg, text, db, namaPengirim);
 
+            // 4. Reminder (!ingatin)
+            // Cukup panggil sekali di sini. Gak perlu double check di atas.
             if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
                 await reminderCommand(client, msg, text, db, senderId);
             }
+
+        } else {
+            // === JALUR OBROLAN BIASA ===
+
+            // Jalankan Silent Observer (Auto-Learn) di background
+            // Gak perlu await biar bot gak lemot nungguin mikir
+            aiCommand.observe(rawText, db, namaPengirim);
         }
 
     } catch (error) {
         console.log('❌ Error Main Logic:', error);
 
-        // LAPOR ERROR KE NOMOR KEDUA
+        // Lapor Error ke Nomor Kedua
         sendLog(`❌ *ERROR TERDETEKSI*\n\nPesan: ${error.message}\nLokasi: Main Logic`);
     }
 });
