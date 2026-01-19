@@ -128,7 +128,7 @@ client.on('message_create', async msg => {
         // LEVEL 1: PRIORITAS TERTINGGI (ADMIN & SECURITY)
         // ---------------------------------------------------------
 
-        // A. Cek Command Admin (!resetmemori, dll)
+        // A. Cek Command Admin (!reset, dll)
         // Ini ditaruh paling atas biar gak peduli siapa yang kirim, logic admin yang nentuin (isOwner).
         // Kalau return true, berarti stop di sini.
         if (await adminCommand(client, msg, text, db)) return;
