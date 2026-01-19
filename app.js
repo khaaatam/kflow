@@ -177,12 +177,14 @@ client.on('message_create', async msg => {
         } else {
             // === JALUR OBROLAN BIASA ===
 
-            // [FIX ANTI-LOOP] 
-            // Kalau chatnya mengandung kata kunci Log System, JANGAN diobservasi.
-            if (rawText.includes('🧠 SILENT LEARN') || rawText.includes('🖥️ SYSTEM LOG')) return;
+            // [FILTER ANTI-LOOP & ANTI-HALU]
+            // 1. Cek msg.fromMe: Kalau pesan ini dari BOT SENDIRI, stop.
+            if (msg.fromMe) return;
+
+            // 2. Cek Log System: Kalau isinya laporan system, stop (jaga-jaga).
+            if (rawText.includes('SILENT LEARN') || rawText.includes('SYSTEM LOG')) return;
 
             // Jalankan Silent Observer (Auto-Learn) di background
-            // Gak perlu await biar bot gak lemot nungguin mikir
             aiCommand.observe(client, rawText, db, namaPengirim);
         }
 
