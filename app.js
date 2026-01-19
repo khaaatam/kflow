@@ -77,12 +77,29 @@ const client = new Client({
     puppeteer: puppeteerConfig
 });
 
+const sendLog = async (pesan) => {
+    // Cek dulu ada nomor logs nya gak di config
+    if (config.system && config.system.logNumber) {
+        try {
+            // Kasih prefix [SYSTEM LOG] biar keliatan beda sama chat biasa
+            await client.sendMessage(config.system.logNumber, `🖥️ *SYSTEM LOG*\n\n${pesan}`);
+        } catch (err) {
+            console.error("Gagal kirim log ke WA:", err);
+        }
+    }
+};
+
 client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 
 client.on('ready', async () => {
     console.log(`✅ BOT SIAP! Dashboard: http://localhost:${config.system.port}`);
+
     // Restore jadwal reminder yang pending pas bot restart
     reminderCommand.restoreReminders(client, db);
+
+    // LAPOR KE NOMOR KEDUA
+    sendLog("Bot berhasil nyala (RESTART/ONLINE). Siap bertugas! 🚀");
+
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
 
     // Auto Cleanup Chat Log > 3 Bulan
@@ -141,7 +158,12 @@ client.on('message_create', async msg => {
             }
         }
 
-    } catch (error) { console.log('❌ Error Main Logic:', error); }
+    } catch (error) {
+        console.log('❌ Error Main Logic:', error);
+
+        // LAPOR ERROR KE NOMOR KEDUA
+        sendLog(`❌ *ERROR TERDETEKSI*\n\nPesan: ${error.message}\nLokasi: Main Logic`);
+    }
 });
 
 // Jantung DB
