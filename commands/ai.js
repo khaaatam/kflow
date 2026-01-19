@@ -8,7 +8,7 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 // --- FUNGSI PENCATAT RAHASIA (AUTO-LEARN) ---
 const observe = async (text, db, namaPengirim) => {
     // Hemat kuota: Jangan analisa chat pendek/gak penting
-    if (text.length < 15) return; 
+    if (text.length < 15) return;
 
     const promptObserver = `
     Tugas: Kamu adalah "Filter Fakta". Analisa chat dari User (${namaPengirim}) di bawah ini.
@@ -46,7 +46,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
 
     // 1. CEK COMMAND MANUAL (!INGAT)
-    if (text.startsWith('!ingat')) {
+    if (text === '!ingat' || text.startsWith('!ingat ')) {
         const faktaBaru = msg.body.replace(/!ingat/i, '').trim();
         if (!faktaBaru) return client.sendMessage(chatDestination, "apa yang harus gw inget?");
         db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], (err) => {
@@ -59,7 +59,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
     // Support: Teks biasa ATAU Caption Gambar
     if (text.startsWith('!ai') || text.startsWith('!analisa')) {
         let promptUser = msg.body.replace(/!ai|!analisa/i, '').trim();
-        
+
         // Handling Gambar
         let imagePart = null;
         if (msg.hasMedia) {
@@ -115,7 +115,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
         try {
             // Kalau ada gambar, formatnya jadi array [text, image]
             const payload = imagePart ? [finalPrompt, imagePart] : [finalPrompt];
-            
+
             const result = await model.generateContent(payload);
             const response = result.response;
             let cleanResponse = response.text().replace(/\*/g, '').trim();
