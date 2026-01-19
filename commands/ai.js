@@ -10,10 +10,29 @@ const observe = async (client, text, db, namaPengirim) => {
     // 1. Filter Awal: Chat pendek skip aja biar hemat
     if (text.length < 10) return;
 
-    // 2. Prompt "Few-Shot" (Kasih Contoh)
+    // --- [LOGIC BARU] AMBIL DATA LAMA DULU ---
+    // Kita ambil daftar fakta yang udah ada di otak bot biar dia bisa bandingin.
+    const existingFacts = await new Promise((resolve) => {
+        db.query("SELECT fakta FROM memori", (err, rows) => {
+            if (err || !rows || rows.length === 0) resolve("Belum ada ingatan.");
+            else resolve(rows.map(row => `- ${row.fakta}`).join("\n"));
+        });
+    });
+    // ------------------------------------------
+
+    // 2. Prompt "Few-Shot" (Dengan Konteks Memori Lama)
     const promptObserver = `
     Role: Database Admin yang SANGAT SELEKTIF.
-    Tugas: Analisa chat dari User (${namaPengirim}). Putuskan apakah ada FAKTA PERMANEN yang perlu disimpan?
+    Tugas: Analisa chat dari User (${namaPengirim}). Putuskan apakah ada FAKTA PERMANEN BARU yang perlu disimpan?
+
+    === DATABASE INGATAN SAAT INI (CEK DULU) ===
+    ${existingFacts}
+    ============================================
+
+    ATURAN ANTI-DUPLIKAT (PENTING):
+    - Cek daftar ingatan di atas.
+    - Jika info di chat user SUDAH ADA di daftar (walaupun beda susunan kalimat), JANGAN simpan. Output kosong saja.
+    - Contoh: Jika DB ada "Tami hobi mancing", dan user chat "Gw suka mancing", itu DUPLIKAT -> Ignore.
 
     Kategori Sampah (JANGAN DISIMPAN):
     - Emosi Sesaat: "Gw lagi kesel", "Gw laper", "Ngantuk", "Capek".
@@ -38,8 +57,8 @@ const observe = async (client, text, db, namaPengirim) => {
     "${text}"
 
     OUTPUT:
-    Jika masuk Kategori Sampah, output kosong saja.
-    Jika masuk Kategori Emas, output HANYA kode [[SAVEMEMORY: ...]].
+    Jika masuk Kategori Sampah ATAU Duplikat, output kosong saja.
+    Jika masuk Kategori Emas DAN Baru, output HANYA kode [[SAVEMEMORY: ...]].
     `;
 
     try {
