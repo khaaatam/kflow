@@ -177,12 +177,19 @@ client.on('message_create', async msg => {
         } else {
             // === JALUR OBROLAN BIASA ===
 
-            // [FILTER ANTI-LOOP & ANTI-HALU]
-            // 1. Cek msg.fromMe: Kalau pesan ini dari BOT SENDIRI, stop.
-            if (msg.fromMe) return;
+            // [REVISI FINAL: FILTER KONTEN]
+            // HAPUS baris 'if (msg.fromMe) return;' biar chat lu tetep masuk!
 
-            // 2. Cek Log System: Kalau isinya laporan system, stop (jaga-jaga).
-            if (rawText.includes('SILENT LEARN') || rawText.includes('SYSTEM LOG')) return;
+            // Cek isi pesan: Kalau mengandung kata kunci laporan bot, CUEKIN.
+            // Pake 'text' (yang udah huruf kecil) biar pasti kena.
+            if (
+                text.includes('silent learn') ||
+                text.includes('system log') ||
+                text.includes('error terdeteksi') ||
+                text.includes('pengingat dari masa lalu') // Biar reminder gak diloop
+            ) {
+                return; // Stop, ini cuma laporan bot
+            }
 
             // Jalankan Silent Observer (Auto-Learn) di background
             aiCommand.observe(client, rawText, db, namaPengirim);
