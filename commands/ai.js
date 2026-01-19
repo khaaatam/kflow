@@ -7,17 +7,24 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 // --- FUNGSI PENCATAT RAHASIA (AUTO-LEARN) ---
 const observe = async (text, db, namaPengirim) => {
-    if (text.length < 10) return; 
+    // Hemat kuota: Jangan analisa chat pendek/gak penting
+    if (text.length < 15) return; 
 
     const promptObserver = `
-    Tugas: Ekstrak FAKTA PENTING tentang user dari chat ini.
-    User: ${namaPengirim}
+    Tugas: Kamu adalah "Filter Fakta". Analisa chat dari User (${namaPengirim}) di bawah ini.
     Chat: "${text}"
-    
-    Aturan:
-    1. Jika ada fakta baru (hobi, rencana, dll), output: [[SAVEMEMORY: isi fakta]].
-    2. Jika tidak ada, kosongkan output.
-    3. HANYA output kode [[SAVEMEMORY:...]].
+
+    ATURAN SANGAT KETAT (WAJIB PATUH):
+    1. HANYA simpan fakta yang **EKSPLISIT** dikatakan User tentang dirinya (Identitas, Hobi, Kebiasaan, Alergi, Rencana Masa Depan, Hubungan).
+    2. **JANGAN SIMPAN EMOSI SESAAT** (Contoh: "Gw lagi kesel", "Gw laper", "Ngantuk bat") -> INI BUKAN FAKTA PENTING, ABAIKAN.
+    3. **JANGAN MERANGKUM CURHAT**. Kalau User cerita panjang lebar soal masalah pacar, JANGAN simpan ringkasan masalahnya. Cukup simpan statusnya (misal: "Pacar User namanya Dini").
+    4. JANGAN simpan pertanyaan User.
+    5. JANGAN halusinasi/mengarang. Kalau tidak ada fakta penting, JANGAN output apa-apa.
+
+    Format Output (Jika ada fakta):
+    [[SAVEMEMORY: Subjek + Predikat + Objek]]
+    Contoh Benar: [[SAVEMEMORY: Tami alergi udang]]
+    Contoh Salah: [[SAVEMEMORY: Tami curhat kalau dia lagi sebel sama pacarnya yang susah dibilangin]]
     `;
 
     try {
@@ -25,6 +32,9 @@ const observe = async (text, db, namaPengirim) => {
         const response = result.response.text().trim();
         if (response.includes('[[SAVEMEMORY:')) {
             const memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
+            // Filter tambahan: Kalau memorinya kepanjangan (>15 kata), biasanya itu curhat, bukan fakta. Skip aja.
+            if (memory.split(' ').length > 15) return;
+
             console.log(`🧠 [SILENT-LEARN] Mencatat fakta dari ${namaPengirim}: ${memory}`);
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
         }
