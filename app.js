@@ -9,6 +9,7 @@ const config = require('./config');
 const systemCommand = require('./commands/system');
 const financeCommand = require('./commands/finance');
 const aiCommand = require('./commands/ai');
+const reminderCommand = require('./commands/reminder');
 
 // --- 1. SETUP SYSTEM ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
@@ -80,6 +81,8 @@ client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 
 client.on('ready', async () => {
     console.log(`✅ BOT SIAP! Dashboard: http://localhost:${config.system.port}`);
+    // Restore jadwal reminder yang pending pas bot restart
+    reminderCommand.restoreReminders(client, db);
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
 
     // Auto Cleanup Chat Log > 3 Bulan
@@ -132,6 +135,10 @@ client.on('message_create', async msg => {
 
             // Panggil fungsi interact (bukan observe) buat ngejawab !ai
             await aiCommand.interact(client, msg, text, db, namaPengirim);
+
+            if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
+                await reminderCommand(client, msg, text, db, senderId);
+            }
         }
 
     } catch (error) { console.log('❌ Error Main Logic:', error); }
