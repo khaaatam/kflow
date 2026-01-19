@@ -7,38 +7,58 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 // --- FUNGSI PENCATAT RAHASIA (AUTO-LEARN) ---
 const observe = async (text, db, namaPengirim) => {
-    // Hemat kuota: Jangan analisa chat pendek/gak penting
-    if (text.length < 15) return;
+    // 1. Filter Awal: Chat pendek skip aja biar hemat
+    if (text.length < 10) return;
 
+    // 2. Prompt "Few-Shot" (Kasih Contoh)
     const promptObserver = `
-    Tugas: Kamu adalah "Filter Fakta". Analisa chat dari User (${namaPengirim}) di bawah ini.
-    Chat: "${text}"
+    Role: Database Admin yang SANGAT SELEKTIF.
+    Tugas: Analisa chat dari User (${namaPengirim}). Putuskan apakah ada FAKTA PERMANEN yang perlu disimpan?
 
-    ATURAN SANGAT KETAT (WAJIB PATUH):
-    1. HANYA simpan fakta yang **EKSPLISIT** dikatakan User tentang dirinya (Identitas, Hobi, Kebiasaan, Alergi, Rencana Masa Depan, Hubungan).
-    2. **JANGAN SIMPAN EMOSI SESAAT** (Contoh: "Gw lagi kesel", "Gw laper", "Ngantuk bat") -> INI BUKAN FAKTA PENTING, ABAIKAN.
-    3. **JANGAN MERANGKUM CURHAT**. Kalau User cerita panjang lebar soal masalah pacar, JANGAN simpan ringkasan masalahnya. Cukup simpan statusnya (misal: "Pacar User namanya Dini").
-    4. JANGAN simpan pertanyaan User.
-    5. JANGAN halusinasi/mengarang. Kalau tidak ada fakta penting, JANGAN output apa-apa.
+    Kategori Sampah (JANGAN DISIMPAN):
+    - Emosi Sesaat: "Gw lagi kesel", "Gw laper", "Ngantuk", "Capek".
+    - Rencana Sementara: "Besok mau ke mall", "Pengen beli bakso".
+    - Pendapat Sesaat: "Filmnya bagus", "Cuacanya panas".
+    - Basa-basi: "Halo", "Apa kabar", "Wkwk".
 
-    Format Output (Jika ada fakta):
-    [[SAVEMEMORY: Subjek + Predikat + Objek]]
-    Contoh Benar: [[SAVEMEMORY: Tami alergi udang]]
-    Contoh Salah: [[SAVEMEMORY: Tami curhat kalau dia lagi sebel sama pacarnya yang susah dibilangin]]
+    Kategori Emas (WAJIB SIMPAN):
+    - Identitas: Nama, Pekerjaan, Alamat, Umur.
+    - Preferensi Permanen: "Gw alergi udang", "Gw gasuka durian", "Hobi gw mancing".
+    - Aset: "Motor gw Vario", "Laptop gw Asus".
+    - Relasi: "Pacar gw namanya Dini", "Bapak gw sakit".
+
+    CONTOH ANALISA (Pelajari Polanya):
+    User: "Duh gw lagi kesel banget sama bos." -> HASIL: [KOSONG] (Karena emosi sesaat)
+    User: "Besok ingetin gw beli telor ya." -> HASIL: [KOSONG] (Itu tugas reminder, bukan memori)
+    User: "Gw tuh sebenernya alergi debu tau." -> HASIL: [[SAVEMEMORY: Tami alergi debu]]
+    User: "Motor Vario gw mogok lagi." -> HASIL: [[SAVEMEMORY: Motor Tami adalah Vario]]
+    User: "Si Dini ulang tahun bulan depan." -> HASIL: [[SAVEMEMORY: Pacar Tami bernama Dini]]
+
+    CHAT USER SEKARANG:
+    "${text}"
+
+    OUTPUT:
+    Jika masuk Kategori Sampah, output kosong saja.
+    Jika masuk Kategori Emas, output HANYA kode [[SAVEMEMORY: ...]].
     `;
 
     try {
         const result = await model.generateContent(promptObserver);
         const response = result.response.text().trim();
-        if (response.includes('[[SAVEMEMORY:')) {
-            const memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
-            // Filter tambahan: Kalau memorinya kepanjangan (>15 kata), biasanya itu curhat, bukan fakta. Skip aja.
-            if (memory.split(' ').length > 15) return;
 
-            console.log(`🧠 [SILENT-LEARN] Mencatat fakta dari ${namaPengirim}: ${memory}`);
+        // 3. Eksekusi Simpan
+        if (response.includes('[[SAVEMEMORY:')) {
+            let memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
+
+            // Filter Terakhir: Kalau memori terlalu panjang (>10 kata), biasanya itu AI halusinasi ngerangkum curhat. Buang.
+            if (memory.split(' ').length > 10) return;
+
+            console.log(`🧠 [STRICT-LEARN] Fakta Valid: ${memory}`);
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
         }
-    } catch (e) { }
+    } catch (e) {
+        // Silent error
+    }
 };
 
 // --- FUNGSI INTERAKSI UTAMA (JAWAB CHAT + GAMBAR) ---
