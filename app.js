@@ -99,27 +99,39 @@ client.on('message_create', async msg => {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
 
-        // 1. Normalisasi ID (Golden Logic)
+        // 1. Normalisasi ID
         const contact = await msg.getContact();
         const senderId = contact.number + '@c.us';
-        const namaPengirim = config.users[senderId]; // Cek whitelist dari config.js
+        const namaPengirim = config.users[senderId]; // Cek whitelist
 
-        // 2. Auto Logger (Simpan semua chat user terdaftar)
-        if (namaPengirim) {
-            db.query("INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)", [namaPengirim, rawText], (err) => {
-                if (err) console.error('❌ Gagal log chat:', err.message);
-            });
-            if (text.startsWith('!')) console.log(`✅ [${namaPengirim}] Command: ${text}`);
+        // --- GATEKEEPER ---
+        // Kalau bukan Tami/Dini, bot pura-pura mati (return)
+        if (!namaPengirim) return;
+
+        // 2. LOGGING CHAT (PENTING BUAT HISTORY)
+        // Simpan SEMUA chat (walaupun bukan command)
+        db.query("INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)", [namaPengirim, rawText], (err) => {
+            if (err) console.error('❌ Gagal log chat:', err.message);
+        });
+
+        // --- 3. AUTO-LEARNING (SILENT OBSERVER) ---
+        // Jalankan background process buat analisa chat ini
+        // Syarat: Bukan command (karena command udah ada logic sendiri)
+        if (!text.startsWith('!')) {
+            // Panggil fungsi observe dari aiCommand (tanpa await biar gak bikin lemot)
+            aiCommand.observe(rawText, db, namaPengirim);
         }
 
-        // 3. Distribusi Tugas (Router)
-        // Kirim ke System dulu (Cek ID & Help)
-        await systemCommand(client, msg, text, senderId, namaPengirim);
+        // --- 4. EKSEKUSI COMMAND ---
+        if (text.startsWith('!')) {
+            console.log(`✅ [${namaPengirim}] Command: ${text}`);
 
-        // Kalau user terdaftar, lanjut ke command lain
-        if (namaPengirim) {
+            // Router Command
+            await systemCommand(client, msg, text, senderId, namaPengirim);
             await financeCommand(client, msg, text, db, namaPengirim);
-            await aiCommand(client, msg, text, db, namaPengirim);
+
+            // Panggil fungsi interact (bukan observe) buat ngejawab !ai
+            await aiCommand.interact(client, msg, text, db, namaPengirim);
         }
 
     } catch (error) { console.log('❌ Error Main Logic:', error); }
