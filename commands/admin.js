@@ -7,7 +7,7 @@ module.exports = async (client, msg, text, db) => {
     // --- LIST COMMAND ADMIN DI BAWAH SINI ---
 
     // A. Command Reset Memori
-    if (text === '!resetm') {
+    if (text === '!reset') {
         if (!isOwner) {
             await client.sendMessage(msg.from, "⛔ *AKSES DITOLAK*\nLu bukan admin, jangan macem-macem.");
             return true; // Return true biar bot gak lanjut proses ke file lain
