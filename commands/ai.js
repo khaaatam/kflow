@@ -9,7 +9,7 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 // Fungsi ini cuma "Membaca" dan "Menyimpan", GAK BAKAL BALES CHAT.
 const observe = async (text, db, namaPengirim) => {
     // Hemat kuota: Jangan analisa chat pendek/gak penting (misal "ok", "y", "wkwk")
-    if (text.length < 10) return; 
+    if (text.length < 10) return;
 
     const promptObserver = `
     Tugas: Ekstrak FAKTA PENTING tentang user dari chat ini.
@@ -29,7 +29,7 @@ const observe = async (text, db, namaPengirim) => {
         if (response.includes('[[SAVEMEMORY:')) {
             const memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
             console.log(`🧠 [SILENT-LEARN] Mencatat fakta dari ${namaPengirim}: ${memory}`);
-            
+
             // Simpan ke database tanpa ngasih tau user
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
         }
@@ -61,7 +61,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
 
         // Tarik Context
         const getMemori = new Promise(r => db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 10", (err, res) => r(err ? [] : res)));
-        const getHistory = new Promise(r => db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 30", (err, res) => r(err ? [] : res.reverse())));
+        const getHistory = new Promise(r => db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 50", (err, res) => r(err ? [] : res.reverse())));
         const [m, h] = await Promise.all([getMemori, getHistory]);
 
         const textM = m.map(x => `- ${x.fakta}`).join("\n");
