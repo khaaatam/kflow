@@ -29,7 +29,7 @@ const ai = {
 // 4. SYSTEM CONFIG
 const system = {
     port: 3000,
-    logNumber: '628xxxxxxxxxxx@c.us',
+    logNumber: '62881081132332@c.us',
     puppeteer: {
         headless: true,
         args: [
