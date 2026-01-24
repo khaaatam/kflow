@@ -95,7 +95,7 @@ module.exports.cekEventHarian = (client, db, logNumber) => {
 
 // LABEL MENU (BIAR AUTO MUNCUL DI !MENU)
 module.exports.metadata = {
-    category: "LAINNYA",
+    category: "EVENT",
     commands: [
         { command: '!event tambah [YYYY-MM-DD] [nama]', desc: 'Catat Event Penting' },
         { command: '!event list', desc: 'Cek Hitung Mundur Event' },

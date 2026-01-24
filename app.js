@@ -11,7 +11,8 @@ const financeCommand = require('./commands/finance');
 const aiCommand = require('./commands/ai');
 const reminderCommand = require('./commands/reminder');
 const adminCommand = require('./commands/admin');
-const ayangCommand = require('./commands/ayang'); // <--- IMPORT COMMAND BARU
+const ayangCommand = require('./commands/ayang');
+const eventCommand = require('./commands/event');
 
 // --- 1. SETUP SYSTEM ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
@@ -107,6 +108,16 @@ client.on('ready', async () => {
     db.query("DELETE FROM full_chat_logs WHERE waktu < DATE_SUB(NOW(), INTERVAL 3 MONTH)", (err) => {
         if (!err) console.log('🧹 Cleanup Chat Log Sukses');
     });
+
+    // --- ALARM PENGECEK EVENT (Jalan Tiap Menit) ---
+    setInterval(() => {
+        const now = new Date();
+        // Cek apakah jam 07:00 PAGI dan detik ke-0 (Biar gak spam, sekali aja)
+        if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+            console.log("⏰ Menjalankan pengecekan event harian...");
+            eventCommand.cekEventHarian(client, db, config.system.logNumber);
+        }
+    }, 1000); // Cek tiap detik
 });
 
 client.on('disconnected', (reason) => {
@@ -181,6 +192,11 @@ client.on('message_create', async msg => {
             // 5. Reminder (!ingatin)
             if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
                 await reminderCommand(client, msg, text, db, senderId);
+            }
+
+            // 6. Event Organizer (!event)
+            if (text.startsWith('!event')) {
+                await eventCommand(client, msg, text, db, senderId);
             }
 
         } else {
