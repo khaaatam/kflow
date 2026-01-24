@@ -11,6 +11,7 @@ const financeCommand = require('./commands/finance');
 const aiCommand = require('./commands/ai');
 const reminderCommand = require('./commands/reminder');
 const adminCommand = require('./commands/admin');
+const ayangCommand = require('./commands/ayang'); // <--- IMPORT COMMAND BARU
 
 // --- 1. SETUP SYSTEM ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
@@ -120,13 +121,9 @@ client.on('message_create', async msg => {
         const text = rawText.toLowerCase().trim();
 
         // [FIX CRITICAL] SKIP STATUS WA & SYSTEM MESSAGE
-        // Ini biang kerok error "getContactById undefined"
         if (msg.from === 'status@broadcast' || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         // [FIX CRITICAL] CARA AMBIL SENDER ID YANG AMAN
-        // 1. msg.author = Pengirim di Group
-        // 2. msg.from = Pengirim di Japri
-        // 3. client.info.wid._serialized = Diri sendiri (kalo fromMe)
         let senderId;
         if (msg.fromMe) {
             senderId = client.info.wid._serialized;
@@ -169,11 +166,19 @@ client.on('message_create', async msg => {
 
             // 1. System (!ping)
             await systemCommand(client, msg, text, senderId, namaPengirim);
+
             // 2. Finance (!jajan)
             await financeCommand(client, msg, text, db, namaPengirim);
+
             // 3. AI Direct (!ai)
             await aiCommand.interact(client, msg, text, db, namaPengirim);
-            // 4. Reminder (!ingatin)
+
+            // 4. Fitur Ayang / Mata-Mata (!ayang)
+            if (text === '!ayang') {
+                await ayangCommand(client, msg, db, namaPengirim);
+            }
+
+            // 5. Reminder (!ingatin)
             if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
                 await reminderCommand(client, msg, text, db, senderId);
             }
@@ -182,7 +187,6 @@ client.on('message_create', async msg => {
             // === JALUR OBROLAN / SILENT LEARN ===
 
             // [FIX PENTING] JANGAN BELAJAR DARI OMONGAN SENDIRI! 🛑
-            // Kalau pesan ini dari Bot (fromMe), skip aja.
             if (msg.fromMe) return;
 
             // Filter konten sistem (jaga-jaga)
@@ -208,6 +212,7 @@ client.on('message_create', async msg => {
     }
 });
 
+// Jantung DB
 setInterval(() => {
     db.query('SELECT 1', (err) => {
         if (err) console.error('⚠️ Detak jantung DB gagal:', err.message);
