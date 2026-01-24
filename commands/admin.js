@@ -34,3 +34,11 @@ module.exports = async (client, msg, text, db) => {
 
     return false; // Return false artinya chat ini bukan command admin
 };
+
+// TAMBAHAN METADATA MENU
+module.exports.metadata = {
+    category: "SYSTEM",
+    commands: [
+        { command: '!reset', desc: 'Reset Memori Otak AI (Admin Only)' }
+    ]
+};

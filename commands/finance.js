@@ -68,3 +68,14 @@ module.exports = async (client, msg, text, db, namaPengirim) => {
         return;
     }
 };
+
+// TAMBAHAN METADATA MENU
+module.exports.metadata = {
+    category: "KEUANGAN",
+    commands: [
+        { command: '!in [jumlah] [ket]', desc: 'Catat Pemasukan' },
+        { command: '!out [jumlah] [ket]', desc: 'Catat Pengeluaran' },
+        { command: '!saldo', desc: 'Cek Saldo Tabungan' },
+        { command: '!today', desc: 'Rekap Transaksi Hari Ini' }
+    ]
+};

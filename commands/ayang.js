@@ -76,3 +76,11 @@ module.exports = async (client, msg, db, namaPengirim) => {
         await client.sendMessage(chatDestination, "Duh, sinyal batin gw putus. Gagal ngepoin dia. 🥺");
     }
 };
+
+// TAMBAHAN METADATA MENU
+module.exports.metadata = {
+    category: "LAINNYA",
+    commands: [
+        { command: '!ayang', desc: 'Mode Bucin / Mata-mata Pasangan' }
+    ]
+};

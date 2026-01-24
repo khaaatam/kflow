@@ -117,3 +117,13 @@ module.exports.restoreReminders = (client, db) => {
         if (count > 0) console.log(`✅ Berhasil restore ${count} jadwal.`);
     });
 };
+
+// ... kodingan lama ...
+
+// TAMBAHAN METADATA MENU
+module.exports.metadata = {
+    category: "SYSTEM",
+    commands: [
+        { command: '!ingatin [waktu] [pesan]', desc: 'Set Reminder (10m/1h)' }
+    ]
+};

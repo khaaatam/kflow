@@ -181,3 +181,13 @@ const interact = async (client, msg, text, db, namaPengirim) => {
 };
 
 module.exports = { interact, observe };
+
+// TAMBAHAN METADATA MENU
+module.exports.metadata = {
+    category: "AI",
+    commands: [
+        { command: '!ai [tanya]', desc: 'Tanya Gemini AI (Bisa kirim gambar)' },
+        { command: '!ingat [fakta]', desc: 'Ajari AI fakta baru' },
+        { command: '!analisa', desc: 'Analisa gambar/chat' }
+    ]
+};
