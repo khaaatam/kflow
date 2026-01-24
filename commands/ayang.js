@@ -81,6 +81,6 @@ module.exports = async (client, msg, db, namaPengirim) => {
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
-        { command: '!ayang', desc: 'Mode Bucin / Mata-mata Pasangan' }
+        { command: '!ayang', desc: 'Ayangku kemana ya kira-kira' }
     ]
 };
