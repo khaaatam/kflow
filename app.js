@@ -181,14 +181,16 @@ client.on('message_create', async msg => {
         } else {
             // === JALUR OBROLAN / SILENT LEARN ===
 
-            // [PROTEKSI LOOPING]
-            // Jangan sampe bot belajar dari output dia sendiri atau log sistem
+            // [FIX PENTING] JANGAN BELAJAR DARI OMONGAN SENDIRI! 🛑
+            // Kalau pesan ini dari Bot (fromMe), skip aja.
+            if (msg.fromMe) return;
+
+            // Filter konten sistem (jaga-jaga)
             if (
                 text.includes('silent learn') ||
                 text.includes('system log') ||
                 text.includes('error terdeteksi') ||
-                text.includes('pengingat dari masa lalu') ||
-                text.includes('[[savememory') // Ini penting biar gak belajar prompt sendiri
+                text.includes('[[savememory')
             ) {
                 return;
             }
