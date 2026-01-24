@@ -206,7 +206,6 @@ client.on('message_create', async msg => {
     }
 });
 
-// Jantung DB
 setInterval(() => {
     db.query('SELECT 1', (err) => {
         if (err) console.error('⚠️ Detak jantung DB gagal:', err.message);

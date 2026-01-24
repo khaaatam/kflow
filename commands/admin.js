@@ -23,6 +23,13 @@ module.exports = async (client, msg, text, db) => {
         return true; // Command handled
     }
 
+    if (text === '!restart') {
+        if (!isOwner) {
+            await client.sendMessage(msg.from, "⛔ *AKSES DITOLAK*\nLu bukan admin, jangan macem-macem.");
+            return;
+        }
+
+    }
     // Nanti kalau mau nambah command admin lain (misal !restart), taruh sini...
 
     return false; // Return false artinya chat ini bukan command admin
