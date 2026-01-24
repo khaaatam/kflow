@@ -4,7 +4,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 
-// --- IMPORT FILE PESAHAAN KITA ---
+// --- IMPORT MODULE ---
 const config = require('./config');
 const systemCommand = require('./commands/system');
 const financeCommand = require('./commands/finance');
@@ -78,11 +78,10 @@ const client = new Client({
     puppeteer: puppeteerConfig
 });
 
+// Helper: Kirim Log ke WA
 const sendLog = async (pesan) => {
-    // Cek dulu ada nomor logs nya gak di config
     if (config.system && config.system.logNumber) {
         try {
-            // Kasih prefix [SYSTEM LOG] biar keliatan beda sama chat biasa
             await client.sendMessage(config.system.logNumber, `🖥️ *SYSTEM LOG*\n\n${pesan}`);
         } catch (err) {
             console.error("Gagal kirim log ke WA:", err);
@@ -95,10 +94,10 @@ client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 client.on('ready', async () => {
     console.log(`✅ BOT SIAP! Dashboard: http://localhost:${config.system.port}`);
 
-    // Restore jadwal reminder yang pending pas bot restart
+    // Restore Reminder
     reminderCommand.restoreReminders(client, db);
 
-    // LAPOR KE NOMOR KEDUA
+    // Lapor Online
     sendLog("Bot berhasil nyala (RESTART/ONLINE). Siap bertugas! 🚀");
 
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
@@ -114,81 +113,84 @@ client.on('disconnected', (reason) => {
     client.destroy().then(() => { client.initialize(); });
 });
 
-// --- 5. LOGIKA PESAN (ROUTER) ---
+// --- 5. LOGIKA PESAN (ROUTER UTAMA) ---
 client.on('message_create', async msg => {
     try {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
 
-        // 1. Normalisasi ID
-        const contact = await msg.getContact();
-        const senderId = contact.number + '@c.us';
+        // [FIX CRITICAL] SKIP STATUS WA & SYSTEM MESSAGE
+        // Ini biang kerok error "getContactById undefined"
+        if (msg.from === 'status@broadcast' || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
+
+        // [FIX CRITICAL] CARA AMBIL SENDER ID YANG AMAN
+        // 1. msg.author = Pengirim di Group
+        // 2. msg.from = Pengirim di Japri
+        // 3. client.info.wid._serialized = Diri sendiri (kalo fromMe)
+        let senderId;
+        if (msg.fromMe) {
+            senderId = client.info.wid._serialized;
+        } else {
+            senderId = msg.author || msg.from;
+        }
+
+        // Validasi senderId (jaga-jaga error)
+        if (!senderId) return;
 
         // ---------------------------------------------------------
-        // LEVEL 1: PRIORITAS TERTINGGI (ADMIN & SECURITY)
+        // LEVEL 1: GATEKEEPER (HANYA ORANG TERDAFTAR)
         // ---------------------------------------------------------
 
-        // A. Cek Command Admin (!reset, dll)
-        // Ini ditaruh paling atas biar gak peduli siapa yang kirim, logic admin yang nentuin (isOwner).
-        // Kalau return true, berarti stop di sini.
-        if (await adminCommand(client, msg, text, db)) return;
-
-        // B. Gatekeeper (Filter User)
-        // Cek apakah pengirim ada di daftar 'config.users' (Lu atau Dini)
+        // Cek config.users
         const namaPengirim = config.users[senderId];
 
-        // Kalau orang asing, bot diem aja (pura-pura mati)
+        // Kalau ID tidak terdaftar di config, CUEKIN TOTAL.
         if (!namaPengirim) return;
 
-
         // ---------------------------------------------------------
-        // LEVEL 2: PENCATATAN (LOGGING)
+        // LEVEL 2: ADMIN & LOGGING
         // ---------------------------------------------------------
 
-        // Simpan SEMUA chat dari Lu/Dini ke database (buat konteks AI nanti)
+        // Cek Command Admin (!reset, dll)
+        if (await adminCommand(client, msg, text, db)) return;
+
+        // Simpan Log Chat (Hanya dari user terdaftar)
         db.query("INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)", [namaPengirim, rawText], (err) => {
             if (err) console.error('❌ Gagal log chat:', err.message);
         });
 
-
         // ---------------------------------------------------------
-        // LEVEL 3: ROUTER LOGIC (COMMAND vs OBROLAN)
+        // LEVEL 3: ROUTER (COMMAND vs OBROLAN)
         // ---------------------------------------------------------
 
         if (text.startsWith('!')) {
             // === JALUR COMMAND ===
             console.log(`✅ [${namaPengirim}] Command: ${text}`);
 
-            // 1. System Utility (!ping, dll)
+            // 1. System (!ping)
             await systemCommand(client, msg, text, senderId, namaPengirim);
-
-            // 2. Finance (!jajan, !saldo)
+            // 2. Finance (!jajan)
             await financeCommand(client, msg, text, db, namaPengirim);
-
-            // 3. AI Interaksi (!ai, !analisa)
+            // 3. AI Direct (!ai)
             await aiCommand.interact(client, msg, text, db, namaPengirim);
-
             // 4. Reminder (!ingatin)
-            // Cukup panggil sekali di sini. Gak perlu double check di atas.
             if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
                 await reminderCommand(client, msg, text, db, senderId);
             }
 
         } else {
-            // === JALUR OBROLAN BIASA ===
+            // === JALUR OBROLAN / SILENT LEARN ===
 
-            // [REVISI FINAL: FILTER KONTEN]
-            // HAPUS baris 'if (msg.fromMe) return;' biar chat lu tetep masuk!
-
-            // Cek isi pesan: Kalau mengandung kata kunci laporan bot, CUEKIN.
-            // Pake 'text' (yang udah huruf kecil) biar pasti kena.
+            // [PROTEKSI LOOPING]
+            // Jangan sampe bot belajar dari output dia sendiri atau log sistem
             if (
                 text.includes('silent learn') ||
                 text.includes('system log') ||
                 text.includes('error terdeteksi') ||
-                text.includes('pengingat dari masa lalu') // Biar reminder gak diloop
+                text.includes('pengingat dari masa lalu') ||
+                text.includes('[[savememory') // Ini penting biar gak belajar prompt sendiri
             ) {
-                return; // Stop, ini cuma laporan bot
+                return;
             }
 
             // Jalankan Silent Observer (Auto-Learn) di background
@@ -197,9 +199,10 @@ client.on('message_create', async msg => {
 
     } catch (error) {
         console.log('❌ Error Main Logic:', error);
-
-        // Lapor Error ke Nomor Kedua
-        sendLog(`❌ *ERROR TERDETEKSI*\n\nPesan: ${error.message}\nLokasi: Main Logic`);
+        // Lapor error tanpa bikin crash loop
+        if (!error.message.includes('getContactById')) {
+            sendLog(`❌ *ERROR MAIN LOGIC*\n${error.message}`);
+        }
     }
 });
 
