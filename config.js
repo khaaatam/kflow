@@ -1,10 +1,9 @@
-// config.js - pusat settingan bot
+require('dotenv').config(); // <--- BARIS SAKTI: Load .env
 
 // 1. DAFTAR USER (WHITELIST)
-// format: 'nomor@c.us': 'panggilan'
 const users = {
-    '6289608506367@c.us': 'Tami',  // id utama lu
-    '6283806618448@c.us': 'Dini'   // id dini
+    '6289608506367@c.us': 'Tami',
+    '6283806618448@c.us': 'Dini'
 };
 
 // 2. DATABASE CONFIG
@@ -22,8 +21,9 @@ const database = {
 
 // 3. AI CONFIG (GEMINI)
 const ai = {
-    apiKey: process.env.GEMINI_API_KEY, // <--- GANTI INI
-    modelName: "gemini-2.5-flash-lite" // model trial lu
+    // SEKARANG DIA BACA DARI FILE .ENV (Bukan Hardcoded lagi)
+    apiKey: process.env.GEMINI_API_KEY,
+    modelName: "gemini-2.0-flash-lite" // Ganti ke model terbaru yang valid
 };
 
 // 4. SYSTEM CONFIG
@@ -41,5 +41,4 @@ const system = {
     }
 };
 
-// export biar bisa dipake di file lain
 module.exports = { users, database, ai, system };
