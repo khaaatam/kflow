@@ -15,11 +15,4 @@ module.exports = async (client, msg, text, senderId, namaPengirim) => {
         const menu = `🤖 *MENU BOT KEUANGAN & AI* 🤖\n\n💰 *KEUANGAN*\n- *!in [jumlah] [ket]* : Masuk\n- *!out [jumlah] [ket]* : Keluar\n- *!saldo* : Cek Sisa\n- *!today* : Rekap Hari Ini\n\n🧠 *AI*\n- *!ai [tanya]* : Tanya Gemini\n- *!ingat [fakta]* : Ajarin AI\n\n❤️ *LAINNYA*\n- *!ayang* : Mode Bucin\n- *!cekid* : Cek ID`;
         return client.sendMessage(chatDestination, menu);
     }
-
-    // --- FITUR 3: MODE BUCIN (!AYANG) ---
-    if (text.startsWith('!ayang')) {
-        try { await msg.react('❤️'); } catch (e) { }
-        try { await client.sendMessage(chatDestination, "sabar yaa sayang. ayangmu lagi sibuk kyknya. nanti aku bales kalo udh gk sibuk❤️"); } catch (e) { }
-        return;
-    }
 };
