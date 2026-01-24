@@ -22,7 +22,7 @@ const database = {
 
 // 3. AI CONFIG (GEMINI)
 const ai = {
-    apiKey: "AIzaSyD7C7AkOOUKfVAmylvb9UKYXlCjp_JpyCg", // <--- GANTI INI
+    apiKey: process.env.GEMINI_API_KEY, // <--- GANTI INI
     modelName: "gemini-2.5-flash-lite" // model trial lu
 };
 

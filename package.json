@@ -11,7 +11,9 @@
   "license": "ISC",
   "packageManager": "pnpm@10.20.0",
   "dependencies": {
+    ".env": "link:.env",
     "@google/generative-ai": "^0.24.1",
+    "dotenv": "^17.2.3",
     "ejs": "^4.0.1",
     "express": "^5.2.1",
     "moment": "^2.30.1",
