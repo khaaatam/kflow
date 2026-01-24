@@ -3,112 +3,107 @@ const config = require('../config');
 
 // Inisialisasi Gemini
 const genAI = new GoogleGenerativeAI(config.ai.apiKey);
+// Pastikan model di config pake 'gemini-1.5-flash' biar support gambar & hemat
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
-// --- FUNGSI PENCATAT RAHASIA (AUTO-LEARN) ---
+// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V2) ---
 const observe = async (client, text, db, namaPengirim) => {
     // 1. Filter Awal: Chat pendek skip aja biar hemat
     if (text.length < 10) return;
 
-    // --- [LOGIC BARU] AMBIL DATA LAMA DULU ---
-    // Kita ambil daftar fakta yang udah ada di otak bot biar dia bisa bandingin.
+    // 2. Ambil ingatan lama (biar gak duplikat)
     const existingFacts = await new Promise((resolve) => {
         db.query("SELECT fakta FROM memori", (err, rows) => {
             if (err || !rows || rows.length === 0) resolve("Belum ada ingatan.");
             else resolve(rows.map(row => `- ${row.fakta}`).join("\n"));
         });
     });
-    // ------------------------------------------
 
-    // 2. Prompt "Few-Shot" (Dengan Konteks Memori Lama)
+    // 3. PROMPT "DETECTIVE LOGIC" (FIX SUBJEK & OBJEK)
     const promptObserver = `
-    Role: Database Admin yang SANGAT SELEKTIF.
-    Tugas: Analisa chat dari User (${namaPengirim}). Putuskan apakah ada FAKTA PERMANEN BARU yang perlu disimpan?
+    Role: Analis Data Intelijen yang CERDAS & KRITIS.
+    Tugas: Ekstrak FAKTA VALID dari chat berikut untuk database memori.
 
-    === DATABASE INGATAN SAAT INI (CEK DULU) ===
+    PENGIRIM PESAN: ${namaPengirim}
+    ISI PESAN: "${text}"
+
+    === DATABASE INGATAN LAMA (CEK DUPLIKASI) ===
     ${existingFacts}
-    ============================================
+    ==============================================
 
-    ATURAN ANTI-DUPLIKAT (PENTING):
-    - Cek daftar ingatan di atas.
-    - Jika info di chat user SUDAH ADA di daftar (walaupun beda susunan kalimat), JANGAN simpan. Output kosong saja.
-    - Contoh: Jika DB ada "Tami hobi mancing", dan user chat "Gw suka mancing", itu DUPLIKAT -> Ignore.
+    === ATURAN TATABAHASA & LOGIKA SUBJEK (WAJIB PATUH) ===
+    1. "Aku/Gw/Saya" = PASTI merujuk pada PENGIRIM (${namaPengirim}).
+    2. "Dia/Mereka" atau NAMA ORANG (misal: Dini, Koko, Budi) = PASTI Pihak Ketiga. Catat fakta tentang mereka.
+    
+    ⚠️ 3. KASUS KHUSUS KATA "KAMU/LU" (HATI-HATI!):
+       - Analisa dulu: Apakah pesan ini ditujukan ke BOT atau ke ORANG LAIN?
+       - JIKA KE BOT (misal: "Lu kok lemot", "Kamu pinter"): JANGAN DICATAT.
+       - JIKA KE ORANG LAIN (misal dalam percakapan: "Kamu cantik", "Kamu mau makan apa?"): Ganti kata "Kamu" dengan nama lawan bicara (jika tahu) atau "Lawan Bicara".
+       - Contoh: Tami bilang "Kamu cantik" (konteks ngomong ke Dini) -> Simpan: "Tami memuji Dini cantik".
 
-    Kategori Sampah (JANGAN DISIMPAN):
-    - Emosi Sesaat: "Gw lagi kesel", "Gw laper", "Ngantuk", "Capek".
-    - Rencana Sementara: "Besok mau ke mall", "Pengen beli bakso".
-    - Pendapat Sesaat: "Filmnya bagus", "Cuacanya panas".
-    - Basa-basi: "Halo", "Apa kabar", "Wkwk".
+    INSTRUKSI OUTPUT:
+    - Analisa dulu: SIAPA subjeknya? APA predikatnya?
+    - Cek Database: Apakah fakta ini sudah ada? (Walau beda kalimat). Jika ada, ABAIKAN.
+    - Cek Logika: Apakah masuk akal? (Misal: Cowoknya Dini ngajak User nikah -> Aneh. Pasti salah subjek).
+    - JIKA VALID & BARU: Outputkan format [[SAVEMEMORY: Subjek + Predikat + Objek]].
+    - JIKA SAMPAH/DUPLIKAT/BINGUNG: Jangan output apa-apa.
 
-    Kategori Emas (WAJIB SIMPAN):
-    - Identitas: Nama, Pekerjaan, Alamat, Umur.
-    - Preferensi Permanen: "Gw alergi udang", "Gw gasuka durian", "Hobi gw mancing".
-    - Aset: "Motor gw Vario", "Laptop gw Asus".
-    - Relasi: "Pacar gw namanya Dini", "Bapak gw sakit".
+    CONTOH KOREKSI:
+    Chat (Dini): "Koko ngajak nikah"
+    -> Analisa: Pengirim Dini. Dia bilang Koko ajak nikah. Berarti Koko ajak Dini (bukan Tami).
+    -> Output: [[SAVEMEMORY: Koko mengajak Dini menikah]]
 
-    CONTOH ANALISA (Pelajari Polanya):
-    User: "Duh gw lagi kesel banget sama bos." -> HASIL: [KOSONG] (Karena emosi sesaat)
-    User: "Besok ingetin gw beli telor ya." -> HASIL: [KOSONG] (Itu tugas reminder, bukan memori)
-    User: "Gw tuh sebenernya alergi debu tau." -> HASIL: [[SAVEMEMORY: Tami alergi debu]]
-    User: "Motor Vario gw mogok lagi." -> HASIL: [[SAVEMEMORY: Motor Tami adalah Vario]]
-    User: "Si Dini ulang tahun bulan depan." -> HASIL: [[SAVEMEMORY: Pacar Tami bernama Dini]]
-
-    CHAT USER SEKARANG:
-    "${text}"
-
-    OUTPUT:
-    Jika masuk Kategori Sampah ATAU Duplikat, output kosong saja.
-    Jika masuk Kategori Emas DAN Baru, output HANYA kode [[SAVEMEMORY: ...]].
+    Chat (Tami): "Mulai sekarang panggil gw Raja Iblis"
+    -> Analisa: User minta nickname baru.
+    -> Output: [[SAVEMEMORY: User ingin dipanggil Raja Iblis]]
     `;
 
     try {
         const result = await model.generateContent(promptObserver);
         const response = result.response.text().trim();
 
-        // 3. Eksekusi Simpan
         if (response.includes('[[SAVEMEMORY:')) {
             let memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
 
-            // Filter Terakhir: Kalau memori terlalu panjang (>10 kata), biasanya itu AI halusinasi ngerangkum curhat. Buang.
-            if (memory.split(' ').length > 10) return;
+            // Filter panjang (max 20 kata biar gak halu)
+            if (memory.split(' ').length > 20) return;
 
-            console.log(`🧠 [STRICT-LEARN] Fakta Valid: ${memory}`);
+            // Kalau faktanya malah nyatet nama bot sendiri, buang
+            if (memory.toLowerCase().includes('bot') || memory.toLowerCase().includes('kamu')) return;
+
+            console.log(`🧠 [SMART-LEARN V2] Fakta Valid: ${memory}`);
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
 
-            // --- [BARU] LAPOR KE NOMOR KEDUA --- 👇
+            // Lapor ke Log Number (Jika ada)
             if (config.system && config.system.logNumber) {
-                // Pake try-catch biar kalau gagal kirim log, bot gak crash
                 try {
-                    await client.sendMessage(config.system.logNumber, `🧠 *SILENT LEARN*\n\n👤 Subjek: ${namaPengirim}\n📝 Fakta: "${memory}"`);
-                } catch (err) {
-                    console.error("Gagal lapor log:", err);
-                }
+                    await client.sendMessage(config.system.logNumber, `🧠 *SILENT LEARN*\n\n👤 Sumber: ${namaPengirim}\n📝 Fakta: "${memory}"`);
+                } catch (err) { }
             }
-            // -----------------------------------
         }
     } catch (e) { }
 };
 
-// --- FUNGSI INTERAKSI UTAMA (JAWAB CHAT + GAMBAR) ---
+// --- FUNGSI INTERAKSI UTAMA (JAWAB CHAT + GAMBAR + MEMORI + DYNAMIC PERSONA) ---
 const interact = async (client, msg, text, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
 
-    // 1. CEK COMMAND MANUAL (!INGAT)
-    if (text === '!ingat' || text.startsWith('!ingat ')) {
+    // 1. HANDLE MANUAL INPUT (!INGAT)
+    if (text.startsWith('!ingat ')) {
         const faktaBaru = msg.body.replace(/!ingat/i, '').trim();
-        if (!faktaBaru) return client.sendMessage(chatDestination, "apa yang harus gw inget?");
+        if (!faktaBaru) return client.sendMessage(chatDestination, "Apa yang harus gw inget Bang?");
+
         db.query("INSERT INTO memori (fakta) VALUES (?)", [faktaBaru], (err) => {
-            if (!err) client.sendMessage(chatDestination, "Oke, tersimpan manual.");
+            if (!err) client.sendMessage(chatDestination, `✅ Oke Bang, gw catet: "${faktaBaru}"`);
         });
         return;
     }
 
-    // 2. CEK COMMAND TANYA JAWAB (!AI)
-    // Support: Teks biasa ATAU Caption Gambar
+    // 2. HANDLE TANYA JAWAB (!AI / !ANALISA / CHAT BIASA)
     if (text.startsWith('!ai') || text.startsWith('!analisa')) {
         let promptUser = msg.body.replace(/!ai|!analisa/i, '').trim();
 
-        // Handling Gambar
+        // A. Handling Gambar (Vision)
         let imagePart = null;
         if (msg.hasMedia) {
             try {
@@ -120,58 +115,67 @@ const interact = async (client, msg, text, db, namaPengirim) => {
                             mimeType: media.mimetype
                         }
                     };
-                    if (!promptUser) promptUser = "Jelasin ini gambar apa?"; // Default kalo cuma kirim gambar + !ai
+                    // Kalau cuma kirim gambar tanpa caption
+                    if (!promptUser) promptUser = "Jelasin secara detail ini gambar apa?";
                 }
             } catch (error) {
                 console.error("Gagal download media:", error);
-                return client.sendMessage(chatDestination, "Gagal baca gambar, Bang. Coba kirim ulang.");
+                return client.sendMessage(chatDestination, "❌ Gagal baca gambar. Coba kirim ulang Bang.");
             }
         }
 
-        if (!promptUser && !imagePart) return client.sendMessage(chatDestination, "Mau diskusi apa?");
+        if (!promptUser && !imagePart) return client.sendMessage(chatDestination, "Mau diskusi apa Bang?");
 
-        await msg.react('👁️'); // Reaksi mata kalo lagi liat gambar/mikir
+        // Kasih reaksi biar keliatan mikir
+        await msg.react('👀');
 
-        // Tarik Context
-        const getMemori = new Promise(r => db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 10", (err, res) => r(err ? [] : res)));
+        // B. Tarik Context (RAG - Retrieval Augmented Generation)
+        const getMemori = new Promise(r => db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 15", (err, res) => r(err ? [] : res)));
         const getHistory = new Promise(r => db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 30", (err, res) => r(err ? [] : res.reverse())));
         const [m, h] = await Promise.all([getMemori, getHistory]);
 
         const textM = m.map(x => `- ${x.fakta}`).join("\n");
         const textH = h.map(x => `${x.nama_pengirim}: ${x.pesan}`).join("\n");
 
+        // C. THE ULTIMATE PROMPT (DYNAMIC PERSONA)
         const finalPrompt = `
-        Role: Partner Diskusi Cerdas (K-Bot).
-        User: ${namaPengirim}
+        === SYSTEM INSTRUCTION (IDENTITAS DASAR) ===
+        Kamu adalah "Bot-Duit", asisten pribadi cerdas.
         
-        [MEMORI USER]
-        ${textM}
+        ATURAN DEFAULT (BISA DI-OVERRIDE OLEH MEMORI):
+        1. Secara default, panggil user "Bang Tami" atau "Bang".
+        2. Gunakan bahasa Indonesia gaul, santai, akrab (Lo/Gw).
+        3. Kamu jago coding, Linux, dan DevOps.
+        
+        ⚠️ ATURAN MUTLAK (PRIORITAS TERTINGGI) ⚠️:
+        Cek bagian [MEMORI USER] di bawah. Jika di situ ada instruksi spesifik tentang:
+        - Panggilan/Nickname khusus (misal: "Panggil gw Raja Iblis").
+        - Perubahan sifat (misal: "Jadilah galak").
+        - Gaya bicara baru.
+        MAKA KAMU WAJIB MENGIKUTI INSTRUKSI DI MEMORI TERSEBUT dan abaikan aturan default di atas.
 
-        [HISTORY CHAT]
+        [MEMORI JANGKA PANJANG (FAKTA & INSTRUKSI USER)]
+        ${textM}
+        (Gunakan fakta ini sebagai hukum tertinggimu).
+
+        [HISTORY CHAT TERAKHIR]
         ${textH}
-        
-        [PERTANYAAN BARU]
-        ${namaPengirim}: ${promptUser}
-        ${imagePart ? "[USER MENGIRIM GAMBAR. ANALISA GAMBARNYA SESUAI PERTANYAAN]" : ""}
-        
-        Instruksi:
-        1. Jawab solutif, cerdas, gaya bahasa 'gw/lu' santai.
-        2. Kalau ada gambar, komentari detail visualnya (warnanya, bentuknya, suasananya).
-        3. Jangan pake markdown bintang (*).
+
+        [PERMINTAAN USER SAAT INI]
+        User: ${promptUser}
+        ${imagePart ? "[NOTE: USER MENGIRIM GAMBAR. BACA VISUALNYA!]" : ""}
         `;
 
         try {
-            // Kalau ada gambar, formatnya jadi array [text, image]
+            // D. Eksekusi Gemini
             const payload = imagePart ? [finalPrompt, imagePart] : [finalPrompt];
-
             const result = await model.generateContent(payload);
-            const response = result.response;
-            let cleanResponse = response.text().replace(/\*/g, '').trim();
+            const response = result.response.text().trim();
 
-            await client.sendMessage(chatDestination, cleanResponse);
+            await client.sendMessage(chatDestination, response);
         } catch (error) {
-            console.error("ai error:", error);
-            await client.sendMessage(chatDestination, "Waduh, mata gw burem (Error API).");
+            console.error("AI Error:", error);
+            await client.sendMessage(chatDestination, "🤕 Waduh, otak gw nge-bug bentar Bang (API Error). Coba tanya lagi.");
         }
     }
 };
