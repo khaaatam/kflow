@@ -15,7 +15,7 @@ const observe = async (client, msg, db, namaPengirim) => {
     if (msg.isForwarded) return;
 
     // 2. GATEKEEPER (Saring Sampah)
-    if (text.length < 15) return;
+    if (text.length < 5) return;
 
     // 3. KEYWORD CHECKER
     const triggerWords = [
