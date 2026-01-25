@@ -1,5 +1,3 @@
-const moment = require('moment'); // Kita pake native JS Date aja biar gak nambah library berat
-
 module.exports = async (client, msg, text, db, senderId) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
     const args = text.split(' ');

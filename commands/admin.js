@@ -1,5 +1,3 @@
-const config = require('../config');
-
 module.exports = async (client, msg, text, db) => {
     // 1. CEK OTORITAS (Hanya Owner/Bot atau Nomor Log yang boleh)
     const isOwner = msg.fromMe || (config.system && msg.from === config.system.logNumber);

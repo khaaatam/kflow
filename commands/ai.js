@@ -60,8 +60,6 @@ const observe = async (client, text, db, namaPengirim) => {
 
 // --- FUNGSI INTERAKSI UTAMA (THE BRAIN) ---
 const interact = async (client, msg, text, db, namaPengirim) => {
-    const chatDestination = msg.fromMe ? msg.to : msg.from;
-
     // 1. HANDLE MANUAL INPUT (!INGAT)
     if (text.startsWith('!ingat ')) {
         const faktaBaru = msg.body.replace(/!ingat/i, '').trim();
