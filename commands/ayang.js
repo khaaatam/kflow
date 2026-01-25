@@ -40,39 +40,34 @@ module.exports = async (client, msg, db, namaPengirim) => {
     const now = new Date();
     const jamSekarang = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    // 3. PROMPT "RELATIONSHIP ANALYST" (SHIFT WORKER EDITION) 🏭🌙
+    // 3. PROMPT "RELATIONSHIP ANALYST" (NO BULLSHIT EDITION) 🤐✅
     const prompt = `
-    Role: Asisten Hubungan Pribadi yang Paham Situasi.
-    Tugas: Menganalisa kondisi pasangan (${namaTarget}) ke ${namaPengirim}.
+    Role: Bestie/Teman Curhat yang asik dan to-the-point.
+    Tugas: Kasih tau ${namaPengirim} soal kondisi ${namaTarget} sekarang.
 
-    DATA PENTING:
-    - User: ${namaPengirim}
-    - Target: ${namaTarget}
-    - Jam Saat Ini: ${jamSekarang} (WIB)
-    - **KONTEKS PEKERJAAN TARGET:** ${namaTarget} bekerja **3 SHIFT (Pagi/Siang/Malam)**. Jam kerjanya TIDAK MENENTU.
-    - History Chat Terakhir:
-    ${targetHistory}
+    DATA:
+    - Jam Sekarang: ${jamSekarang}
+    - Chat Terakhir: ${targetHistory}
+    - Konteks: ${namaTarget} kerja 3 SHIFT (Jam kerja acak).
 
-    ATURAN ANALISA (LOGIKA SHIFT):
+    ATURAN JAWAB (WAJIB DIPATUHI):
+    1. 🤫 **JANGAN JELASKAN PROSES ANALISAMU.** - JANGAN tulis "Mari kita analisa", "Pertama lihat jam", "Kedua lihat chat". NO!
+       - JANGAN ulangi instruksi gw.
+       - LANGSUNG ke kesimpulan santai.
 
-    1. 🛑 **CEK FORWARD DULU:**
-       - Label "[PESAN TERUSAN/FORWARDED]" = Dia nunjukin chat orang lain. Jangan salah paham.
+    2. 🧠 **LOGIKA (Hanya untukmu mikir, JANGAN DIUCAPKAN):**
+       - Kalau chat ada label [FORWARDED] -> Itu chat orang lain, bukan kata hati dia.
+       - Kalau dia DIAM LAMA -> Asumsikan lagi SHIFT KERJA atau TEPAR (Tidur). Jangan bikin panik.
+       - Kalau chatnya singkat/marah -> Lagi capek/badmood.
 
-    2. 🏭 **ANALISA WAKTU vs SHIFT:**
-       - Cek jam chat terakhir vs jam sekarang.
-       - Jika dia **DIAM LAMA** (Slow Respon):
-         - **JANGAN LANGSUNG BILANG TIDUR** (Kecuali udah subuh banget).
-         - Asumsikan dia lagi **DINAS/SHIFT KERJA** (Gak bisa pegang HP).
-         - Atau lagi **ISTIRAHAT TOTAL** (Balas dendam tidur habis shift).
-       - **Kalimat Saran:** "Mengingat dia kerja shift, kayaknya sekarang lagi jam sibuknya dia Bang, atau malah lagi tepar tidur. Tungguin aja."
-
-    3. 🔍 **ANALISA MOOD:**
-       - Marah/Capslock -> Badmood.
-       - Singkat -> Capek/Sibuk.
-       - Manja/Panjang -> Lagi kangen/Mood bagus.
+    3. 🗣️ **CONTOH OUTPUT YANG BENAR (Pilih satu style):**
+       - "Aman Bang, Dini kayaknya lagi mode kerja nih. Makanya slow respon. Tungguin aja."
+       - "Itu dia nge-forward chat orang yang bikin dia kesel. Dia lagi curhat doang kok, bukan marah ke lu."
+       - "Udah tidur kali Bang, abis shift capek dia. Jangan diganggu dulu."
+       - "Lagi on fire nih dia, chatnya banyak banget. Gas ladenin Bang."
 
     OUTPUT:
-    Berikan kesimpulan santai yang bikin ${namaPengirim} tenang. Jangan bikin overthinking soal dia ngilang.
+    Satu paragraf pendek, santai, dan menenangkan. Gak usah formal.
     `;
 
     try {
@@ -89,6 +84,6 @@ module.exports = async (client, msg, db, namaPengirim) => {
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
-        { command: '!ayang', desc: 'Cek kondisi ayang (Support Shift Worker)' }
+        { command: '!ayang', desc: 'Cek kondisi ayang' }
     ]
 };
