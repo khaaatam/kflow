@@ -7,7 +7,7 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 module.exports = async (client, msg, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
 
-    // 1. TENTUKAN SIAPA "AYANG"-NYA (TARGET)
+    // 1. TENTUKAN TARGET
     let namaTarget = "";
     if (namaPengirim.toLowerCase().includes("tami")) {
         namaTarget = "Dini";
@@ -17,14 +17,12 @@ module.exports = async (client, msg, db, namaPengirim) => {
         return client.sendMessage(chatDestination, "Ciyee jomblo ya? Lu gak punya ayang di database gw. 🤪");
     }
 
-    // 2. TARIK HISTORY CHAT (PLUS STATUS FORWARD)
+    // 2. TARIK HISTORY CHAT
     const targetHistory = await new Promise((resolve) => {
-        // [UPGRADE] Kita tarik kolom is_forwarded juga
         const query = "SELECT pesan, waktu, is_forwarded FROM full_chat_logs WHERE nama_pengirim LIKE ? ORDER BY id DESC LIMIT 15";
         db.query(query, [`%${namaTarget}%`], (err, rows) => {
             if (err || !rows || rows.length === 0) resolve(null);
             else {
-                // [UPGRADE] Kasih label [FORWARDED] biar AI tau
                 const formattedLogs = rows.map(r => {
                     const label = r.is_forwarded ? "[PESAN TERUSAN/FORWARDED] " : "";
                     return `[${r.waktu}] ${label}${r.pesan}`;
@@ -35,34 +33,46 @@ module.exports = async (client, msg, db, namaPengirim) => {
     });
 
     if (!targetHistory) {
-        return client.sendMessage(chatDestination, `Waduh, ${namaTarget} kayaknya belum muncul sama sekali hari ini. Masih bobo kali? 😴`);
+        return client.sendMessage(chatDestination, `Waduh, ${namaTarget} belum ada chat sama sekali. Mungkin lagi sibuk banget.`);
     }
 
-    // 3. PROMPT "RELATIONSHIP ANALYST" (GABUNGAN LAMA & BARU) 🧠🔥
-    const prompt = `
-    Role: Asisten Hubungan Pribadi (Relationship Assistant).
-    Tugas: Menganalisa mood pasangannya (${namaTarget}) berdasarkan chat log untuk dilaporkan ke ${namaPengirim}.
+    // AMBIL JAM SEKARANG
+    const now = new Date();
+    const jamSekarang = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-    DATA:
+    // 3. PROMPT "RELATIONSHIP ANALYST" (SHIFT WORKER EDITION) 🏭🌙
+    const prompt = `
+    Role: Asisten Hubungan Pribadi yang Paham Situasi.
+    Tugas: Menganalisa kondisi pasangan (${namaTarget}) ke ${namaPengirim}.
+
+    DATA PENTING:
     - User: ${namaPengirim}
     - Target: ${namaTarget}
+    - Jam Saat Ini: ${jamSekarang} (WIB)
+    - **KONTEKS PEKERJAAN TARGET:** ${namaTarget} bekerja **3 SHIFT (Pagi/Siang/Malam)**. Jam kerjanya TIDAK MENENTU.
     - History Chat Terakhir:
     ${targetHistory}
 
-    ATURAN ANALISA (WAJIB DIPATUHI):
-    1. 🛑 **CEK LABEL [FORWARDED]:**
-       - Jika chat ada label "[PESAN TERUSAN/FORWARDED]", artinya ${namaTarget} SEDANG MENUNJUKKAN chat orang lain.
-       - JANGAN anggap itu kata-kata ${namaTarget} sendiri.
-       - Contoh: Jika dia forward chat orang marah-marah, berarti dia lagi cerita ada yang marah ke dia (bukan dia yang marah ke kamu).
+    ATURAN ANALISA (LOGIKA SHIFT):
 
-    2. 🔍 **ANALISA MOOD (SKENARIO):**
-       - Jika ${namaTarget} banyak nge-forward chat orang lain -> "Dia lagi pusing/keganggu sama orang lain tuh kayaknya."
-       - Jika chat ASLI dia (tanpa forward) isinya marah/capslock -> "Waduh, dia lagi badmood/ngambek. Coba bujuk, bawain makanan kesukaannya."
-       - Jika chat isinya coding/kerja/deadline -> "Dia lagi mode serius kerja/ngoding. Jangan diganggu dulu biar kelar."
-       - Jika chat isinya ketawa/becanda -> "Aman, mood dia lagi bagus kok."
+    1. 🛑 **CEK FORWARD DULU:**
+       - Label "[PESAN TERUSAN/FORWARDED]" = Dia nunjukin chat orang lain. Jangan salah paham.
+
+    2. 🏭 **ANALISA WAKTU vs SHIFT:**
+       - Cek jam chat terakhir vs jam sekarang.
+       - Jika dia **DIAM LAMA** (Slow Respon):
+         - **JANGAN LANGSUNG BILANG TIDUR** (Kecuali udah subuh banget).
+         - Asumsikan dia lagi **DINAS/SHIFT KERJA** (Gak bisa pegang HP).
+         - Atau lagi **ISTIRAHAT TOTAL** (Balas dendam tidur habis shift).
+       - **Kalimat Saran:** "Mengingat dia kerja shift, kayaknya sekarang lagi jam sibuknya dia Bang, atau malah lagi tepar tidur. Tungguin aja."
+
+    3. 🔍 **ANALISA MOOD:**
+       - Marah/Capslock -> Badmood.
+       - Singkat -> Capek/Sibuk.
+       - Manja/Panjang -> Lagi kangen/Mood bagus.
 
     OUTPUT:
-    Berikan kesimpulan santai dan saran ke ${namaPengirim}.
+    Berikan kesimpulan santai yang bikin ${namaPengirim} tenang. Jangan bikin overthinking soal dia ngilang.
     `;
 
     try {
@@ -72,13 +82,13 @@ module.exports = async (client, msg, db, namaPengirim) => {
         await client.sendMessage(chatDestination, response);
     } catch (error) {
         console.error("Ayang Error:", error);
-        await client.sendMessage(chatDestination, "Duh, sinyal batin gw putus. Gagal ngepoin dia. 🥺");
+        await client.sendMessage(chatDestination, "Gagal konek ke satelit cinta. Coba lagi nanti Bang.");
     }
 };
 
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
-        { command: '!ayang', desc: 'Ayangku kemana ya kira-kira' }
+        { command: '!ayang', desc: 'Cek kondisi ayang (Support Shift Worker)' }
     ]
 };
