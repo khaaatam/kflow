@@ -7,17 +7,17 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 // --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V5 - ANTI FORWARD) ---
 // Perhatikan: Parameter ke-2 sekarang 'msg', bukan 'text'
+// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V5 - FINAL) ---
 const observe = async (client, msg, db, namaPengirim) => {
     const text = msg.body; // Ambil text dari message object
 
-    // 1. CEK STATUS FORWARD (Baru Ditambah) 🚫
-    // Kalau ini pesan terusan, LANGSUNG SKIP. Jangan dicatat.
+    // 1. CEK STATUS FORWARD 🚫 (Anti Hoax)
     if (msg.isForwarded) return;
 
-    // 2. GATEKEEPER (Saring Sampah)
+    // 2. GATEKEEPER 📏 (Biar gak nyampah)
     if (text.length < 5) return;
 
-    // 3. KEYWORD CHECKER
+    // 3. KEYWORD CHECKER 🔑
     const triggerWords = [
         'aku', 'gw', 'saya', 'gua',
         'suka', 'benci', 'gasuka', 'ga suka', 'gemar', 'hobi',
@@ -31,15 +31,7 @@ const observe = async (client, msg, db, namaPengirim) => {
     const isImportant = triggerWords.some(word => text.toLowerCase().includes(word));
     if (!isImportant) return;
 
-    // ... (SISA KODINGAN KE BAWAH SAMA KAYAK SEBELUMNYA) ...
-    // Copy paste sisa logic prompt & database insert dari V4 tadi
-
-    // (Biar gak kepanjang, intinya logic prompt di bawah sini tetep sama)
-    // Cuma beda di parameter awal & cek msg.isForwarded doang.
-
-    // ...
-    // ...
-    // 4. PROMPT DETECTIVE (STRICT)
+    // 4. AMBIL INGATAN LAMA (Context)
     const existingFacts = await new Promise((resolve) => {
         db.query("SELECT fakta FROM memori", (err, rows) => {
             if (err || !rows || rows.length === 0) resolve("");
@@ -47,31 +39,53 @@ const observe = async (client, msg, db, namaPengirim) => {
         });
     });
 
+    // 5. PROMPT DETECTIVE 🕵️
     const promptObserver = `
     Role: Filter Data Intelijen.
     Tugas: Tentukan apakah pesan ini LAYAK disimpan sebagai FAKTA PERMANEN.
+    
     [PESAN USER]
     Pengirim: ${namaPengirim}
     Isi: "${text}"
+    
     [DATABASE LAMA]
     ${existingFacts}
+    
     [ATURAN]
     1. ABAIKAN Chat Sesaat / Kondisi Sementara.
     2. AMBIL Fakta Permanen / Preferensi.
     3. CEK SUBJEK: Pastikan yang dibahas adalah ${namaPengirim}.
+    
     OUTPUT: [[SAVEMEMORY: ...]] atau KOSONG.
     `;
 
     try {
         const result = await model.generateContent(promptObserver);
         const response = result.response.text().trim();
+
         if (response.includes('[[SAVEMEMORY:')) {
             let memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
+            
+            // Filter tambahan
             if (memory.toLowerCase().includes('sedang') || memory.toLowerCase().includes('lagi ')) return;
+
             console.log(`🧠 [STRICT-LEARN] Fakta Disimpan: ${memory}`);
+            
+            // Simpan ke Database
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
+
+            // 🔥 LOG KE WA (Sesuai request lu biar masuk ke nomor kedua)
+            if (config.system && config.system.logNumber) {
+                try { 
+                    await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU:*\n"${memory}"`); 
+                } catch (e) {
+                    console.error("❌ Gagal lapor ke WA:", e.message);
+                }
+            }
         }
-    } catch (e) { }
+    } catch (e) { 
+        console.error("❌ Error AI Observer:", e.message);
+    }
 };
 
 // --- FUNGSI INTERAKSI UTAMA (THE BRAIN) ---
