@@ -163,9 +163,13 @@ client.on('message_create', async msg => {
         if (await adminCommand(client, msg, text, db)) return;
 
         // Simpan Log Chat (Hanya dari user terdaftar)
-        db.query("INSERT INTO full_chat_logs (nama_pengirim, pesan) VALUES (?, ?)", [namaPengirim, rawText], (err) => {
-            if (err) console.error('❌ Gagal log chat:', err.message);
-        });
+        db.query(
+            "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
+            [namaPengirim, rawText, isForwarded],
+            (err) => {
+                if (err) console.error('❌ Gagal log chat:', err.message);
+            }
+        );
 
         // ---------------------------------------------------------
         // LEVEL 3: ROUTER (COMMAND vs OBROLAN)

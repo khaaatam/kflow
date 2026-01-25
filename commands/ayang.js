@@ -8,76 +8,74 @@ module.exports = async (client, msg, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
 
     // 1. TENTUKAN SIAPA "AYANG"-NYA (TARGET)
-    // Logic: Kalau Tami yg nanya -> Target Dini. Kalau Dini yg nanya -> Target Tami.
     let namaTarget = "";
-
-    // Sesuaikan string ini dengan nama yang tercatat di config.users lu
     if (namaPengirim.toLowerCase().includes("tami")) {
         namaTarget = "Dini";
     } else if (namaPengirim.toLowerCase().includes("dini")) {
-        namaTarget = "Tami"; // Atau "Bang Tami"
+        namaTarget = "Tami";
     } else {
-        // Kalau orang lain iseng pake command ini
         return client.sendMessage(chatDestination, "Ciyee jomblo ya? Lu gak punya ayang di database gw. 🤪");
     }
 
-    // 2. TARIK HISTORY CHAT SI TARGET (Bukan Pengirim)
-    // Kita mau tau kondisi TARGET berdasarkan jejak digital terakhirnya.
+    // 2. TARIK HISTORY CHAT (PLUS STATUS FORWARD)
     const targetHistory = await new Promise((resolve) => {
-        // Ambil 15 chat terakhir dari TARGET
-        const query = "SELECT pesan, waktu FROM full_chat_logs WHERE nama_pengirim LIKE ? ORDER BY id DESC LIMIT 15";
+        // [UPGRADE] Kita tarik kolom is_forwarded juga
+        const query = "SELECT pesan, waktu, is_forwarded FROM full_chat_logs WHERE nama_pengirim LIKE ? ORDER BY id DESC LIMIT 15";
         db.query(query, [`%${namaTarget}%`], (err, rows) => {
             if (err || !rows || rows.length === 0) resolve(null);
-            else resolve(rows.map(r => `[${r.waktu}] ${r.pesan}`).reverse().join("\n"));
+            else {
+                // [UPGRADE] Kasih label [FORWARDED] biar AI tau
+                const formattedLogs = rows.map(r => {
+                    const label = r.is_forwarded ? "[PESAN TERUSAN/FORWARDED] " : "";
+                    return `[${r.waktu}] ${label}${r.pesan}`;
+                }).reverse().join("\n");
+                resolve(formattedLogs);
+            }
         });
     });
 
-    // Handle kalau Target gak pernah chat (atau log kosong)
     if (!targetHistory) {
         return client.sendMessage(chatDestination, `Waduh, ${namaTarget} kayaknya belum muncul sama sekali hari ini. Masih bobo kali? 😴`);
     }
 
-    // 3. PROMPT "RELATIONSHIP ANALYST"
+    // 3. PROMPT "RELATIONSHIP ANALYST" (GABUNGAN LAMA & BARU) 🧠🔥
     const prompt = `
     Role: Asisten Hubungan Pribadi (Relationship Assistant).
-    Tugas: Menganalisa aktivitas/mood seseorang (${namaTarget}) untuk dilaporkan kepada pasangannya (${namaPengirim}).
+    Tugas: Menganalisa mood pasangannya (${namaTarget}) berdasarkan chat log untuk dilaporkan ke ${namaPengirim}.
 
-    DATA ANALISA:
-    - Pengirim Command (!ayang): ${namaPengirim}
-    - Target yang dicari: ${namaTarget}
-    - Chat History Terakhir ${namaTarget}:
+    DATA:
+    - User: ${namaPengirim}
+    - Target: ${namaTarget}
+    - History Chat Terakhir:
     ${targetHistory}
 
-    INSTRUKSI JAWABAN:
-    Baca chat history ${namaTarget} di atas, lalu simpulkan kondisinya sekarang untuk dijawab ke ${namaPengirim}.
-    
-    Skenario & Contoh Respon:
-    1. Jika chat ${namaTarget} isinya marah-marah/ngeluh/capslock -> "Kyknya ${namaTarget} lagi badmood/ngambek deh. Coba bujuk gih, bawain makanan kesukaannya."
-    2. Jika chat isinya coding/kerja/deadline -> "Waduh, ${namaTarget} lagi sibuk banget tuh sama kerjaannya/codingannya. Jangan diganggu dulu ya, nanti dia kabarin."
-    3. Jika chat isinya ketawa/becanda -> "${namaTarget} lagi hepi tuh kelihatannya, abis ketawa-ketiwi di grup."
-    4. Jika chat terakhir sudah LAMA (cek jamnya) -> "Terakhir dia chat sih tadi, kayaknya sekarang lagi istirahat atau ketiduran."
+    ATURAN ANALISA (WAJIB DIPATUHI):
+    1. 🛑 **CEK LABEL [FORWARDED]:**
+       - Jika chat ada label "[PESAN TERUSAN/FORWARDED]", artinya ${namaTarget} SEDANG MENUNJUKKAN chat orang lain.
+       - JANGAN anggap itu kata-kata ${namaTarget} sendiri.
+       - Contoh: Jika dia forward chat orang marah-marah, berarti dia lagi cerita ada yang marah ke dia (bukan dia yang marah ke kamu).
 
-    GAYA BICARA:
-    - Santai, akrab, seperti teman curhat.
-    - Jangan terlalu kaku.
-    - Langsung to the point ke kondisi target.
+    2. 🔍 **ANALISA MOOD (SKENARIO):**
+       - Jika ${namaTarget} banyak nge-forward chat orang lain -> "Dia lagi pusing/keganggu sama orang lain tuh kayaknya."
+       - Jika chat ASLI dia (tanpa forward) isinya marah/capslock -> "Waduh, dia lagi badmood/ngambek. Coba bujuk, bawain makanan kesukaannya."
+       - Jika chat isinya coding/kerja/deadline -> "Dia lagi mode serius kerja/ngoding. Jangan diganggu dulu biar kelar."
+       - Jika chat isinya ketawa/becanda -> "Aman, mood dia lagi bagus kok."
+
+    OUTPUT:
+    Berikan kesimpulan santai dan saran ke ${namaPengirim}.
     `;
 
     try {
-        await msg.react('🔍'); // Reaksi lagi nyari info
-
+        await msg.react('🔍');
         const result = await model.generateContent(prompt);
         const response = result.response.text();
-
         await client.sendMessage(chatDestination, response);
-
     } catch (error) {
         console.error("Ayang Error:", error);
         await client.sendMessage(chatDestination, "Duh, sinyal batin gw putus. Gagal ngepoin dia. 🥺");
     }
 };
 
-// TAMBAHAN METADATA MENU
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
