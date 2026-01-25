@@ -216,7 +216,7 @@ client.on('message_create', async msg => {
             }
 
             // Jalankan Silent Observer (Auto-Learn) di background
-            aiCommand.observe(client, rawText, db, namaPengirim);
+            aiCommand.observe(client, msg, db, namaPengirim);
         }
 
     } catch (error) {

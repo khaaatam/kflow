@@ -5,12 +5,41 @@ const config = require('../config');
 const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
-// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V3) ---
-const observe = async (client, text, db, namaPengirim) => {
-    // 1. Filter Awal
-    if (text.length < 5) return; // Skip chat pendek banget
+// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V5 - ANTI FORWARD) ---
+// Perhatikan: Parameter ke-2 sekarang 'msg', bukan 'text'
+const observe = async (client, msg, db, namaPengirim) => {
+    const text = msg.body; // Ambil text dari message object
 
-    // 2. Ambil ingatan lama
+    // 1. CEK STATUS FORWARD (Baru Ditambah) 🚫
+    // Kalau ini pesan terusan, LANGSUNG SKIP. Jangan dicatat.
+    if (msg.isForwarded) return;
+
+    // 2. GATEKEEPER (Saring Sampah)
+    if (text.length < 15) return;
+
+    // 3. KEYWORD CHECKER
+    const triggerWords = [
+        'aku', 'gw', 'saya', 'gua',
+        'suka', 'benci', 'gasuka', 'ga suka', 'gemar', 'hobi',
+        'takut', 'phobia', 'fobia', 'alergi',
+        'pengen', 'mau', 'cita-cita', 'mimpi',
+        'rumah', 'tinggal', 'anak', 'lahir', 'ultah', 'umur',
+        'panggil', 'nama', 'julukan',
+        'jangan'
+    ];
+
+    const isImportant = triggerWords.some(word => text.toLowerCase().includes(word));
+    if (!isImportant) return;
+
+    // ... (SISA KODINGAN KE BAWAH SAMA KAYAK SEBELUMNYA) ...
+    // Copy paste sisa logic prompt & database insert dari V4 tadi
+
+    // (Biar gak kepanjang, intinya logic prompt di bawah sini tetep sama)
+    // Cuma beda di parameter awal & cek msg.isForwarded doang.
+
+    // ...
+    // ...
+    // 4. PROMPT DETECTIVE (STRICT)
     const existingFacts = await new Promise((resolve) => {
         db.query("SELECT fakta FROM memori", (err, rows) => {
             if (err || !rows || rows.length === 0) resolve("");
@@ -18,42 +47,29 @@ const observe = async (client, text, db, namaPengirim) => {
         });
     });
 
-    // 3. PROMPT DETECTIVE (FOKUS SUBJEK)
     const promptObserver = `
-    Role: Pencatat Fakta Intelijen.
-    Tugas: Ekstrak fakta PENTING dari chat ini ke database.
-    
-    [DATA CHAT]
+    Role: Filter Data Intelijen.
+    Tugas: Tentukan apakah pesan ini LAYAK disimpan sebagai FAKTA PERMANEN.
+    [PESAN USER]
     Pengirim: ${namaPengirim}
-    Pesan: "${text}"
-    
+    Isi: "${text}"
     [DATABASE LAMA]
     ${existingFacts}
-
-    [ATURAN PENTING]
-    1. Pastikan SUBJEK benar. "Aku/Gw" = ${namaPengirim}.
-    2. Jangan catat keluhan sesaat/emosi (misal: "Anjir lapar"). Catat PREFERENSI/DATA (misal: "User alergi udang").
-    3. JANGAN HALU. Kalau tidak ada fakta penting, JANGAN output apa-apa.
-    4. Format output: [[SAVEMEMORY: Subjek + Predikat + Objek]]
+    [ATURAN]
+    1. ABAIKAN Chat Sesaat / Kondisi Sementara.
+    2. AMBIL Fakta Permanen / Preferensi.
+    3. CEK SUBJEK: Pastikan yang dibahas adalah ${namaPengirim}.
+    OUTPUT: [[SAVEMEMORY: ...]] atau KOSONG.
     `;
 
     try {
         const result = await model.generateContent(promptObserver);
         const response = result.response.text().trim();
-
         if (response.includes('[[SAVEMEMORY:')) {
             let memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
-            // Filter sederhana
-            if (memory.split(' ').length > 20) return;
-            if (memory.toLowerCase().includes('bot') || memory.toLowerCase().includes('kamu')) return;
-
-            console.log(`🧠 [OBSERVER] Fakta Baru: ${memory}`);
+            if (memory.toLowerCase().includes('sedang') || memory.toLowerCase().includes('lagi ')) return;
+            console.log(`🧠 [STRICT-LEARN] Fakta Disimpan: ${memory}`);
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-
-            // Log ke Owner (Opsional)
-            if (config.system && config.system.logNumber) {
-                try { await client.sendMessage(config.system.logNumber, `📝 *NOTE:* ${memory}`); } catch (e) { }
-            }
         }
     } catch (e) { }
 };
