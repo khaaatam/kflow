@@ -49,11 +49,11 @@ const observe = async (client, text, db, namaPengirim) => {
 
             console.log(`🧠 [OBSERVER] Fakta Baru: ${memory}`);
             db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-            
+
             // Log ke Owner (Opsional)
-             if (config.system && config.system.logNumber) {
-                 try { await client.sendMessage(config.system.logNumber, `📝 *NOTE:* ${memory}`); } catch (e) { }
-             }
+            if (config.system && config.system.logNumber) {
+                try { await client.sendMessage(config.system.logNumber, `📝 *NOTE:* ${memory}`); } catch (e) { }
+            }
         }
     } catch (e) { }
 };
@@ -99,7 +99,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
         const textM = m.map(x => `- ${x.fakta}`).join("\n");
         const textH = h.map(x => `${x.nama_pengirim}: ${x.pesan}`).join("\n");
 
-        // C. THE ULTIMATE PROMPT (IDENTITY FIREWALL + SMART ADDRESSING) 🔥
+        // C. THE ULTIMATE PROMPT (IDENTITY FIREWALL + SMART ADDRESSING) 🔥 
         const finalPrompt = `
         === IDENTITAS & ATURAN MUTLAK ===
         Kamu adalah "Bot-Duit", asisten pribadi.
