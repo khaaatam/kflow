@@ -5,19 +5,17 @@ const config = require('../config');
 const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
-// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V5 - ANTI FORWARD) ---
-// Perhatikan: Parameter ke-2 sekarang 'msg', bukan 'text'
-// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V5 - FINAL) ---
+// --- FUNGSI PENCATAT RAHASIA (SMART OBSERVER V6 - ANTI DUPLIKAT) ---
 const observe = async (client, msg, db, namaPengirim) => {
-    const text = msg.body; // Ambil text dari message object
+    const text = msg.body;
 
-    // 1. CEK STATUS FORWARD 🚫 (Anti Hoax)
+    // 1. CEK STATUS FORWARD & SELF CHAT
     if (msg.isForwarded) return;
 
-    // 2. GATEKEEPER 📏 (Biar gak nyampah)
+    // 2. GATEKEEPER
     if (text.length < 5) return;
 
-    // 3. KEYWORD CHECKER 🔑
+    // 3. KEYWORD CHECKER
     const triggerWords = [
         'aku', 'gw', 'saya', 'gua',
         'suka', 'benci', 'gasuka', 'ga suka', 'gemar', 'hobi',
@@ -27,11 +25,9 @@ const observe = async (client, msg, db, namaPengirim) => {
         'panggil', 'nama', 'julukan',
         'jangan'
     ];
+    if (!triggerWords.some(word => text.toLowerCase().includes(word))) return;
 
-    const isImportant = triggerWords.some(word => text.toLowerCase().includes(word));
-    if (!isImportant) return;
-
-    // 4. AMBIL INGATAN LAMA (Context)
+    // 4. AMBIL INGATAN LAMA
     const existingFacts = await new Promise((resolve) => {
         db.query("SELECT fakta FROM memori", (err, rows) => {
             if (err || !rows || rows.length === 0) resolve("");
@@ -39,24 +35,16 @@ const observe = async (client, msg, db, namaPengirim) => {
         });
     });
 
-    // 5. PROMPT DETECTIVE 🕵️
+    // 5. PROMPT DETECTIVE
     const promptObserver = `
     Role: Filter Data Intelijen.
-    Tugas: Tentukan apakah pesan ini LAYAK disimpan sebagai FAKTA PERMANEN.
-    
-    [PESAN USER]
-    Pengirim: ${namaPengirim}
-    Isi: "${text}"
-    
-    [DATABASE LAMA]
-    ${existingFacts}
-    
+    Tugas: Ekstrak fakta PENTING jadi satu kalimat singkat.
+    [PESAN USER] "${text}" (Oleh: ${namaPengirim})
+    [DATABASE LAMA] \n${existingFacts}
     [ATURAN]
-    1. ABAIKAN Chat Sesaat / Kondisi Sementara.
-    2. AMBIL Fakta Permanen / Preferensi.
-    3. CEK SUBJEK: Pastikan yang dibahas adalah ${namaPengirim}.
-    
-    OUTPUT: [[SAVEMEMORY: ...]] atau KOSONG.
+    1. ABAIKAN Chat Sesaat/Sampah.
+    2. AMBIL Fakta Permanen.
+    3. Output: [[SAVEMEMORY: ...]] atau KOSONG.
     `;
 
     try {
@@ -65,29 +53,30 @@ const observe = async (client, msg, db, namaPengirim) => {
 
         if (response.includes('[[SAVEMEMORY:')) {
             let memory = response.split('[[SAVEMEMORY:')[1].replace(']]', '').trim();
-            
-            // Filter tambahan
             if (memory.toLowerCase().includes('sedang') || memory.toLowerCase().includes('lagi ')) return;
 
-            console.log(`🧠 [STRICT-LEARN] Fakta Disimpan: ${memory}`);
-            
-            // Simpan ke Database
-            db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-
-            // 🔥 LOG KE WA (Sesuai request lu biar masuk ke nomor kedua)
-            if (config.system && config.system.logNumber) {
-                try { 
-                    await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU:*\n"${memory}"`); 
-                } catch (e) {
-                    console.error("❌ Gagal lapor ke WA:", e.message);
+            // 🔥 [UPDATE BARU DISINI] CEK DUPLIKASI BY SYSTEM (HARD CHECK) 🔥
+            // Kita tanya DB dulu sebelum insert
+            db.query("SELECT id FROM memori WHERE fakta = ?", [memory], async (err, rows) => {
+                // Kalau error atau sudah ada isinya -> STOP (JANGAN SIMPEN)
+                if (!err && rows.length > 0) {
+                    console.log(`♻️ [ANTI-DUPLIKAT] Fakta sudah ada: "${memory}" (SKIP)`);
+                    return;
                 }
-            }
-        }
-    } catch (e) { 
-        console.error("❌ Error AI Observer:", e.message);
-    }
-};
 
+                // Kalau belum ada, BARU SIMPAN ✅
+                console.log(`🧠 [STRICT-LEARN] Fakta Disimpan: ${memory}`);
+                db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
+
+                if (config.system && config.system.logNumber) {
+                    try {
+                        await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU:*\n"${memory}"`);
+                    } catch (e) { }
+                }
+            });
+        }
+    } catch (e) { }
+};
 // --- FUNGSI INTERAKSI UTAMA (THE BRAIN) ---
 const interact = async (client, msg, text, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
