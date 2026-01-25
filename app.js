@@ -207,17 +207,25 @@ client.on('message_create', async msg => {
         } else {
             // === JALUR OBROLAN / SILENT LEARN ===
 
-            // JANGAN BELAJAR DARI COMMAND SENDIRI
+            // 1. JANGAN BELAJAR DARI COMMAND
             if (text.startsWith('!')) return;
 
-            // FILTER: JANGAN BELAJAR DARI RESPON BOT SENDIRI 
-            // (Ciri respon bot biasanya ada emoji bot atau format tebal)
-            if (msg.fromMe && (rawText.includes('🤖') || rawText.includes('🧠') || rawText.includes('*SYSTEM LOG*'))) return;
+            // 2. [FIX PENTING] JANGAN BELAJAR DARI RESPON SISTEM/BOT 🛑
+            // Kalau pesan ini dari "Diri Sendiri" (Bot) DAN mengandung ciri-ciri respon bot
+            if (msg.fromMe) {
+                const botKeywords = [
+                    'brain washed', '✅', '❌', '⚠️', '🤯', '🤖',
+                    'system log', 'memori baru', 'error main logic'
+                ];
 
-            // Filter konten sistem
-            if (text.includes('silent learn') || text.includes('error terdeteksi')) return;
+                // Kalau pesan mengandung salah satu keyword di atas -> SKIP
+                if (botKeywords.some(keyword => text.includes(keyword))) return;
+            }
 
-            // Jalankan Silent Observer
+            // 3. Filter konten teknis lainnya
+            if (text.includes('[[savememory')) return;
+
+            // Jalankan Silent Observer (Auto-Learn) di background
             aiCommand.observe(client, msg, db, namaPengirim);
         }
 
