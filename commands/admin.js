@@ -1,8 +1,8 @@
 const config = require('../config');
-const { exec } = require('child_process'); // Buat jalanin perintah terminal
+const { exec } = require('child_process'); 
 
 module.exports = async (client, msg, text, db) => {
-    // 🛡️ SECURITY CHECK: HANYA OWNER (TAMI) YANG BOLEH
+    // 🛡️ SECURITY CHECK
     const senderId = msg.fromMe ? client.info.wid._serialized : msg.from;
     const namaPengirim = config.users[senderId];
 
@@ -12,19 +12,32 @@ module.exports = async (client, msg, text, db) => {
 
     // --- 1. COMMAND: UPDATE SYSTEM (!update) ---
     if (text === '!update' || text === '!gitpull') {
-        await client.sendMessage(msg.from, "⏳ Sedang mengecek update dari GitHub...");
+        // 👇 TRY-CATCH BIAR GAK CRASH KALAU GAGAL KIRIM CHAT
+        try {
+            await client.sendMessage(msg.from, "⏳ Sedang mengecek update dari GitHub...");
+        } catch (e) {
+            console.log("⚠️ Gagal kirim pesan loading, tapi tetep lanjut update...");
+        }
 
         exec('git pull', async (error, stdout, stderr) => {
             if (error) {
                 console.error(`Git Error: ${error.message}`);
-                return client.sendMessage(msg.from, `❌ Gagal Update:\n${error.message}`);
+                // Coba lapor error, kalau gagal yaudah
+                try { await client.sendMessage(msg.from, `❌ Gagal Update:\n${error.message}`); } catch(e){}
+                return;
             }
 
             if (stdout.includes('Already up to date')) {
-                return client.sendMessage(msg.from, "✅ Kodingan udah paling baru, Bos. Gak ada update.");
+                try { await client.sendMessage(msg.from, "✅ Udah paling baru Bos."); } catch(e){}
+                return;
             }
 
-            await client.sendMessage(msg.from, `✅ *UPDATE DITEMUKAN!*\n\nLog:\n${stdout}\n\n♻️ Bot sedang restart sendiri...`);
+            // Kalau update sukses
+            try {
+                await client.sendMessage(msg.from, `✅ *UPDATE SUKSES!*\n\n${stdout}\n\n♻️ Restarting...`);
+            } catch (e) {
+                console.log("Update sukses, otw restart...");
+            }
 
             setTimeout(() => {
                 process.exit(0);
@@ -33,45 +46,36 @@ module.exports = async (client, msg, text, db) => {
         return true;
     }
 
-    // --- 2. COMMAND: HAPUS LOGS CHAT (!resetlogs) ---
+    // --- 2. COMMAND: HAPUS LOGS (!resetlogs) ---
     if (text === '!resetlogs' || text === '!clearlogs') {
-        await client.sendMessage(msg.from, "⚠️ *PERINGATAN:* Sedang menghapus SELURUH history chat...");
+        try { await client.sendMessage(msg.from, "⚠️ Menghapus history chat..."); } catch(e){}
         db.query("TRUNCATE TABLE full_chat_logs", (err) => {
-            if (err) client.sendMessage(msg.from, "❌ Gagal hapus logs.");
-            else client.sendMessage(msg.from, "✅ *SUKSES!* Semua riwayat chat (Logs) sudah dimusnahkan. 🧹");
+            if (!err) try { client.sendMessage(msg.from, "✅ Logs bersih."); } catch(e){}
         });
         return true;
     }
 
-    // --- 3. COMMAND: HAPUS MEMORI FAKTA (!resetmemori) ---
+    // --- 3. COMMAND: HAPUS MEMORI (!resetmemori) ---
     if (text === '!resetmemori') {
-        await client.sendMessage(msg.from, "⚠️ *PERINGATAN:* Sedang menghapus SEMUA FAKTA...");
+        try { await client.sendMessage(msg.from, "⚠️ Menghapus ingatan..."); } catch(e){}
         db.query("TRUNCATE TABLE memori", (err) => {
-            if (err) client.sendMessage(msg.from, "❌ Gagal format otak.");
-            else client.sendMessage(msg.from, "🤯 *BRAIN WASHED!* Otak bot kembali polos.");
+            if (!err) try { client.sendMessage(msg.from, "🤯 Otak bersih."); } catch(e){}
         });
         return true;
     }
 
-    // --- 4. COMMAND: RESTART BOT MANUAL (!resetbot) ---
+    // --- 4. COMMAND: RESTART (!restart) ---
     if (text === '!resetbot' || text === '!restart') {
-        await client.sendMessage(msg.from, "♻️ Siap Bos, restart sistem...");
+        try { await client.sendMessage(msg.from, "♻️ Restarting..."); } catch(e){}
         setTimeout(() => process.exit(0), 1000);
         return true;
     }
 
-    // --- 5. COMMAND: HAPUS DATA KEUANGAN (!resetfinance) ---
-    // 👇 INI FITUR BARU YANG LU MINTA 👇
-    if (text === '!resetfinance' || text === '!clearfinance') {
-        await client.sendMessage(msg.from, "⚠️ *BAHAYA:* Sedang menghapus SEMUA DATA TRANSAKSI KEUANGAN...");
-        
+    // --- 5. COMMAND: RESET FINANCE (!resetfinance) ---
+    if (text === '!resetfinance') {
+        try { await client.sendMessage(msg.from, "⚠️ Hapus data keuangan..."); } catch(e){}
         db.query("TRUNCATE TABLE transaksi", (err) => {
-            if (err) {
-                console.error(err);
-                client.sendMessage(msg.from, "❌ Gagal reset database finance.");
-            } else {
-                client.sendMessage(msg.from, "💸 *DOMPET KOSONG!* Seluruh riwayat pemasukan & pengeluaran sudah dihapus permanen. Mulai dari nol ya!");
-            }
+            if (!err) try { client.sendMessage(msg.from, "💸 Dompet kosong."); } catch(e){}
         });
         return true;
     }
@@ -79,14 +83,12 @@ module.exports = async (client, msg, text, db) => {
     return false;
 };
 
-// METADATA UNTUK MENU
 module.exports.metadata = {
     category: "SYSTEM",
     commands: [
-        { command: '!update', desc: 'Tarik update dari GitHub (Auto Restart)' },
-        { command: '!resetlogs', desc: 'Hapus Chat History (Admin Only)' },
-        { command: '!resetmemori', desc: 'Hapus Memori Fakta (Admin Only)' },
-        { command: '!resetfinance', desc: 'Hapus Data Keuangan (Admin Only)' },
-        { command: '!resetbot', desc: 'Restart Bot (Admin Only)' }
+        { command: '!update', desc: 'Git Pull & Restart' },
+        { command: '!resetlogs', desc: 'Clear Logs' },
+        { command: '!resetfinance', desc: 'Clear Finance' },
+        { command: '!restart', desc: 'Restart Bot' }
     ]
 };

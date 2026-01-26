@@ -48,6 +48,24 @@ client.on('qr', (qr) => {
 });
 
 client.on('ready', async () => {
+    // 3. Fix WhatsApp Web Bug (VERSIS KUAT) 💪
+    // Kita paksa inject script ini berkala biar gak ilang
+    const bugFix = async () => {
+        try {
+            await client.pupPage.evaluate(() => {
+                // Paksa fungsi sendSeen jadi kosong biar gak error
+                window.WWebJS.sendSeen = async () => true;
+            });
+        } catch (e) { }
+    };
+
+    // Jalanin sekali pas ready
+    await bugFix();
+
+    // Jalanin lagi tiap 1 menit (Jaga-jaga kalau page reload)
+    setInterval(bugFix, 60000);
+
+
     console.log(`✅ BOT SIAP! Dashboard: http://localhost:${config.system.port}`);
 
     // Restore Tasks
