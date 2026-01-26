@@ -1,5 +1,5 @@
 const config = require('../config');
-const { exec } = require('child_process'); 
+const { exec } = require('child_process');
 
 module.exports = async (client, msg, text, db) => {
     // 🛡️ SECURITY CHECK
@@ -23,12 +23,12 @@ module.exports = async (client, msg, text, db) => {
             if (error) {
                 console.error(`Git Error: ${error.message}`);
                 // Coba lapor error, kalau gagal yaudah
-                try { await client.sendMessage(msg.from, `❌ Gagal Update:\n${error.message}`); } catch(e){}
+                try { await client.sendMessage(msg.from, `❌ Gagal Update:\n${error.message}`); } catch (e) { }
                 return;
             }
 
             if (stdout.includes('Already up to date')) {
-                try { await client.sendMessage(msg.from, "✅ Udah paling baru Bos."); } catch(e){}
+                try { await client.sendMessage(msg.from, "✅ Udah paling baru Bos."); } catch (e) { }
                 return;
             }
 
@@ -48,34 +48,34 @@ module.exports = async (client, msg, text, db) => {
 
     // --- 2. COMMAND: HAPUS LOGS (!resetlogs) ---
     if (text === '!resetlogs' || text === '!clearlogs') {
-        try { await client.sendMessage(msg.from, "⚠️ Menghapus history chat..."); } catch(e){}
+        try { await client.sendMessage(msg.from, "⚠️ Menghapus history chat..."); } catch (e) { }
         db.query("TRUNCATE TABLE full_chat_logs", (err) => {
-            if (!err) try { client.sendMessage(msg.from, "✅ Logs bersih."); } catch(e){}
+            if (!err) try { client.sendMessage(msg.from, "✅ Logs bersih."); } catch (e) { }
         });
         return true;
     }
 
     // --- 3. COMMAND: HAPUS MEMORI (!resetmemori) ---
     if (text === '!resetmemori') {
-        try { await client.sendMessage(msg.from, "⚠️ Menghapus ingatan..."); } catch(e){}
+        try { await client.sendMessage(msg.from, "⚠️ Menghapus ingatan..."); } catch (e) { }
         db.query("TRUNCATE TABLE memori", (err) => {
-            if (!err) try { client.sendMessage(msg.from, "🤯 Otak bersih."); } catch(e){}
+            if (!err) try { client.sendMessage(msg.from, "🤯 Otak bersih."); } catch (e) { }
         });
         return true;
     }
 
     // --- 4. COMMAND: RESTART (!restart) ---
     if (text === '!resetbot' || text === '!restart') {
-        try { await client.sendMessage(msg.from, "♻️ Restarting..."); } catch(e){}
+        try { await client.sendMessage(msg.from, "♻️ Restarting..."); } catch (e) { }
         setTimeout(() => process.exit(0), 1000);
         return true;
     }
 
     // --- 5. COMMAND: RESET FINANCE (!resetfinance) ---
     if (text === '!resetfinance') {
-        try { await client.sendMessage(msg.from, "⚠️ Hapus data keuangan..."); } catch(e){}
+        try { await client.sendMessage(msg.from, "⚠️ Hapus data keuangan..."); } catch (e) { }
         db.query("TRUNCATE TABLE transaksi", (err) => {
-            if (!err) try { client.sendMessage(msg.from, "💸 Dompet kosong."); } catch(e){}
+            if (!err) try { client.sendMessage(msg.from, "💸 Dompet kosong."); } catch (e) { }
         });
         return true;
     }
