@@ -13,6 +13,7 @@ const reminderCommand = require('./commands/reminder');
 const adminCommand = require('./commands/admin');
 const ayangCommand = require('./commands/ayang');
 const eventCommand = require('./commands/event');
+const statsCommand = require('./commands/stats');
 
 // --- 1. SETUP SYSTEM ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
