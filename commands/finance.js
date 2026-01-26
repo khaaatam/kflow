@@ -13,18 +13,18 @@ const formatRupiah = (angka) => {
 
 module.exports = async (client, msg, text, db) => {
     const cmd = text.toLowerCase();
-    
+
     // 1. FILTER: Cek apakah ini command Finance?
     const financeKeywords = ['!catat', '!catet', '!saldo', '!dompet', '!today', '!in', '!out'];
     const isFinanceCmd = financeKeywords.some(key => cmd.startsWith(key));
 
-    if (!isFinanceCmd) return false; 
+    if (!isFinanceCmd) return false;
 
-    // 2. AMBIL NAMA PENGIRIM
-    let namaPengirim = "Bos Tami"; 
+    // 2. AMBIL NAMA PENGIRIM (SAFE MODE)
+    let namaPengirim = "Tami";
     try {
         const contact = await msg.getContact();
-        namaPengirim = contact.pushname || contact.name || "Bos Tami";
+        namaPengirim = contact.pushname || contact.name || "Tami";
     } catch (err) {
         console.log("⚠️ Gagal fetch contact finance, pake nama default.");
     }
@@ -35,12 +35,12 @@ module.exports = async (client, msg, text, db) => {
     // --- FITUR 1: AI SMART RECORDER (!catat) ---
     if (cmd.startsWith('!catat') || cmd.startsWith('!catet')) {
         const curhatan = rawText.replace(/!cat(a|e)t/i, '').trim();
-        
+
         if (!curhatan) {
             return client.sendMessage(chatDestination, "⚠️ Mau nyatet apa?\nContoh: `!catat beli nasi padang 25rb sama bayar parkir 2000`");
         }
 
-        await msg.react('💸'); 
+        await msg.react('💸');
 
         const prompt = `
         Role: Asisten Keuangan Pribadi.
@@ -68,8 +68,8 @@ module.exports = async (client, msg, text, db) => {
 
             for (const t of transactions) {
                 let jenisFix = t.jenis.toLowerCase();
-                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar'; 
-                
+                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar';
+
                 await new Promise((resolve) => {
                     const sql = "INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?)";
                     db.query(sql, [jenisFix, t.nominal, t.keterangan, namaPengirim], (err) => resolve());
@@ -148,12 +148,14 @@ module.exports = async (client, msg, text, db) => {
 
             rows.forEach(r => {
                 const icon = r.jenis === 'masuk' ? '🟢' : '🔴';
-                
+
                 // FIX NAN: Paksa nominal jadi Number sebelum dipake
                 const nom = Number(r.nominal);
-                
-                rep += `\n${icon} ${formatRupiah(nom)} - ${r.keterangan}`;
-                
+
+                // 👇👇 INI YANG TADI ILANG, SEKARANG UDAH ADA 👇👇
+                // Nampilin nama pelaku transaksi [sumber]
+                rep += `\n${icon} [${r.sumber}] ${formatRupiah(nom)} - ${r.keterangan}`;
+
                 // FIX NAN: Penjumlahan aman
                 if (r.jenis === 'keluar') totalKeluar += nom;
             });
