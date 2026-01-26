@@ -1,10 +1,10 @@
 const express = require('express');
-const mysql = require('mysql2');
+const mysql = require('mysql'); // Note: Biasanya mysql biasa, tapi kalau lu pake mysql2 juga oke. Sesuaikan dgn package.json
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
 
-// --- IMPORT MODULE ---
+// --- IMPORT MODULE COMMANDS ---
 const config = require('./config');
 const systemCommand = require('./commands/system');
 const financeCommand = require('./commands/finance');
@@ -17,7 +17,7 @@ const statsCommand = require('./commands/stats');
 const saranCommand = require('./commands/saran');
 const tamiCommand = require('./commands/tami');
 
-// --- 1. SETUP SYSTEM ---
+// --- 1. SETUP SYSTEM & ERROR HANDLING ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
 process.on('unhandledRejection', (reason) => console.log('⚠️ Promise Rej (Abaikan):', reason));
 
@@ -27,7 +27,25 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.urlencoded({ extended: true }));
 
 // --- 2. DATABASE CONNECTION ---
-const db = mysql.createPool(config.database);
+// Pake createConnection biar simpel (sesuai config lu biasanya)
+// Kalau mau pool, pastikan config.database support connectionLimit
+const db = mysql.createConnection(config.database);
+
+db.connect((err) => {
+    if (err) {
+        console.error('❌ Error connecting to database:', err);
+    } else {
+        console.log('✅ Connected to database');
+    }
+});
+
+// Jaga-jaga koneksi putus (Auto Reconnect Sederhana)
+db.on('error', function (err) {
+    console.log('⚠️ DB Error:', err.code);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+        // Logic reconnect manual kalau perlu, atau biarkan process manager handle
+    }
+});
 
 // --- 3. WEB DASHBOARD ROUTES ---
 app.get('/', (req, res) => {
@@ -57,15 +75,6 @@ app.get('/hapus/:id', (req, res) => {
     db.query('DELETE FROM transaksi WHERE id = ?', [req.params.id], () => res.redirect('/'));
 });
 
-app.post('/update', (req, res) => {
-    const { id, jenis, nominal, keterangan, sumber, tanggal } = req.body;
-    const sql = 'UPDATE transaksi SET jenis=?, nominal=?, keterangan=?, sumber=?, tanggal=? WHERE id=?';
-    db.query(sql, [jenis, nominal, keterangan, sumber, tanggal, id], (err) => {
-        if (err) console.log('Gagal update:', err);
-        res.redirect('/');
-    });
-});
-
 // --- 4. CONFIG BOT WA ---
 const isTermux = process.platform === 'android';
 let puppeteerConfig = config.system.puppeteer;
@@ -83,14 +92,10 @@ const client = new Client({
     puppeteer: puppeteerConfig
 });
 
-// Helper: Kirim Log ke WA
+// Helper Log
 const sendLog = async (pesan) => {
     if (config.system && config.system.logNumber) {
-        try {
-            await client.sendMessage(config.system.logNumber, `🖥️ *SYSTEM LOG*\n\n${pesan}`);
-        } catch (err) {
-            console.error("Gagal kirim log ke WA:", err);
-        }
+        try { await client.sendMessage(config.system.logNumber, `🖥️ *SYSTEM LOG*\n\n${pesan}`); } catch (err) { }
     }
 };
 
@@ -99,33 +104,27 @@ client.on('qr', (qr) => qrcode.generate(qr, { small: true }));
 client.on('ready', async () => {
     console.log(`✅ BOT SIAP! Dashboard: http://localhost:${config.system.port}`);
 
-    // Restore Reminder
+    // Restore Tasks
     reminderCommand.restoreReminders(client, db);
 
-    // Lapor Online
+    // Kirim notif nyala
     sendLog("Bot berhasil nyala (RESTART/ONLINE). Siap bertugas! 🚀");
 
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
 
-    // Auto Cleanup Chat Log > 3 Bulan
+    // Auto Cleanup
     db.query("DELETE FROM full_chat_logs WHERE waktu < DATE_SUB(NOW(), INTERVAL 3 MONTH)", (err) => {
         if (!err) console.log('🧹 Cleanup Chat Log Sukses');
     });
 
-    // --- ALARM PENGECEK EVENT (Jalan Tiap Menit) ---
+    // Cron Job Event
     setInterval(() => {
         const now = new Date();
-        // Cek apakah jam 07:00 PAGI dan detik ke-0 (Biar gak spam, sekali aja)
         if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() === 0) {
             console.log("⏰ Menjalankan pengecekan event harian...");
             eventCommand.cekEventHarian(client, db, config.system.logNumber);
         }
-    }, 1000); // Cek tiap detik
-});
-
-client.on('disconnected', (reason) => {
-    console.log('⚠️ Koneksi WA putus!', reason);
-    client.destroy().then(() => { client.initialize(); });
+    }, 1000);
 });
 
 // --- 5. LOGIKA PESAN (ROUTER UTAMA) ---
@@ -134,120 +133,81 @@ client.on('message_create', async msg => {
         const rawText = msg.body;
         const text = rawText.toLowerCase().trim();
 
-        // [FIX CRITICAL] SKIP STATUS WA & SYSTEM MESSAGE
+        // Skip Status & System
         if (msg.from === 'status@broadcast' || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
-        // [FIX CRITICAL] CARA AMBIL SENDER ID YANG AMAN
-        let senderId;
-        if (msg.fromMe) {
-            senderId = client.info.wid._serialized;
-        } else {
-            senderId = msg.author || msg.from;
-        }
-
-        // Validasi senderId (jaga-jaga error)
+        // Identifikasi Pengirim
+        let senderId = msg.fromMe ? client.info.wid._serialized : (msg.author || msg.from);
         if (!senderId) return;
 
-        // ---------------------------------------------------------
-        // LEVEL 1: GATEKEEPER (HANYA ORANG TERDAFTAR)
-        // ---------------------------------------------------------
-
-        // Cek config.users
+        // --- LEVEL 1: GATEKEEPER ---
+        // Cek apakah pengirim ada di daftar user (config.js)
         const namaPengirim = config.users[senderId];
 
-        // Kalau ID tidak terdaftar di config, CUEKIN TOTAL.
+        // JIKA BUKAN USER TERDAFTAR -> STOP.
+        // (Kalau lu mau Dini bisa pake command !tami, Dini harus didaftarin di config.users dulu)
         if (!namaPengirim) return;
 
-        // ---------------------------------------------------------
-        // LEVEL 2: ADMIN & LOGGING
-        // ---------------------------------------------------------
-
-        // Cek Command Admin (!reset, dll)
+        // --- LEVEL 2: ADMIN & LOGGING ---
         if (await adminCommand(client, msg, text, db)) return;
-        if (await statsCommand(client, msg, text, db)) return;
-        if (await saranCommand(client, msg, text, db)) return;
-        if (await tamiCommand(client, msg, text, db)) return;
+
         const isForwarded = msg.isForwarded ? 1 : 0;
-        // Simpan Log Chat (Hanya dari user terdaftar)
+
+        // Log Chat (Database)
         db.query(
             "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
             [namaPengirim, rawText, isForwarded],
-            (err) => {
-                if (err) console.error('❌ Gagal log chat:', err.message);
-            }
+            (err) => { if (err) console.error('❌ Gagal log chat:', err.message); }
         );
 
-        // ---------------------------------------------------------
-        // LEVEL 3: ROUTER (COMMAND vs OBROLAN)
-        // ---------------------------------------------------------
+        // --- LEVEL 3: COMMAND ROUTER ---
+        // Urutan pengecekan command (Siapa cepat dia dapat)
 
-        if (text.startsWith('!')) {
-            // === JALUR COMMAND ===
-            console.log(`✅ [${namaPengirim}] Command: ${text}`);
+        // 1. SYSTEM (!ping, !uptime)
+        if (await systemCommand(client, msg, text, senderId, namaPengirim)) return;
 
-            // 1. System (!ping)
-            await systemCommand(client, msg, text, senderId, namaPengirim);
+        // 2. FINANCE (!catat, !saldo, !today, !in, !out)
+        // (Parameter namaPengirim dihapus karena finance.js nyari sendiri)
+        if (await financeCommand(client, msg, text, db)) return;
 
-            // 2. Finance (!jajan)
-            await financeCommand(client, msg, text, db, namaPengirim);
+        // 3. FITUR BARU (!stats, !saran, !tami)
+        if (await statsCommand(client, msg, text, db)) return;
+        if (await saranCommand(client, msg, text, db)) return;
+        if (await tamiCommand(client, msg, text, db)) return;
 
-            // 3. AI Direct (!ai)
-            await aiCommand.interact(client, msg, text, db, namaPengirim);
-
-            // 4. Fitur Ayang / Mata-Mata (!ayang)
-            if (text === '!ayang') {
-                await ayangCommand(client, msg, db, namaPengirim);
-            }
-
-            // 5. Reminder (!ingatin)
-            if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
-                await reminderCommand(client, msg, text, db, senderId);
-            }
-
-            // 6. Event Organizer (!event)
-            if (text.startsWith('!event')) {
-                await eventCommand(client, msg, text, db, senderId);
-            }
-
-        } else {
-            // === JALUR OBROLAN / SILENT LEARN ===
-
-            // 1. JANGAN BELAJAR DARI COMMAND
-            if (text.startsWith('!')) return;
-
-            // 2. [FIX PENTING] JANGAN BELAJAR DARI RESPON SISTEM/BOT 🛑
-            // Kalau pesan ini dari "Diri Sendiri" (Bot) DAN mengandung ciri-ciri respon bot
-            if (msg.fromMe) {
-                const botKeywords = [
-                    'brain washed', '✅', '❌', '⚠️', '🤯', '🤖',
-                    'system log', 'memori baru', 'error main logic'
-                ];
-
-                // Kalau pesan mengandung salah satu keyword di atas -> SKIP
-                if (botKeywords.some(keyword => text.includes(keyword))) return;
-            }
-
-            // 3. Filter konten teknis lainnya
-            if (text.includes('[[savememory')) return;
-
-            // Jalankan Silent Observer (Auto-Learn) di background
-            aiCommand.observe(client, msg, db, namaPengirim);
+        // 4. UTILITIES (!event, !ingatin, !ayang)
+        if (text.startsWith('!event')) {
+            if (await eventCommand(client, msg, text, db, senderId)) return;
         }
+        if (text.startsWith('!ingatin') || text.startsWith('!remind')) {
+            if (await reminderCommand(client, msg, text, db, senderId)) return;
+        }
+        if (text === '!ayang') {
+            if (await ayangCommand(client, msg, db, namaPengirim)) return;
+        }
+
+        // --- LEVEL 4: AI OBSERVER (AUTO-LEARN) ---
+        // Kalau bukan command, masuk ke sini buat belajar (atau reply kalau diajak ngobrol)
+
+        if (text.startsWith('!')) return; // Jangan belajar dari command yg typo/gagal
+
+        // Filter: Jangan belajar dari respon bot sendiri
+        if (msg.fromMe) {
+            const botKeywords = ['✅', '❌', '⚠️', '🤯', '🤖', 'system log', 'memori baru'];
+            if (botKeywords.some(keyword => text.includes(keyword))) return;
+        }
+
+        // Jalankan AI
+        await aiCommand.observe(client, msg, db, namaPengirim);
 
     } catch (error) {
         console.log('❌ Error Main Logic:', error);
-        // Lapor error tanpa bikin crash loop
-        if (!error.message.includes('getContactById')) {
-            sendLog(`❌ *ERROR MAIN LOGIC*\n${error.message}`);
-        }
     }
 });
 
-// Jantung DB
+// Detak Jantung DB
 setInterval(() => {
-    db.query('SELECT 1', (err) => {
-        if (err) console.error('⚠️ Detak jantung DB gagal:', err.message);
-    });
+    db.query('SELECT 1', (err) => { if (err) console.error('⚠️ Detak jantung DB gagal:', err.message); });
 }, 30000);
 
 client.initialize();
