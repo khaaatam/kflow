@@ -63,7 +63,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
     if (text.startsWith('!ai') || text.startsWith('!analisa')) {
         let promptUser = msg.body.replace(/!ai|!analisa/i, '').trim();
         let imagePart = null;
-        
+
         if (msg.hasMedia) {
             try {
                 const media = await msg.downloadMedia();
@@ -81,7 +81,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
             // RAG (Async)
             const [m] = await db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 20");
             const [h] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 20");
-            
+
             const textM = m.map(x => `- ${x.fakta}`).join("\n");
             const textH = h.reverse().map(x => `${x.nama_pengirim}: ${x.pesan}`).join("\n");
 
@@ -104,7 +104,9 @@ const interact = async (client, msg, text, db, namaPengirim) => {
     }
 };
 
+// --- EXPORTS CORRECTED ---
 module.exports = { interact, observe };
+
 module.exports.metadata = {
     category: "AI",
     commands: [
