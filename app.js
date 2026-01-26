@@ -1,5 +1,5 @@
 const express = require('express');
-const mysql = require('mysql'); // Note: Biasanya mysql biasa, tapi kalau lu pake mysql2 juga oke. Sesuaikan dgn package.json
+const mysql = require('mysql2'); // Note: Biasanya mysql biasa, tapi kalau lu pake mysql2 juga oke. Sesuaikan dgn package.json
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
