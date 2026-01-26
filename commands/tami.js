@@ -6,84 +6,63 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 module.exports = async (client, msg, text, db) => {
     if (!text.toLowerCase().startsWith('!tami')) return false;
 
-    // Gak usah react emot, biar makin misterius/cuek (opsional)
-    // await msg.react('😎'); 
-
     let userProblem = text.replace('!tami', '').trim();
     if (msg.hasQuotedMsg) {
         const quoted = await msg.getQuotedMessage();
-        userProblem = `(Konteks: "${quoted.body}")\n\nRespon: ${userProblem}`;
+        userProblem = `(Ngebales chat: "${quoted.body}")\n\nIsi balesan gw: ${userProblem}`;
     }
 
     try {
-        // 1. TARIK SAMPEL (Lebih banyak dikit biar AI makin paham pola)
+        // 1. TARIK SAMPEL YANG LEBIH VARIATIF
+        // Ambil 60 sampel acak biar AI punya banyak referensi gaya
         const [rowsSample] = await db.query(`
             SELECT pesan FROM (
                 SELECT pesan FROM full_chat_logs 
                 WHERE nama_pengirim LIKE '%Tami%' 
                 AND pesan NOT LIKE '!%' 
                 AND is_forwarded = 0 
-                AND LENGTH(pesan) > 2 
-                ORDER BY id DESC LIMIT 500 
+                AND LENGTH(pesan) > 3 
+                ORDER BY id DESC LIMIT 600 
             ) AS subquery
-            ORDER BY RAND() LIMIT 50 
+            ORDER BY RAND() LIMIT 60 
         `);
-
-        // Gabungin sampel jadi satu blok teks
         const tamiStyle = rowsSample.map(r => r.pesan).join("\n");
 
-        // 2. KONTEKS TERAKHIR
-        const [rowsContext] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 10");
+        // 2. KONTEKS 
+        const [rowsContext] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 8");
         const chatContext = rowsContext.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
 
-        // 3. PROMPT "GALAK" (STRICT MODE)
+        // 3. PROMPT SIMPLE (IMITASI MURNI)
+        // Gak pake aturan ribet, biarin dia nyontek "vibe" dari sampel
         const prompt = `
-        ROLEPLAY: Kamu adalah user WhatsApp bernama "Tami".
-        Tugas: Balas pesan lawan bicara dengan gaya yang 100% PERSIS dengan sampel chat asli di bawah.
+        Kamu adalah Tami. Tugasmu membalas chat Dini.
+        JANGAN JADI ROBOT. JANGAN JADI ASISTEN.
 
-        [SAMPEL GAYA CHAT ASLI TAMI]:
+        Ini adalah contoh gaya ketikanmu (PERHATIKAN singkatan, huruf kecil, dan nada bicaranya):
+        === CONTOH GAYA KETIKAN TAMI ===
         ${tamiStyle}
+        ================================
 
-        [KONTEKS OBROLAN SAAT INI]:
+        Sekarang balas chat ini sesuai gaya di atas:
+        
+        Konteks Chat Terakhir:
         ${chatContext}
 
-        [PESAN LAWAN]:
-        "${userProblem}"
-
-        [ATURAN KERAS / STRICT RULES - WAJIB PATUH]:
-        1. JANGAN gunakan EMOJI sama sekali (kecuali di sampel chat banyak emoji, tapi prioritas TANPA emoji).
-        2. JANGAN gunakan tanda baca formal. BUANG semua KOMA (,) dan TITIK (.).
-        3. JANGAN gunakan huruf besar. Tulis semuanya dalam HURUF KECIL (lowercase).
-        4. GUNAKAN SINGKATAN KHAS INDONESIA: 
-           - "yang" -> "yg"
-           - "enggak/tidak" -> "gk" / "ga"
-           - "sudah" -> "udh"
-           - "banget" -> "bgt"
-           - "sama" -> "sm"
-           - "aku/saya" -> "gw"
-           - "kamu/anda" -> "lu"
-        5. JANGAN terlalu panjang. Jawab singkat, padat, to the point.
-        6. JANGAN terdengar seperti asisten AI atau robot. Jadilah manusia yang santai dan agak cuek.
-
-        Balas langsung tanpa basa-basi:
+        Dini: "${userProblem}"
+        Tami: (Langsung jawab isinya, tanpa tanda kutip)
         `;
 
         const result = await model.generateContent(prompt);
         let response = result.response.text().trim();
 
-        // --- POST PROCESSING (Pembersihan Manual) ---
-        // 1. Paksa huruf kecil
-        response = response.toLowerCase();
-
-        // 2. Buang tanda kutip
-        response = response.replace(/"/g, '').replace(/'/g, '');
-
-        // 3. Buang Koma dan Titik di akhir (Sesuai request lu)
-        response = response.replace(/,/g, '');
-        if (response.endsWith('.')) response = response.slice(0, -1);
-
-        // 4. Normalisasi spasi
-        response = response.replace(/\s+/g, ' ');
+        // --- POST PROCESSING (Pembersihan Wajib) ---
+        // Kita bantu AI biar konsisten 100% gaya lu
+        response = response.toLowerCase(); // Wajib huruf kecil
+        response = response.replace(/"/g, '').replace(/'/g, ''); // Buang kutip
+        if (response.endsWith('.')) response = response.slice(0, -1); // Buang titik akhir
+        
+        // Buang koma kalau user emang anti-koma
+        response = response.replace(/,/g, ''); 
 
         await client.sendMessage(msg.from, response);
 
@@ -93,4 +72,4 @@ module.exports = async (client, msg, text, db) => {
     return true;
 };
 
-module.exports.metadata = { category: "AI", commands: [{ command: '!tami', desc: 'Clone Tami (Real Style)' }] };
+module.exports.metadata = { category: "AI", commands: [{ command: '!tami', desc: 'Clone Tami' }] };
