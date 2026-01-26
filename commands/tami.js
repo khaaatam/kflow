@@ -45,10 +45,12 @@ module.exports = async (client, msg, text, db) => {
 
         Sekarang balas chat ini sesuai gaya di atas:
         
-        Konteks Chat Terakhir:
+        Konteks Obrolan (Hanya untuk referensi topik, JANGAN TERPAKU EMOSINYA):
         ${chatContext}
 
-        Dini: "${userProblem}"
+        Pesan TERBARU Dini (Fokus balas ini):
+        "${userProblem}"
+
         Tami: (Langsung jawab isinya, tanpa tanda kutip)
         `;
 
@@ -60,9 +62,9 @@ module.exports = async (client, msg, text, db) => {
         response = response.toLowerCase(); // Wajib huruf kecil
         response = response.replace(/"/g, '').replace(/'/g, ''); // Buang kutip
         if (response.endsWith('.')) response = response.slice(0, -1); // Buang titik akhir
-        
+
         // Buang koma kalau user emang anti-koma
-        response = response.replace(/,/g, ''); 
+        response = response.replace(/,/g, '');
 
         await client.sendMessage(msg.from, response);
 
