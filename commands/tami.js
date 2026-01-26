@@ -26,22 +26,21 @@ module.exports = async (client, msg, text, db) => {
         return client.sendMessage(msg.from, "Kasih konteks dong. Misal: `!tami aku bingung nih` atau Reply chat kamu pake `!tami`.");
     }
 
-    // 3. TARIK GAYA BICARA (ADVANCED SAMPLING) 🧬
+    // 3. TARIK GAYA BICARA TAMI (VERSI HEMAT KUOTA) 📉
     const tamiStyle = await new Promise((resolve) => {
-        // Query ini ngambil 500 chat terakhir Tami, terus diacak, terus diambil 100
         const query = `
             SELECT pesan FROM (
                 SELECT pesan FROM full_chat_logs 
                 WHERE nama_pengirim LIKE '%Tami%' 
-                AND pesan NOT LIKE '!%'      -- Jangan ambil command
-                AND pesan NOT LIKE '⏳%'     -- Jangan ambil chat bot loading
-                AND pesan NOT LIKE 'Bot %'   -- Jangan ambil chat bot sistem
-                AND is_forwarded = 0         -- Wajib ketikan asli
-                AND LENGTH(pesan) > 10       -- Jangan ambil chat pendek "y", "ok" (biar AI belajar struktur kalimat)
-                ORDER BY id DESC LIMIT 500
+                AND pesan NOT LIKE '!%' 
+                AND pesan NOT LIKE '⏳%' 
+                AND pesan NOT LIKE 'Bot %' 
+                AND is_forwarded = 0 
+                AND LENGTH(pesan) > 10 
+                ORDER BY id DESC LIMIT 200 -- Ambil dari pool 200 terakhir aja
             ) AS subquery
             ORDER BY RAND() 
-            LIMIT 100
+            LIMIT 30 -- 👈 TURUNIN JADI 30 (Biar gak kena Limit 429)
         `;
         db.query(query, (err, rows) => {
             if (err || !rows) resolve("");
