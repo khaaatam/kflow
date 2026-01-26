@@ -23,7 +23,7 @@ const database = {
 const ai = {
     // SEKARANG DIA BACA DARI FILE .ENV (Bukan Hardcoded lagi)
     apiKey: process.env.GEMINI_API_KEY,
-    modelName: "gemini-2.0-flash-lite" // Ganti ke model terbaru yang valid
+    modelName: "gemini-2.5-flash-lite" // Ganti ke model terbaru yang valid
 };
 
 // 4. SYSTEM CONFIG
