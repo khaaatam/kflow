@@ -9,7 +9,7 @@ module.exports = async (client, msg, text, db) => {
     // 1. CEK TRIGGER
     if (!text.toLowerCase().startsWith('!tami')) return false;
 
-    await msg.react('🧬'); 
+    await msg.react('😎');
 
     // 2. TENTUKAN KONTEKS
     let userProblem = text.replace('!tami', '').trim();
@@ -83,7 +83,7 @@ module.exports = async (client, msg, text, db) => {
     try {
         const result = await model.generateContent(prompt);
         let response = result.response.text().trim();
-        
+
         // --- ⚡ FILTER STRUKTUR (HARDCORE RULES) ⚡ ---
         // Kita cuma paksa struktur dasar (huruf kecil & tanda baca)
         // Masalah singkatan kata, kita percayakan ke AI yang udah baca sampel.
