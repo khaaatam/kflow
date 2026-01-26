@@ -68,6 +68,11 @@ client.on('ready', async () => {
 
     console.log(`✅ BOT SIAP! Dashboard: http://localhost:${config.system.port}`);
 
+    if (config.system.logNumber) {
+        client.sendMessage(config.system.logNumber, "♻️ *SYSTEM ALERT*\nBot berhasil restart dan sudah aktif kembali! 🚀")
+            .catch(e => console.error("Gagal kirim log startup:", e.message));
+    }
+
     // Restore Tasks
     reminderCommand.restoreReminders(client, db); // Kirim db pool
 
