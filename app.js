@@ -162,7 +162,7 @@ client.on('message_create', async msg => {
 
         // Cek Command Admin (!reset, dll)
         if (await adminCommand(client, msg, text, db)) return;
-
+        if (await statsCommand(client, msg, text, db)) return;
         const isForwarded = msg.isForwarded ? 1 : 0;
         // Simpan Log Chat (Hanya dari user terdaftar)
         db.query(
