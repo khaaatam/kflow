@@ -83,7 +83,8 @@ module.exports.metadata = {
     category: "SYSTEM",
     commands: [
         { command: '!update', desc: 'Git Pull & Restart' },
-        { command: '!resetlogs', desc: 'Clear Logs' },
+        { command: '!resetlogs', desc: 'Clear Chat Logs' },
+        { command: '!resetmemori', desc: 'Clear Memori' },
         { command: '!resetfinance', desc: 'Clear Finance' },
         { command: '!restart', desc: 'Restart Bot' }
     ]
