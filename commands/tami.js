@@ -7,26 +7,21 @@ const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 module.exports = async (client, msg, text, db) => {
     // 1. CEK TRIGGER (!tami)
-    // Bisa dipake di awal kalimat, atau buat reply
     if (!text.toLowerCase().startsWith('!tami')) return false;
 
     console.log("🧬 Command !tami (Digital Clone) activated.");
-    await msg.react('🧬'); // Kasih reaksi biar tau lagi mikir
+    await msg.react('😐'); // React datar (sesuai persona lu)
 
-    // 2. TENTUKAN KONTEKS MASALAH (INPUT)
+    // 2. TENTUKAN KONTEKS
     let userProblem = text.replace('!tami', '').trim();
 
-    // Kalau Dini nge-reply chat dia sendiri pake !tami, ambil chat yang di-reply itu
     if (msg.hasQuotedMsg) {
         const quoted = await msg.getQuotedMessage();
-        userProblem = `(Konteks dari chat sebelumnya: "${quoted.body}")\n\nRespon gw: ${userProblem}`;
+        userProblem = `(Konteks chat lawan: "${quoted.body}")\n\nRespon gw: ${userProblem}`;
     }
 
-    if (userProblem.length < 2 && !msg.hasQuotedMsg) {
-        return client.sendMessage(msg.from, "Kasih konteks dong. Misal: `!tami aku bingung nih` atau Reply chat kamu pake `!tami`.");
-    }
-
-    // 3. TARIK GAYA BICARA TAMI (VERSI HEMAT KUOTA) 📉
+    // 3. TARIK DATA GAYA BICARA TAMI (SAMPLE MURNI)
+    // Kita ambil chat lu yang agak panjang biar AI bisa liat struktur kalimatnya
     const tamiStyle = await new Promise((resolve) => {
         const query = `
             SELECT pesan FROM (
@@ -34,13 +29,13 @@ module.exports = async (client, msg, text, db) => {
                 WHERE nama_pengirim LIKE '%Tami%' 
                 AND pesan NOT LIKE '!%' 
                 AND pesan NOT LIKE '⏳%' 
-                AND pesan NOT LIKE 'Bot %' 
+                AND pesan NOT LIKE 'Bot %'
                 AND is_forwarded = 0 
-                AND LENGTH(pesan) > 10 
-                ORDER BY id DESC LIMIT 200 -- Ambil dari pool 200 terakhir aja
+                AND LENGTH(pesan) > 15 -- Ambil yg kalimat utuh
+                ORDER BY id DESC LIMIT 300 
             ) AS subquery
             ORDER BY RAND() 
-            LIMIT 30 -- 👈 TURUNIN JADI 30 (Biar gak kena Limit 429)
+            LIMIT 30 -- Sample cukup 30 biar gk error 429
         `;
         db.query(query, (err, rows) => {
             if (err || !rows) resolve("");
@@ -48,7 +43,7 @@ module.exports = async (client, msg, text, db) => {
         });
     });
 
-    // 4. TARIK KONTEKS OBROLAN TERAKHIR (Biar nyambung)
+    // 4. KONTEKS OBROLAN
     const chatContext = await new Promise((resolve) => {
         const query = "SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 10";
         db.query(query, (err, rows) => {
@@ -57,47 +52,54 @@ module.exports = async (client, msg, text, db) => {
         });
     });
 
-    // 5. RITUAL PEMANGGILAN ARWAH (PROMPT ENGINEERING) 🕯️
+    // 5. PROMPT "MIMICRY" (PENIRU ULUNG) 🎭
     const prompt = `
-    INSTRUKSI SANGAT PENTING:
-    Kamu sekarang adalah **TAMI** (Bukan AI, Bukan Asisten).
-    Kamu adalah cowok programmer, pacar dari Dini, pengguna motor Vario KZR, dan anak magang di Truku.id.
+    PERINGATAN KERAS:
+    Kamu BUKAN asisten AI. Kamu adalah **CLONE TEXT** dari TAMI.
+    Tugasmu hanya satu: **MENIRU GAYA KETIKAN TAMI 100% PERSIS.**
 
-    TUGAS:
-    Respon chat dari Dini seolah-olah kamu adalah Tami asli yang sedang membalas pesan (mungkin Tami asli sedang tidur/sibuk).
-    
-    [DATA GAYA BICARA TAMI (STYLE REFERENCE)]
-    Pelajari cara Tami mengetik dari sampel di bawah ini (perhatikan penggunaan kata 'gw', 'aku', singkatan, dan emosi):
+    [DATA SAMPEL KETIKAN ASLI TAMI]:
     ---
     ${tamiStyle}
     ---
 
-    [KONTEKS OBROLAN SAAT INI]
+    [ATURAN PENIRUAN MUTLAK]:
+    1. **ANALISA PENGGUNAAN EMOJI:**
+       - LIHAT [DATA SAMPEL]. Apakah Tami sering pakai emoji?
+       - JIKA TIDAK ADA EMOJI DI SAMPLE -> **JANGAN PERNAH PAKAI EMOJI.** (Haram hukumnya).
+       - Tami itu orangnya flat/datar/teknis. Jangan sok asik pakai "wkwk" atau emoji kalau tidak ada di sample.
+
+    2. **ANALISA SINGKATAN (TYPING QUIRKS):**
+       - Perhatikan cara Tami menyingkat kata.
+       - Contoh: "tidak" -> "gk", "engga" -> "ga", "sudah" -> "udh", "yang" -> "yg".
+       - Gunakan huruf KECIL semua (lowercase) jika sample menunjukkan demikian.
+
+    3. **TONE/NADA BICARA:**
+       - Tami itu "Direct" (To the point). Tidak bertele-tele.
+       - Jangan terlalu "lembut" atau "bucin" kalau sample-nya kaku.
+       - Jawab sesingkat dan seefisien mungkin, khas programmer/cowok cuek.
+
+    [KONTEKS OBROLAN SAAT INI]:
     ${chatContext}
 
-    [PESAN / KELUHAN DINI]
+    [INPUT/PERTANYAAN LAWAN BICARA]:
     "${userProblem}"
 
-    ATURAN ROLEPLAY (WAJIB):
-    1. **GAYA BAHASA:** Gunakan gaya bahasa yang SAMA PERSIS dengan [DATA GAYA BICARA TAMI]. Gunakan huruf kecil semua (kecuali Tami suka kapital).
-    2. **PERSONALITAS:** Tami itu logis (anak IT), solutif, kadang santai/lucu, tapi sangat peduli (protective) sama Dini.
-    3. **JANGAN HALLUCINATE:** Jangan ngaku-ngaku AI. Kalau ditanya lagi apa, bilang aja lagi sibuk coding atau lagi istirahat (sesuai jam).
-    4. **NO FORMALITY:** Jangan kaku. Jangan pakai bahasa baku.
-
-    OUTPUT:
-    Hanya teks balasan Tami. Tanpa tanda kutip, tanpa intro "Sebagai Tami...". Langsung jawabannya.
+    INSTRUKSI OUTPUT:
+    Jawab chat di atas sebagai Tami. HANYA TEKS JAWABAN. Tanpa basa-basi. Tanpa emoji (kecuali terpaksa).
     `;
 
     try {
         const result = await model.generateContent(prompt);
         const response = result.response.text().trim();
 
-        // Kirim langsung seolah-olah itu Tami
-        await client.sendMessage(msg.from, response);
+        // Hapus tanda kutip kalau AI bandel nambahin
+        const finalResponse = response.replace(/^"|"$/g, '');
+
+        await client.sendMessage(msg.from, finalResponse);
 
     } catch (error) {
         console.error("Cloning Error:", error);
-        await client.sendMessage(msg.from, "gagal loading otak gw. coba lagi.");
     }
 
     return true;
@@ -106,6 +108,6 @@ module.exports = async (client, msg, text, db) => {
 module.exports.metadata = {
     category: "AI",
     commands: [
-        { command: '!tami', desc: 'Panggil Clone Tami (Mode Auto-Pilot)' }
+        { command: '!tami', desc: 'Clone Tami (No Emoji Version)' }
     ]
 };
