@@ -59,9 +59,15 @@ const observe = async (client, msg, db, namaPengirim) => {
 
             // Cek Duplikat di DB (Double Check)
             const [duplikat] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${memory}%`]);
-            if (config.system?.logNumber) {
-                const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
-                await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU* [${now}]\n"${memory}"`);
+            if (duplikat.length === 0) {
+                // 1. Simpan ke Database (PENTING!)
+                await db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
+
+                // 2. Kirim Log ke WA Owner
+                if (config.system?.logNumber) {
+                    const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+                    await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU* [${now}]\n"${memory}"`);
+                }
             }
         }
     } catch (e) {
