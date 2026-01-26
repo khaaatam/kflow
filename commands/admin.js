@@ -11,14 +11,11 @@ module.exports = async (client, msg, text, db) => {
     }
 
     // --- 1. COMMAND: UPDATE SYSTEM (!update) ---
-    // Ini fitur yang lu minta biar gak usah buka Termux
     if (text === '!update' || text === '!gitpull') {
         await client.sendMessage(msg.from, "⏳ Sedang mengecek update dari GitHub...");
 
-        // Jalanin 'git pull' di terminal server
         exec('git pull', async (error, stdout, stderr) => {
             if (error) {
-                // Kalau ada error (misal conflict)
                 console.error(`Git Error: ${error.message}`);
                 return client.sendMessage(msg.from, `❌ Gagal Update:\n${error.message}`);
             }
@@ -27,13 +24,10 @@ module.exports = async (client, msg, text, db) => {
                 return client.sendMessage(msg.from, "✅ Kodingan udah paling baru, Bos. Gak ada update.");
             }
 
-            // Kalau ada update
             await client.sendMessage(msg.from, `✅ *UPDATE DITEMUKAN!*\n\nLog:\n${stdout}\n\n♻️ Bot sedang restart sendiri...`);
 
-            // Tunggu bentar biar pesan ke kirim, terus matikan proses
             setTimeout(() => {
                 process.exit(0);
-                // PM2 bakal otomatis nyalain lagi (Restart) dengan kode baru
             }, 2000);
         });
         return true;
@@ -66,6 +60,22 @@ module.exports = async (client, msg, text, db) => {
         return true;
     }
 
+    // --- 5. COMMAND: HAPUS DATA KEUANGAN (!resetfinance) ---
+    // 👇 INI FITUR BARU YANG LU MINTA 👇
+    if (text === '!resetfinance' || text === '!clearfinance') {
+        await client.sendMessage(msg.from, "⚠️ *BAHAYA:* Sedang menghapus SEMUA DATA TRANSAKSI KEUANGAN...");
+        
+        db.query("TRUNCATE TABLE transaksi", (err) => {
+            if (err) {
+                console.error(err);
+                client.sendMessage(msg.from, "❌ Gagal reset database finance.");
+            } else {
+                client.sendMessage(msg.from, "💸 *DOMPET KOSONG!* Seluruh riwayat pemasukan & pengeluaran sudah dihapus permanen. Mulai dari nol ya!");
+            }
+        });
+        return true;
+    }
+
     return false;
 };
 
@@ -76,6 +86,7 @@ module.exports.metadata = {
         { command: '!update', desc: 'Tarik update dari GitHub (Auto Restart)' },
         { command: '!resetlogs', desc: 'Hapus Chat History (Admin Only)' },
         { command: '!resetmemori', desc: 'Hapus Memori Fakta (Admin Only)' },
+        { command: '!resetfinance', desc: 'Hapus Data Keuangan (Admin Only)' },
         { command: '!resetbot', desc: 'Restart Bot (Admin Only)' }
     ]
 };
