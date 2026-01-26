@@ -6,22 +6,20 @@ const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 module.exports = async (client, msg, text, db) => {
-    // 1. CEK TRIGGER (!tami)
+    // 1. CEK TRIGGER
     if (!text.toLowerCase().startsWith('!tami')) return false;
 
-    console.log("🧬 Command !tami (Digital Clone) activated.");
-    await msg.react('😐'); // React datar (sesuai persona lu)
+    await msg.react('🧬'); 
 
     // 2. TENTUKAN KONTEKS
     let userProblem = text.replace('!tami', '').trim();
-
     if (msg.hasQuotedMsg) {
         const quoted = await msg.getQuotedMessage();
         userProblem = `(Konteks chat lawan: "${quoted.body}")\n\nRespon gw: ${userProblem}`;
     }
 
-    // 3. TARIK DATA GAYA BICARA TAMI (SAMPLE MURNI)
-    // Kita ambil chat lu yang agak panjang biar AI bisa liat struktur kalimatnya
+    // 3. TARIK SAMPLE CHAT TAMI (SUMBER BELAJAR)
+    // Kita ambil 40 chat acak biar AI punya cukup data buat nebak pola singkatan lu
     const tamiStyle = await new Promise((resolve) => {
         const query = `
             SELECT pesan FROM (
@@ -31,11 +29,11 @@ module.exports = async (client, msg, text, db) => {
                 AND pesan NOT LIKE '⏳%' 
                 AND pesan NOT LIKE 'Bot %'
                 AND is_forwarded = 0 
-                AND LENGTH(pesan) > 15 -- Ambil yg kalimat utuh
+                AND LENGTH(pesan) > 5 
                 ORDER BY id DESC LIMIT 300 
             ) AS subquery
             ORDER BY RAND() 
-            LIMIT 30 -- Sample cukup 30 biar gk error 429
+            LIMIT 40 
         `;
         db.query(query, (err, rows) => {
             if (err || !rows) resolve("");
@@ -43,7 +41,7 @@ module.exports = async (client, msg, text, db) => {
         });
     });
 
-    // 4. KONTEKS OBROLAN
+    // 4. KONTEKS OBROLAN TERAKHIR
     const chatContext = await new Promise((resolve) => {
         const query = "SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 10";
         db.query(query, (err, rows) => {
@@ -52,51 +50,46 @@ module.exports = async (client, msg, text, db) => {
         });
     });
 
-    // 5. PROMPT "MIMICRY" (PENIRU ULUNG) 🎭
+    // 5. PROMPT "STYLE EXTRACTION" (OTAK UTAMA)
     const prompt = `
-    PERINGATAN KERAS:
-    Kamu BUKAN asisten AI. Kamu adalah **CLONE TEXT** dari TAMI.
-    Tugasmu hanya satu: **MENIRU GAYA KETIKAN TAMI 100% PERSIS.**
+    Kamu adalah CLONE TEXT dari TAMI.
+    Tugasmu: Balas pesan lawan bicara dengan meniru GAYA KETIKAN TAMI dari data sampel.
 
-    [DATA SAMPEL KETIKAN ASLI TAMI]:
+    [DATA SAMPEL CHAT ASLI TAMI]:
     ---
     ${tamiStyle}
     ---
 
-    [ATURAN PENIRUAN MUTLAK]:
-    1. **ANALISA PENGGUNAAN EMOJI:**
-       - LIHAT [DATA SAMPEL]. Apakah Tami sering pakai emoji?
-       - JIKA TIDAK ADA EMOJI DI SAMPLE -> **JANGAN PERNAH PAKAI EMOJI.** (Haram hukumnya).
-       - Tami itu orangnya flat/datar/teknis. Jangan sok asik pakai "wkwk" atau emoji kalau tidak ada di sample.
+    [INSTRUKSI ANALISA GAYA - WAJIB DIPATUHI]:
+    1. **ANALISA SINGKATAN (AUTO-LEARN):** - Lihat sampel di atas! Bagaimana Tami menyingkat kata-kata umum?
+       - Contoh: Cek apakah Tami menulis "yang" sebagai "yg"? "sudah" sebagai "udh"? "enggak" sebagai "gk/ga"?
+       - **TIRU PERSIS** singkatan yang kamu temukan di sampel. Jangan pakai ejaan baku jika Tami tidak memakainya.
+    
+    2. **STRUKTUR KALIMAT:**
+       - Tami tidak suka basa-basi. Langsung ke inti.
+       - Tami jarang pakai tanda baca lengkap (titik/koma).
+       - JANGAN PERNAH PAKAI EMOJI (Kecuali di sampel banyak emoji).
 
-    2. **ANALISA SINGKATAN (TYPING QUIRKS):**
-       - Perhatikan cara Tami menyingkat kata.
-       - Contoh: "tidak" -> "gk", "engga" -> "ga", "sudah" -> "udh", "yang" -> "yg".
-       - Gunakan huruf KECIL semua (lowercase) jika sample menunjukkan demikian.
-
-    3. **TONE/NADA BICARA:**
-       - Tami itu "Direct" (To the point). Tidak bertele-tele.
-       - Jangan terlalu "lembut" atau "bucin" kalau sample-nya kaku.
-       - Jawab sesingkat dan seefisien mungkin, khas programmer/cowok cuek.
-
-    [KONTEKS OBROLAN SAAT INI]:
+    [KONTEKS CHAT SAAT INI]:
     ${chatContext}
 
-    [INPUT/PERTANYAAN LAWAN BICARA]:
+    [PESAN LAWAN]:
     "${userProblem}"
 
-    INSTRUKSI OUTPUT:
-    Jawab chat di atas sebagai Tami. HANYA TEKS JAWABAN. Tanpa basa-basi. Tanpa emoji (kecuali terpaksa).
+    Jawablah pesan lawan dengan gaya Tami yang sudah kamu pelajari dari sampel.
+    HANYA TEKS JAWABAN.
     `;
 
     try {
         const result = await model.generateContent(prompt);
-        const response = result.response.text().trim();
+        let response = result.response.text().trim();
+        
+        // --- ⚡ FILTER STRUKTUR (HARDCORE RULES) ⚡ ---
+        // Kita cuma paksa struktur dasar (huruf kecil & tanda baca)
+        // Masalah singkatan kata, kita percayakan ke AI yang udah baca sampel.
+        response = paksaStrukturTami(response);
 
-        // Hapus tanda kutip kalau AI bandel nambahin
-        const finalResponse = response.replace(/^"|"$/g, '');
-
-        await client.sendMessage(msg.from, finalResponse);
+        await client.sendMessage(msg.from, response);
 
     } catch (error) {
         console.error("Cloning Error:", error);
@@ -105,9 +98,32 @@ module.exports = async (client, msg, text, db) => {
     return true;
 };
 
+// --- FUNGSI FORMATTING DASAR ---
+// (Gak ada kamus kata lagi disini, murni formatting)
+function paksaStrukturTami(text) {
+    // 1. Paksa huruf kecil semua (Sesuai request lu)
+    let clean = text.toLowerCase();
+
+    // 2. Buang tanda kutip aneh dari output AI
+    clean = clean.replace(/"/g, '').replace(/'/g, '');
+
+    // 3. Buang koma (User bilang jarang pake koma)
+    clean = clean.replace(/,/g, '');
+
+    // 4. Buang titik di akhir kalimat
+    if (clean.endsWith('.')) {
+        clean = clean.slice(0, -1);
+    }
+
+    // 5. Buang spasi ganda
+    clean = clean.replace(/\s+/g, ' ');
+
+    return clean;
+}
+
 module.exports.metadata = {
     category: "AI",
     commands: [
-        { command: '!tami', desc: 'Clone Tami (No Emoji Version)' }
+        { command: '!tami', desc: 'Clone Tami (Auto-Learn Style)' }
     ]
 };
