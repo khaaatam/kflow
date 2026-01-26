@@ -11,18 +11,15 @@ const formatRupiah = (angka) => {
 
 module.exports = async (client, msg, text, db) => {
     const cmd = text.toLowerCase();
-    
-    // 1. FILTER: Cek apakah ini command Finance?
-    // List command yang valid buat modul ini
-    const financeKeywords = ['!catat', '!catet', '!saldo', '!dompet', '!today', '!in', '!out'];
-    
-    // Kalau text depannya GAK ADA di list keywords -> STOP.
-    // Ini biar bot gak buang resource nyari nama pengirim buat chat biasa.
-    const isFinanceCmd = financeKeywords.some(key => cmd.startsWith(key));
-    if (!isFinanceCmd) return false; 
 
-    // 2. AMBIL NAMA PENGIRIM (SAFE MODE - ANTI CRASH)
-    let namaPengirim = "Bos Tami"; 
+    // 1. FILTER: Cek apakah ini command Finance?
+    const financeKeywords = ['!catat', '!catet', '!saldo', '!dompet', '!today', '!in', '!out'];
+    const isFinanceCmd = financeKeywords.some(key => cmd.startsWith(key));
+
+    if (!isFinanceCmd) return false;
+
+    // 2. AMBIL NAMA PENGIRIM (SAFE MODE)
+    let namaPengirim = "Bos Tami";
     try {
         const contact = await msg.getContact();
         namaPengirim = contact.pushname || contact.name || "Bos Tami";
@@ -36,12 +33,12 @@ module.exports = async (client, msg, text, db) => {
     // --- FITUR 1: AI SMART RECORDER (!catat / !catet) ---
     if (cmd.startsWith('!catat') || cmd.startsWith('!catet')) {
         const curhatan = rawText.replace(/!cat(a|e)t/i, '').trim();
-        
+
         if (!curhatan) {
             return client.sendMessage(chatDestination, "⚠️ Mau nyatet apa?\nContoh: `!catat beli nasi padang 25rb sama bayar parkir 2000`");
         }
 
-        await msg.react('💸'); 
+        await msg.react('💸');
 
         const prompt = `
         Role: Asisten Keuangan Pribadi.
@@ -50,20 +47,32 @@ module.exports = async (client, msg, text, db) => {
         [ATURAN]:
         1. Ubah "20k" jadi 20000, "5jt" jadi 5000000.
         2. Tentukan "jenis": "masuk" (gaji/nemu) ATAU "keluar" (beli/bayar).
-        [OUTPUT JSON ONLY]: [{"jenis": "keluar", "nominal": 20000, "keterangan": "Bensin"}]
+        [OUTPUT JSON ONLY]: 
+        [{"jenis": "keluar", "nominal": 20000, "keterangan": "Bensin"}]
+        JANGAN ADA TEKS LAIN SELAIN JSON ARRAY DI ATAS.
         `;
 
         try {
             const result = await model.generateContent(prompt);
-            const responseText = result.response.text().replace(/```json|```/g, '').trim();
-            const transactions = JSON.parse(responseText);
+            let rawResponse = result.response.text();
+
+            // 🔥 FIX UTAMA: JSON EXTRACTOR 🔥
+            // Kita cari teks yang diawali '[' dan diakhiri ']'
+            // Mau AI ngomong "Ini json nya bang: [...]", kita ambil [...] nya doang.
+            const jsonMatch = rawResponse.match(/\[[\s\S]*\]/);
+
+            if (!jsonMatch) {
+                throw new Error("AI tidak mengembalikan format JSON yang valid");
+            }
+
+            const transactions = JSON.parse(jsonMatch[0]); // Ambil hasil match regex
 
             let laporan = `✅ *TRANSAKSI BERHASIL DICATAT*\nUser: ${namaPengirim}\n\n`;
 
             for (const t of transactions) {
                 let jenisFix = t.jenis.toLowerCase();
-                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar'; 
-                
+                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar';
+
                 await new Promise((resolve) => {
                     const sql = "INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?)";
                     db.query(sql, [jenisFix, t.nominal, t.keterangan, namaPengirim], (err) => resolve());
@@ -78,7 +87,7 @@ module.exports = async (client, msg, text, db) => {
 
         } catch (error) {
             console.error("AI Finance Error:", error);
-            await client.sendMessage(chatDestination, "❌ Gagal mencerna. Coba pake angka jelas.");
+            await client.sendMessage(chatDestination, "❌ Gagal mencerna. Pastikan nominal jelas.");
         }
         return true;
     }
@@ -155,7 +164,7 @@ module.exports = async (client, msg, text, db) => {
     return false;
 };
 
-// 👇 NAH INI DIA YANG TADI KETINGGALAN 👇
+// METADATA MENU
 module.exports.metadata = {
     category: "KEUANGAN",
     commands: [
