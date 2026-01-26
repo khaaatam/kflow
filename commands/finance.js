@@ -6,20 +6,22 @@ const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 const formatRupiah = (angka) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+    // Safety check: Kalau bukan angka, paksa jadi 0
+    const val = Number(angka) || 0;
+    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
 };
 
 module.exports = async (client, msg, text, db) => {
     const cmd = text.toLowerCase();
-
+    
     // 1. FILTER: Cek apakah ini command Finance?
     const financeKeywords = ['!catat', '!catet', '!saldo', '!dompet', '!today', '!in', '!out'];
     const isFinanceCmd = financeKeywords.some(key => cmd.startsWith(key));
 
-    if (!isFinanceCmd) return false;
+    if (!isFinanceCmd) return false; 
 
-    // 2. AMBIL NAMA PENGIRIM (SAFE MODE)
-    let namaPengirim = "Bos Tami";
+    // 2. AMBIL NAMA PENGIRIM
+    let namaPengirim = "Bos Tami"; 
     try {
         const contact = await msg.getContact();
         namaPengirim = contact.pushname || contact.name || "Bos Tami";
@@ -30,15 +32,15 @@ module.exports = async (client, msg, text, db) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
     const rawText = msg.body;
 
-    // --- FITUR 1: AI SMART RECORDER (!catat / !catet) ---
+    // --- FITUR 1: AI SMART RECORDER (!catat) ---
     if (cmd.startsWith('!catat') || cmd.startsWith('!catet')) {
         const curhatan = rawText.replace(/!cat(a|e)t/i, '').trim();
-
+        
         if (!curhatan) {
             return client.sendMessage(chatDestination, "⚠️ Mau nyatet apa?\nContoh: `!catat beli nasi padang 25rb sama bayar parkir 2000`");
         }
 
-        await msg.react('💸');
+        await msg.react('💸'); 
 
         const prompt = `
         Role: Asisten Keuangan Pribadi.
@@ -56,23 +58,18 @@ module.exports = async (client, msg, text, db) => {
             const result = await model.generateContent(prompt);
             let rawResponse = result.response.text();
 
-            // 🔥 FIX UTAMA: JSON EXTRACTOR 🔥
-            // Kita cari teks yang diawali '[' dan diakhiri ']'
-            // Mau AI ngomong "Ini json nya bang: [...]", kita ambil [...] nya doang.
+            // JSON EXTRACTOR
             const jsonMatch = rawResponse.match(/\[[\s\S]*\]/);
+            if (!jsonMatch) throw new Error("AI tidak mengembalikan format JSON yang valid");
 
-            if (!jsonMatch) {
-                throw new Error("AI tidak mengembalikan format JSON yang valid");
-            }
-
-            const transactions = JSON.parse(jsonMatch[0]); // Ambil hasil match regex
+            const transactions = JSON.parse(jsonMatch[0]);
 
             let laporan = `✅ *TRANSAKSI BERHASIL DICATAT*\nUser: ${namaPengirim}\n\n`;
 
             for (const t of transactions) {
                 let jenisFix = t.jenis.toLowerCase();
-                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar';
-
+                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar'; 
+                
                 await new Promise((resolve) => {
                     const sql = "INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?)";
                     db.query(sql, [jenisFix, t.nominal, t.keterangan, namaPengirim], (err) => resolve());
@@ -87,7 +84,7 @@ module.exports = async (client, msg, text, db) => {
 
         } catch (error) {
             console.error("AI Finance Error:", error);
-            await client.sendMessage(chatDestination, "❌ Gagal mencerna. Pastikan nominal jelas.");
+            await client.sendMessage(chatDestination, "❌ Gagal mencerna. Coba pake angka jelas.");
         }
         return true;
     }
@@ -151,8 +148,14 @@ module.exports = async (client, msg, text, db) => {
 
             rows.forEach(r => {
                 const icon = r.jenis === 'masuk' ? '🟢' : '🔴';
-                rep += `\n${icon} ${formatRupiah(r.nominal)} - ${r.keterangan}`;
-                if (r.jenis === 'keluar') totalKeluar += r.nominal;
+                
+                // FIX NAN: Paksa nominal jadi Number sebelum dipake
+                const nom = Number(r.nominal);
+                
+                rep += `\n${icon} ${formatRupiah(nom)} - ${r.keterangan}`;
+                
+                // FIX NAN: Penjumlahan aman
+                if (r.jenis === 'keluar') totalKeluar += nom;
             });
 
             rep += `\n\n📉 *Total Keluar:* ${formatRupiah(totalKeluar)}`;
@@ -168,9 +171,9 @@ module.exports = async (client, msg, text, db) => {
 module.exports.metadata = {
     category: "KEUANGAN",
     commands: [
-        { command: '!catat', desc: 'Catat otomatis AI (Contoh: !catat beli nasi 15rb)' },
-        { command: '!in', desc: 'Catat pemasukan manual (Contoh: !in 50000 nemu duit)' },
-        { command: '!out', desc: 'Catat pengeluaran manual (Contoh: !out 20000 bensin)' },
+        { command: '!catat', desc: 'Catat otomatis AI' },
+        { command: '!in', desc: 'Catat pemasukan manual' },
+        { command: '!out', desc: 'Catat pengeluaran manual' },
         { command: '!saldo', desc: 'Cek sisa saldo & rekap' },
         { command: '!today', desc: 'Cek pengeluaran hari ini' }
     ]
