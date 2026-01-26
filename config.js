@@ -3,6 +3,7 @@ require('dotenv').config(); // <--- BARIS SAKTI: Load .env
 // 1. DAFTAR USER (WHITELIST)
 const users = {
     '6289608506367@c.us': 'Tami',
+    '62881081132332@c.us': "Tami2",
     '6283806618448@c.us': 'Dini'
 };
 
