@@ -15,6 +15,7 @@ const ayangCommand = require('./commands/ayang');
 const eventCommand = require('./commands/event');
 const statsCommand = require('./commands/stats');
 const saranCommand = require('./commands/saran');
+const tamiCommand = require('./commands/tami');
 
 // --- 1. SETUP SYSTEM ---
 process.on('uncaughtException', (err) => console.log('⚠️ Error (Abaikan):', err.message));
@@ -165,6 +166,7 @@ client.on('message_create', async msg => {
         if (await adminCommand(client, msg, text, db)) return;
         if (await statsCommand(client, msg, text, db)) return;
         if (await saranCommand(client, msg, text, db)) return;
+        if (await tamiCommand(client, msg, text, db)) return;
         const isForwarded = msg.isForwarded ? 1 : 0;
         // Simpan Log Chat (Hanya dari user terdaftar)
         db.query(
