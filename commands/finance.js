@@ -13,15 +13,15 @@ const formatRupiah = (angka) => {
 
 module.exports = async (client, msg, text, db) => {
     const cmd = text.toLowerCase();
-
+    
     // 1. FILTER: Cek apakah ini command Finance?
     const financeKeywords = ['!catat', '!catet', '!saldo', '!dompet', '!today', '!in', '!out'];
     const isFinanceCmd = financeKeywords.some(key => cmd.startsWith(key));
 
-    if (!isFinanceCmd) return false;
+    if (!isFinanceCmd) return false; 
 
     // 2. AMBIL NAMA PENGIRIM (SAFE MODE)
-    let namaPengirim = "Tami";
+    let namaPengirim = "Tami"; 
     try {
         const contact = await msg.getContact();
         namaPengirim = contact.pushname || contact.name || "Tami";
@@ -35,12 +35,12 @@ module.exports = async (client, msg, text, db) => {
     // --- FITUR 1: AI SMART RECORDER (!catat) ---
     if (cmd.startsWith('!catat') || cmd.startsWith('!catet')) {
         const curhatan = rawText.replace(/!cat(a|e)t/i, '').trim();
-
+        
         if (!curhatan) {
             return client.sendMessage(chatDestination, "⚠️ Mau nyatet apa?\nContoh: `!catat beli nasi padang 25rb sama bayar parkir 2000`");
         }
 
-        await msg.react('💸');
+        await msg.react('💸'); 
 
         const prompt = `
         Role: Asisten Keuangan Pribadi.
@@ -68,14 +68,15 @@ module.exports = async (client, msg, text, db) => {
 
             for (const t of transactions) {
                 let jenisFix = t.jenis.toLowerCase();
-                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar';
-
+                if (jenisFix !== 'masuk' && jenisFix !== 'keluar') jenisFix = 'keluar'; 
+                
                 await new Promise((resolve) => {
                     const sql = "INSERT INTO transaksi (jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?)";
                     db.query(sql, [jenisFix, t.nominal, t.keterangan, namaPengirim], (err) => resolve());
                 });
 
-                const icon = jenisFix === 'masuk' ? 'nm' : 'nr';
+                // 👇 INI YANG TADI SALAH KETIK 'nm'/'nr', SAYA GANTI EMOJI 👇
+                const icon = jenisFix === 'masuk' ? '🟢' : '🔴'; 
                 laporan += `${icon} *${t.keterangan}*: ${formatRupiah(t.nominal)}\n`;
             }
 
@@ -107,7 +108,8 @@ module.exports = async (client, msg, text, db) => {
         db.query(sql, [jenis, nominal, ket, namaPengirim], async (err) => {
             if (!err) {
                 try { await msg.react('✅'); } catch (e) { }
-                client.sendMessage(chatDestination, `✅ Tercatat: ${jenis.toUpperCase()} ${formatRupiah(nominal)} (${ket})`);
+                const icon = jenis === 'masuk' ? '🟢' : '🔴';
+                client.sendMessage(chatDestination, `✅ Tercatat: ${icon} ${formatRupiah(nominal)} (${ket})`);
             } else {
                 client.sendMessage(chatDestination, '❌ Database error.');
             }
@@ -127,7 +129,7 @@ module.exports = async (client, msg, text, db) => {
             const { masuk, keluar } = result[0];
             const saldo = masuk - keluar;
 
-            let status = saldo < 100000 ? "⚠️ *KRITIS!* Hemat bang." : "✅ *AMAN.*";
+            let status = saldo < 100000 ? "⚠️ *KRITIS!* Hemat dulu." : "✅ *AMAN.*";
             const reply = `💰 *DOMPET KEUANGAN*\n-------------------\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 *SALDO: ${formatRupiah(saldo)}*\n\n${status}`;
 
             client.sendMessage(chatDestination, reply);
@@ -148,15 +150,10 @@ module.exports = async (client, msg, text, db) => {
 
             rows.forEach(r => {
                 const icon = r.jenis === 'masuk' ? '🟢' : '🔴';
-
-                // FIX NAN: Paksa nominal jadi Number sebelum dipake
                 const nom = Number(r.nominal);
-
-                // 👇👇 INI YANG TADI ILANG, SEKARANG UDAH ADA 👇👇
-                // Nampilin nama pelaku transaksi [sumber]
+                
                 rep += `\n${icon} [${r.sumber}] ${formatRupiah(nom)} - ${r.keterangan}`;
-
-                // FIX NAN: Penjumlahan aman
+                
                 if (r.jenis === 'keluar') totalKeluar += nom;
             });
 
