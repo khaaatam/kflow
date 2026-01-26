@@ -49,25 +49,24 @@ const observe = async (client, msg, db, namaPengirim) => {
 
         // 4. Regex Parsing yang Lebih Aman
         const match = response.match(/\[\[SAVEMEMORY:\s*(.*?)\]\]/);
-        
+
         if (match && match[1]) {
             let memory = match[1].trim();
-            
+
             // Filter sampah manual
             const blacklist = ['lagi', 'sedang', 'akan', 'barusan', 'tadi', 'mungkin', '?'];
             if (blacklist.some(b => memory.toLowerCase().includes(b))) return;
 
             // Cek Duplikat di DB (Double Check)
             const [duplikat] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${memory}%`]);
-            if (duplikat.length === 0) {
-                console.log(`🧠 [MEMORI] ${memory}`);
-                await db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-                if (config.system?.logNumber) await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU:*\n"${memory}"`);
+            if (config.system?.logNumber) {
+                const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
+                await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU* [${now}]\n"${memory}"`);
             }
         }
-    } catch (e) { 
+    } catch (e) {
         // Silent fail biar gak spam console
-    } 
+    }
 };
 
 // --- INTERACT (!ai) ---
@@ -83,7 +82,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
     if (text.startsWith('!ai') || text.startsWith('!analisa')) {
         let promptUser = msg.body.replace(/!ai|!analisa/i, '').trim();
         let imagePart = null;
-        
+
         if (msg.hasMedia) {
             try {
                 const media = await msg.downloadMedia();
@@ -101,7 +100,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
             // RAG Limit 20
             const [m] = await db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 20");
             const [h] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs ORDER BY id DESC LIMIT 20");
-            
+
             const textM = m.map(x => `- ${x.fakta}`).join("\n");
             const textH = h.reverse().map(x => `${x.nama_pengirim}: ${x.pesan}`).join("\n");
 
