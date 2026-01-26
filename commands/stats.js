@@ -1,53 +1,53 @@
 const config = require('../config');
 
 module.exports = async (client, msg, text, db) => {
-    // 1. CEK TRIGGER (Wajib ada biar gak spam)
+    // 1. CEK TRIGGER
     if (text.toLowerCase() !== '!stats') return false;
 
-    console.log("📊 Command !stats triggered by", msg.from); // Cek terminal lu, muncul ini gk?
+    // Gak perlu loading-loadingan, biar cepet sat-set
 
-    await client.sendMessage(msg.from, "⏳ Sebentar, lagi kalkulasi data...");
-
-    // 2. HITUNG TOTAL CHAT HARI INI
+    // 2. HITUNG STATISTIK DINI (Chat Masuk Hari Ini)
+    // Kita filter: nama_pengirim BUKAN Tami (atau siapapun nama user lu di config)
+    // Jadi bot activity gak bakal keitung sama sekali.
     const statsHarian = await new Promise((resolve) => {
-        // Pake IFNULL biar kalau kosong tetep return 0
         const query = `
             SELECT 
                 COUNT(*) as total_chat,
                 SUM(CASE WHEN is_forwarded = 1 THEN 1 ELSE 0 END) as total_forward
             FROM full_chat_logs 
             WHERE DATE(created_at) = CURDATE()
+            AND nama_pengirim NOT LIKE '%Tami%' 
         `;
         db.query(query, (err, rows) => {
-            if (err) {
-                console.error("Error SQL Stats:", err); // Cek error SQL
-                resolve({ total_chat: 0, total_forward: 0 });
-            } else {
-                resolve(rows[0] || { total_chat: 0, total_forward: 0 });
-            }
+            resolve(rows[0] || { total_chat: 0, total_forward: 0 });
         });
     });
 
-    // 3. SIAPA YANG PALING BAWEL?
+    // 3. TOP BAWEL (Siapa yg paling sering ngechat lu hari ini?)
     const topUser = await new Promise((resolve) => {
         const query = `
             SELECT nama_pengirim, COUNT(*) as jumlah 
             FROM full_chat_logs 
             WHERE DATE(created_at) = CURDATE()
+            AND nama_pengirim NOT LIKE '%Tami%' 
             GROUP BY nama_pengirim 
             ORDER BY jumlah DESC 
             LIMIT 1
         `;
         db.query(query, (err, rows) => {
-            if (err || rows.length === 0) resolve({ nama_pengirim: 'Belum ada', jumlah: 0 });
+            if (err || rows.length === 0) resolve({ nama_pengirim: 'Sepi banget...', jumlah: 0 });
             else resolve(rows[0]);
         });
     });
 
-    // 4. WORD CLOUD (Cari kata populer)
+    // 4. KATA TRENDING (Dari chat orang lain ke lu)
     const topWord = await new Promise((resolve) => {
-        // Ambil 100 chat terakhir biar datanya agak banyak
-        db.query("SELECT pesan FROM full_chat_logs ORDER BY id DESC LIMIT 100", (err, rows) => {
+        const query = `
+            SELECT pesan FROM full_chat_logs 
+            WHERE nama_pengirim NOT LIKE '%Tami%' 
+            ORDER BY id DESC LIMIT 100
+        `;
+        db.query(query, (err, rows) => {
             if (err || !rows) resolve("-");
             else {
                 const allWords = rows.map(r => r.pesan).join(" ").toLowerCase();
@@ -56,9 +56,8 @@ module.exports = async (client, msg, text, db) => {
                 const frequency = {};
                 let maxCount = 0;
                 let mostFreq = "-";
-
-                // Kata yang di-ignore
-                const stopWords = ['yg', 'yang', 'di', 'ke', 'ini', 'itu', 'dan', 'aku', 'kamu', 'gw', 'ya', 'ga', 'gk', 'ada', 'lagi', 'apa', 'sih', 'mau', 'udah', 'bisa'];
+                // Kata sambung yg dibuang
+                const stopWords = ['yg', 'yang', 'di', 'ke', 'ini', 'itu', 'dan', 'aku', 'kamu', 'gw', 'ya', 'ga', 'gk', 'ada', 'lagi', 'apa', 'sih', 'mau', 'udah', 'bisa', 'tapi', 'sama', 'dong', 'banget', 'aja', 'mah', 'kok'];
 
                 words.forEach(w => {
                     if (w.length > 2 && !stopWords.includes(w)) {
@@ -74,29 +73,32 @@ module.exports = async (client, msg, text, db) => {
         });
     });
 
-    // 5. KIRIM HASIL
+    // 5. KIRIM LAPORAN
     const now = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
+    // Kita kasih judul "INCOMING TRAFFIC" biar jelas ini statistik chat masuk
     const reply = `
-📊 *STATISTIK CHAT HARI INI* ⏰ Update: ${now} WIB
+📊 *STATISTIK CHAT MASUK HARI INI*
+(Activity Orang Lain ke Tami)
+⏰ ${now} WIB
 
-💬 *Total Chat:* ${statsHarian.total_chat}
-↪️ *Forwarded:* ${statsHarian.total_forward}
+📨 *Total Chat Masuk:* ${statsHarian.total_chat}
+↪️ *Total Forward:* ${statsHarian.total_forward}
 
-🏆 *Top Bawel:*
+🏆 *Top Spam:*
 👑 **${topUser.nama_pengirim}** (${topUser.jumlah} chat)
 
-🔥 *Kata Trending (100 chat terakhir):*
+🔥 *Topik Mereka:*
 "${topWord}"
 `;
 
     await client.sendMessage(msg.from, reply);
-    return true; // Return true biar loop di app.js berhenti
+    return true;
 };
 
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
-        { command: '!stats', desc: 'Liat statistik chat hari ini' }
+        { command: '!stats', desc: 'Cek statistik chat masuk (Pure)' }
     ]
 };
