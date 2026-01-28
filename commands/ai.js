@@ -1,17 +1,14 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const config = require('../config');
 
-// Kita pake model sesuai pilihan lu di config.js (Gemini 2.5 Flash Lite)
 const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
-// --- OBSERVER (Auto Learn) ---
+// --- OBSERVER (Tetap Sama - Buat Ingat Fakta User) ---
 const observe = async (client, msg, db, namaPengirim) => {
     const text = msg.body;
-    // Filter: Abaikan pesan pendek
     if (text.length < 5 || text.split(' ').length < 2) return;
 
-    // Trigger words tetap
     const triggerWords = ['aku', 'gw', 'saya', 'suka', 'benci', 'pengen', 'mau', 'rumah', 'tinggal', 'anak', 'lahir', 'ultah', 'umur', 'jangan', 'kecewa', 'senang', 'marah', 'sedih'];
     if (!triggerWords.some(word => text.toLowerCase().includes(word))) return;
 
@@ -19,20 +16,12 @@ const observe = async (client, msg, db, namaPengirim) => {
         const [rowsChat] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs WHERE pesan NOT LIKE '!%' ORDER BY id DESC LIMIT 10");
         const contextHistory = rowsChat.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
 
-        const [rowsMem] = await db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 30");
-        const existingFacts = rowsMem.map(r => `- ${r.fakta}`).join("\n");
-
+        // Prompt Observer (Gak perlu dinamis, ini cuma engine pencatat)
         const promptObserver = `
-        Tugas: Ekstrak FAKTA BARU & PERMANEN tentang ${namaPengirim} dari chat terakhir.
-        [DATABASE FAKTA LAMA]:
-        ${existingFacts}
-        [CHAT TERAKHIR]:
-        ${contextHistory}
+        Tugas: Ekstrak FAKTA BARU user ${namaPengirim}.
+        Chat: ${contextHistory}
         User: "${text}"
-        ATURAN:
-        - Hanya catat info PENTING: Nama, Tanggal Lahir, Hobi, Tempat Tinggal, Status Hubungan.
-        - Output format: [[SAVEMEMORY: Isi Fakta]]
-        - Jika tidak ada fakta penting baru, output: KOSONG
+        Output: [[SAVEMEMORY: Fakta]] atau KOSONG
         `;
 
         const result = await model.generateContent(promptObserver);
@@ -41,37 +30,36 @@ const observe = async (client, msg, db, namaPengirim) => {
 
         if (match && match[1]) {
             let memory = match[1].trim();
-            const blacklist = ['lagi', 'sedang', 'akan', 'barusan', 'tadi', 'mungkin', '?'];
-            if (blacklist.some(b => memory.toLowerCase().includes(b))) return;
-
             const [duplikat] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${memory}%`]);
-
-            // --- FIX BUG LUPA INSERT ---
             if (duplikat.length === 0) {
-                // 1. Simpan ke Database DULU (Wajib!)
                 await db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-
-                // 2. Baru Lapor ke WA
                 console.log(`🧠 [MEMORI] ${memory}`);
-                if (config.system?.logNumber) {
-                    const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
-                    await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU* [${now}]\n"${memory}"`);
-                }
             }
         }
     } catch (e) { }
 };
 
-// --- INTERACT (!ai) ---
+// --- INTERACT (INI YANG KITA BIKIN DINAMIS!) ---
 const interact = async (client, msg, text, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
 
+    // 1. COMMAND: !setpersona (Buat Ganti Kepribadian via WA)
+    if (text.startsWith('!setpersona ')) {
+        const newPersona = msg.body.replace(/!setpersona/i, '').trim();
+        // Update database: Matikan yg lama, masukin yg baru
+        await db.query("UPDATE system_instruction SET is_active = 0");
+        await db.query("INSERT INTO system_instruction (instruction) VALUES (?)", [newPersona]);
+        return client.sendMessage(chatDestination, `✅ Siap! Kepribadian gw udah berubah jadi:\n"${newPersona}"`);
+    }
+
+    // 2. COMMAND: !ingat (Buat Nambah Fakta Spesifik)
     if (text.startsWith('!ingat ')) {
         const fakta = msg.body.replace(/!ingat/i, '').trim();
         await db.query("INSERT INTO memori (fakta) VALUES (?)", [fakta]);
-        return client.sendMessage(chatDestination, `✅ Oke, gw catet: "${fakta}"`);
+        return client.sendMessage(chatDestination, `✅ Oke, gw catet di memori jangka panjang: "${fakta}"`);
     }
 
+    // 3. LOGIC AI UTAMA
     if (text.startsWith('!ai') || text.startsWith('!analisa')) {
         let promptUser = msg.body.replace(/!ai|!analisa/i, '').trim();
         let imagePart = null;
@@ -90,48 +78,57 @@ const interact = async (client, msg, text, db, namaPengirim) => {
         await msg.react('👀');
 
         try {
-            // RAG Limit (Ambil konteks secukupnya)
+            // A. AMBIL SYSTEM INSTRUCTION DARI DATABASE (DYNAMIC PERSONA)
+            const [rowsInst] = await db.query("SELECT instruction FROM system_instruction WHERE is_active = 1 ORDER BY id DESC LIMIT 1");
+            const dynamicPersona = rowsInst.length > 0 ? rowsInst[0].instruction : "Kamu adalah AI asisten.";
+
+            // B. AMBIL MEMORI & HISTORY
             const [m] = await db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 20");
-            const [h] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs WHERE pesan NOT LIKE '!%' ORDER BY id DESC LIMIT 10");
+            const [h] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs WHERE pesan NOT LIKE '!%' ORDER BY id DESC LIMIT 15");
 
             const textM = m.map(x => `- ${x.fakta}`).join("\n");
-            // Format History kita kasih tanda biar AI tau ini "Record" bukan "Dialog Aktif"
-            const textH = h.reverse().map(x => `[History] ${x.nama_pengirim}: ${x.pesan}`).join("\n");
 
-            // PROMPT ANTI GOBLOK & ANTI PREFIX
+            // Sanitasi History (Anti Halu)
+            const textH = h.reverse().map(x => {
+                let cleanMsg = x.pesan.replace(/^(Dini|Tami|Bot|AI|Asisten):\s*/i, '');
+                cleanMsg = cleanMsg.replace(/^["']+|["']+$/g, '');
+                return `[${x.nama_pengirim}]: ${cleanMsg}`;
+            }).join("\n");
+
+            // C. RAKIT PROMPT DINAMIS
             const finalPrompt = `
-            ROLE: Kamu adalah AI Assistant yang cerdas.
-            
-            [CONTEXT MEMORY USER]:
+            [SYSTEM INSTRUCTION / PERSONA]:
+            ${dynamicPersona}
+            (PENTING: Patuhi instruksi persona di atas secara mutlak!)
+
+            [FAKTA USER (Memory)]:
             ${textM}
 
-            [CONTEXT HISTORY CHAT]:
+            [CHAT HISTORY]:
             ${textH}
 
-            [PERINTAH USER SAAT INI]:
+            [USER INPUT]:
             "${promptUser}"
 
-            ATURAN JAWAB (STRICT):
-            1. JAWAB LANGSUNG isinya. JANGAN pakai awalan nama seperti "Dini:", "Bot:", "AI:". HARAM.
-            2. Jika User minta "Parafrase" atau "Rewrite", TULIS ULANG kalimatnya dalam bahasa yang sama (Jangan Translate kecuali diminta).
-            3. Jika User minta "Translate", baru terjemahkan.
-            4. Gunakan bahasa yang santai tapi sopan.
+            [ATURAN TEKNIS]:
+            - JANGAN pakai prefix nama (contoh: "Bot:", "Dini:") di awal jawaban.
+            - JANGAN translate kecuali diminta.
+            - Jika diminta parafrase, tulis ulang dengan gaya persona di atas.
             `;
 
             const payload = imagePart ? [finalPrompt, imagePart] : [finalPrompt];
             const result = await model.generateContent(payload);
             let responseAi = result.response.text().trim();
 
-            // --- FILTER SCRIPT (SAFETY NET) ---
-            // Ini bakal ngehapus paksa kalau AI masih ngeyel nulis prefix
-            responseAi = responseAi.replace(/^(Dini|Tami|Bot|AI|Asisten):\s*/i, ''); // Hapus Nama:
-            responseAi = responseAi.replace(/^["']+|["']+$/g, ''); // Hapus tanda kutip di awal/akhir
+            // Safety Net
+            responseAi = responseAi.replace(/^(Dini|Tami|Bot|AI):\s*/i, '');
+            responseAi = responseAi.replace(/^["']+|["']+$/g, '');
 
             await client.sendMessage(chatDestination, responseAi);
 
         } catch (error) {
             console.error("AI Error:", error);
-            await client.sendMessage(chatDestination, "🤕 Otak gw nge-lag dikit. Coba lagi.");
+            await client.sendMessage(chatDestination, "🤕 Error bang, coba lagi.");
         }
     }
 };
@@ -141,7 +138,8 @@ module.exports = { interact, observe };
 module.exports.metadata = {
     category: "AI",
     commands: [
-        { command: '!ai [tanya]', desc: 'Tanya AI' },
-        { command: '!ingat [fakta]', desc: 'Ajari fakta baru' }
+        { command: '!ai [chat]', desc: 'Chat AI' },
+        { command: '!ingat [fakta]', desc: 'Simpan fakta' },
+        { command: '!setpersona [instruksi]', desc: 'Ubah sifat bot' } // MENU BARU
     ]
 };
