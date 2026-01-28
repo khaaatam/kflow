@@ -39,12 +39,28 @@ if (isTermux) {
 
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: puppeteerConfig
+    puppeteer: puppeteerConfig,
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html',
+    }
 });
 
 client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
     console.log('SCAN QR DI ATAS!');
+});
+
+client.on('loading_screen', (percent, message) => {
+    console.log(`⏳ LOADING: ${percent}% - ${message}`);
+});
+
+client.on('authenticated', () => {
+    console.log('🔐 AUTHENTICATED! (Sedang masuk...)');
+});
+
+client.on('auth_failure', (msg) => {
+    console.error('❌ AUTHENTICATION FAILURE:', msg);
 });
 
 client.on('ready', async () => {

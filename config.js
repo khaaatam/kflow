@@ -32,7 +32,7 @@ const system = {
     port: 3000,
     logNumber: '62881081132332@c.us',
     puppeteer: {
-        executablePath: '/data/data/com.termux/files/usr/bin/chromium-browser',
+        // executablePath: '/data/data/com.termux/files/usr/bin/chromium-browser',
         headless: true,
         args: [
             '--no-sandbox',
