@@ -4,24 +4,33 @@ const config = require('../config');
 const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
-// --- OBSERVER (DETEKTIF KEPO) ---
+// --- OBSERVER (DETEKTIF MEMORI) ---
 const observe = async (client, msg, db, namaPengirim) => {
     const text = msg.body;
 
-    // Filter pesan terlalu pendek
+    // 1. FILTER DASAR
     if (text.length < 5 || text.split(' ').length < 2) return;
+    if (text.startsWith('!') || text.startsWith('/')) return; // Skip Command
 
-    // Trigger words (Trigger masih sama, kata 'suka' udah ada)
-    const triggerWords = ['aku', 'gw', 'saya', 'suka', 'benci', 'pengen', 'mau', 'rumah', 'tinggal', 'anak', 'lahir', 'ultah', 'umur', 'jangan', 'kecewa', 'senang', 'marah', 'sedih', 'lapar', 'makan', 'minum'];
+    // 2. FILTER SAMPAH TEKNIS (PENTING! 🛡️)
+    // Kalau chat mengandung kata-kata ini, JANGAN dicatat sebagai memori.
+    const technicalTerms = ['bot', 'fitur', 'command', 'sistem', 'ai', 'gpt', 'analisa', 'respon', 'trigger', 'menu'];
+    if (technicalTerms.some(term => text.toLowerCase().includes(term))) return;
+
+    // 3. TRIGGER WORDS (FILTER EMOSI)
+    // Cuma jalan kalau ada kata kunci personal
+    const triggerWords = ['aku', 'gw', 'saya', 'suka', 'benci', 'pengen', 'mau', 'rumah', 'tinggal', 'anak', 'lahir', 'ultah', 'umur', 'jangan', 'kecewa', 'senang', 'marah', 'sedih', 'lapar', 'makan', 'minum', 'sakit', 'capek', 'lelah'];
+
     if (!triggerWords.some(word => text.toLowerCase().includes(word))) return;
 
     try {
+        // Ambil Konteks Chat (Tanpa Command)
         const [rowsChat] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs WHERE pesan NOT LIKE '!%' ORDER BY id DESC LIMIT 10");
         const contextHistory = rowsChat.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
 
-        // 👇👇 INI YANG DIPERBAIKI (Prompt Lebih Luas) 👇👇
+        // 👇 PROMPT YANG LEBIH GALAK 👇
         const promptObserver = `
-        Tugas: Kamu adalah pencatat memori. Ekstrak FAKTA UNIK/BARU tentang ${namaPengirim}.
+        Tugas: Kamu adalah pencatat memori. Ekstrak FAKTA PERSONAL USER (${namaPengirim}).
         
         [KONTEKS CHAT]:
         ${contextHistory}
@@ -29,11 +38,13 @@ const observe = async (client, msg, db, namaPengirim) => {
         [INPUT USER]:
         "${text}"
         
-        ATURAN PENCATATAN (WAJIB):
-        1. Catat SEGALA preferensi: Makanan kesukaan, hobi, kebiasaan, sifat, atau opini kuat.
-        2. CONTOH YANG HARUS DICATAT: "Suka nasi goreng", "Gak suka pedes", "Bangun siang", "Lagi sakit".
-        3. Format Output: [[SAVEMEMORY: Isi Fakta Singkat Padat]]
-        4. Jika tidak ada fakta spesifik, Output: KOSONG
+        ATURAN WAJIB (DO & DON'T):
+        ✅ CATAT: Preferensi makanan, hobi, kondisi fisik (sakit/sehat), perasaan, hubungan, cita-cita.
+        ❌ JANGAN CATAT: Interaksi dengan bot, penggunaan fitur/command, atau hal teknis (Contoh: "User menggunakan fitur saran" -> HIRAIKAN!).
+        ❌ JANGAN CATAT: Pendapat sesaat yang tidak penting.
+        
+        Output Format: [[SAVEMEMORY: Isi Fakta Singkat Padat]]
+        Jika tidak ada fakta personal yang valid, Output: KOSONG
         `;
 
         const result = await model.generateContent(promptObserver);
@@ -43,9 +54,12 @@ const observe = async (client, msg, db, namaPengirim) => {
         if (match && match[1]) {
             let rawMemory = match[1].trim();
 
-            // Simpan pake format Nama biar jelas
+            // Double Filter: Kalau hasil memory-nya masih bau-bau teknis, buang.
+            if (technicalTerms.some(term => rawMemory.toLowerCase().includes(term))) return;
+
             const finalMemory = `[${namaPengirim}] ${rawMemory}`;
 
+            // Cek Duplikat
             const [duplikat] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${rawMemory}%`]);
 
             if (duplikat.length === 0) {
@@ -60,10 +74,12 @@ const observe = async (client, msg, db, namaPengirim) => {
                 }
             }
         }
-    } catch (e) { }
+    } catch (e) {
+        // Silent error biar gak spam console
+    }
 };
 
-// --- INTERACT (LOGIC SAMA KAYAK KEMAREN) ---
+// --- INTERACT (CHAT AI BIASA) ---
 const interact = async (client, msg, text, db, namaPengirim) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
 
@@ -113,7 +129,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
             [MEMORY]: ${textM}
             [HISTORY]: ${textH}
             [USER]: "${promptUser}"
-            [INSTRUCTION]: No prefix (Bot:), No translate.
+            [INSTRUCTION]: No prefix (Bot:), No translate. Jawab natural.
             `;
 
             const payload = imagePart ? [finalPrompt, imagePart] : [finalPrompt];
