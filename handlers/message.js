@@ -12,7 +12,7 @@ const commands = {
     stats: require('../commands/stats'),
     saran: require('../commands/saran'),
     tami: require('../commands/tami'),
-    sticker: require('../commands/sticker')
+    sticker: require('../commands/sticker'),
     downloader: require('../commands/downloader')
 };
 
