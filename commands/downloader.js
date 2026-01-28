@@ -1,8 +1,6 @@
 const config = require('../config');
-// Import library lama (buat YT & TikTok)
-const { ttdl, youtube } = require('btch-downloader');
-// Import library baru (buat FB & IG)
-const { ndown, tikdown, ytdown } = require('nayan-media-downloader');
+// 👇 KITA PAKE LIBRARY BARU: api-dylux
+const { tiktok, instagram, facebook, youtube } = require('api-dylux');
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -13,80 +11,82 @@ module.exports = async (client, msg, text) => {
 
         const url = match[0];
 
-        // --- 1. TIKTOK DOWNLOADER (Dual Engine) ---
+        // --- 1. TIKTOK DOWNLOADER ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
-                // Coba engine 1 (btch)
-                let data = await ttdl(url);
-                let videoUrl = data.url || data.video || data.nowm;
-                
-                // Kalau engine 1 gagal, coba engine 2 (nayan)
-                if (!videoUrl) {
-                    console.log("⚠️ Engine 1 gagal, coba Engine 2...");
-                    const data2 = await tikdown(url);
-                    videoUrl = data2.data?.video || data2.data?.nowm;
-                }
+                // api-dylux biasanya balikin object simple
+                const data = await tiktok(url);
 
-                if (!videoUrl) return msg.reply("❌ Gagal download TikTok (Dua engine nyerah).");
+                // Cek data (Spy Mode)
+                console.log(`🎵 TikTok Data:`, data);
+
+                // Ambil video (HD > SD > Nowm)
+                const videoUrl = data.hdplay || data.play || data.nowm;
+
+                if (!videoUrl) return msg.reply("❌ Gagal. Video tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                    caption: `🎵 *TikTok Downloader*`
+                    caption: `🎵 *TikTok Downloader*\nAuthor: ${data.nickname || '-'}\nDesc: ${data.title || '-'}`
                 });
             } catch (e) {
-                console.error(e);
-                await msg.reply("❌ Error TikTok.");
+                console.error("TikTok Error:", e);
+                await msg.reply("❌ Gagal download TikTok.");
             }
             return true;
         }
 
-        // --- 2. INSTAGRAM DOWNLOADER (Pake Nayan - Lebih Stabil) ---
+        // --- 2. INSTAGRAM DOWNLOADER ---
         if (url.includes('instagram.com')) {
             await msg.react('⏳');
             try {
-                const data = await ndown(url);
-                if (!data.data || data.data.length === 0) return msg.reply("❌ Gagal/Private Account.");
+                const data = await instagram(url);
+                // IG api-dylux biasanya balikin array url (data.url_list atau langsung array)
+                console.log(`📸 IG Data:`, data);
 
-                // Kirim semua slide (max 5)
-                for (let i = 0; i < Math.min(data.data.length, 5); i++) {
-                    const mediaUrl = data.data[i].url;
-                    await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }));
+                let mediaList = [];
+                if (Array.isArray(data)) mediaList = data;
+                else if (data.url_list) mediaList = data.url_list;
+                else if (data.url) mediaList = [data.url];
+
+                if (mediaList.length === 0) return msg.reply("❌ Gagal/Private Account.");
+
+                // Kirim max 5 slide
+                for (let i = 0; i < Math.min(mediaList.length, 5); i++) {
+                    // Filter: Pastikan URL valid
+                    if (mediaList[i]) {
+                        await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaList[i], { unsafeMime: true }));
+                    }
                 }
             } catch (e) {
-                await msg.reply("❌ Gagal IG.");
+                console.error("IG Error:", e);
+                await msg.reply("❌ Gagal IG (Mungkin Private/Login Required).");
             }
             return true;
         }
 
-        // --- 3. FACEBOOK DOWNLOADER (WAJIB GANTI INI) ---
+        // --- 3. FACEBOOK DOWNLOADER ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                console.log(`🔍 Mencoba FB Nayan untuk: ${url}`);
-                
-                // Pake Library Baru (Nayan)
-                const data = await ndown(url);
-                
-                // Debugging (Spy Mode)
-                console.log("📦 FB RESULT:", JSON.stringify(data, null, 2));
+                console.log(`🔍 FB Try: ${url}`);
+                const data = await facebook(url);
+                console.log(`📦 FB Data:`, JSON.stringify(data, null, 2));
 
-                if (!data.status || !data.data) return msg.reply("❌ Gagal ambil data FB (Server Down/Private).");
+                // api-dylux biasanya format: { hd: 'url...', sd: 'url...', ... }
+                // atau array: [{ quality: 'HD', url: '...' }]
 
-                // Cari video HD atau SD
-                // Nayan biasanya ngasih array, kita cari yang .url nya ada mp4
                 let videoUrl = null;
-                
-                // Cek struktur data nayan (biasanya array of objects)
-                if (Array.isArray(data.data)) {
-                    // Prioritas cari yang HD
-                    const hdVideo = data.data.find(v => v.quality === 'HD' || v.url.includes('hd'));
-                    const sdVideo = data.data.find(v => v.quality === 'SD' || v.url.includes('sd'));
-                    videoUrl = (hdVideo || sdVideo || data.data[0]).url;
+
+                if (Array.isArray(data)) {
+                    const hd = data.find(x => x.quality === 'HD');
+                    const sd = data.find(x => x.quality === 'SD');
+                    videoUrl = (hd || sd || data[0]).url;
                 } else {
-                    videoUrl = data.data.url;
+                    videoUrl = data.hd || data.sd || data.Normal_video;
                 }
 
-                if (!videoUrl) return msg.reply("❌ Video tidak ditemukan.");
+                if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Downloader*`
@@ -94,20 +94,24 @@ module.exports = async (client, msg, text) => {
 
             } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Gagal download FB.");
+                await msg.reply("❌ Gagal FB.");
             }
             return true;
         }
 
-        // --- 4. YOUTUBE (Tetap BTCH karena stabil) ---
+        // --- 4. YOUTUBE DOWNLOADER ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
             await msg.react('⏳');
             try {
                 const data = await youtube(url);
-                if (!data || !data.mp4) return msg.reply("❌ Gagal YT.");
+                // YT dylux format: { mp4: '...', title: '...' }
 
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), {
-                    caption: `📺 *${data.title}*`
+                if (!data || (!data.mp4 && !data.url)) return msg.reply("❌ Gagal YT.");
+
+                const vidUrl = data.mp4 || data.url;
+
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(vidUrl, { unsafeMime: true }), {
+                    caption: `📺 *${data.title || 'YouTube Video'}*`
                 });
             } catch (e) {
                 await msg.reply("❌ Gagal YT.");
@@ -126,6 +130,6 @@ module.exports = async (client, msg, text) => {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL Sosmed' }
+        { command: '(Auto Detect)', desc: 'DL Sosmed (Dylux)' }
     ]
 };
