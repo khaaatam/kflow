@@ -73,7 +73,7 @@ module.exports = async (client, msg, text, senderId, namaPengirim) => {
 
         // 4. RAKIT TEXT (DENGAN LOGIKA PINTAR)
         // Kita urutkan kategori prioritas dulu biar rapi di atas
-        const priorityOrder = ['KEUANGAN', 'DOWNLOADER', 'MEDIA', 'AI', 'SYSTEM'];
+        const priorityOrder = ['KEUANGAN', 'DOWNLOADER', 'MEDIA', 'AI', 'SYSTEM', 'EVEMT'];
 
         // Loop Priority dulu
         priorityOrder.forEach(cat => {
