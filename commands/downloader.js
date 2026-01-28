@@ -1,5 +1,5 @@
 const config = require('../config');
-// 👇 INI DIA PERBAIKANNYA (Ganti nama variabel import) 👇
+// Pastiin import-nya bener (fbdown, bukan facebook)
 const { ttdl, igdl, youtube, fbdown } = require('btch-downloader');
 const { MessageMedia } = require('whatsapp-web.js');
 
@@ -11,67 +11,89 @@ module.exports = async (client, msg, text) => {
 
         const url = match[0];
 
-        // --- 1. TIKTOK DOWNLOADER (Pake ttdl) ---
+        // --- 1. TIKTOK DOWNLOADER ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
-            const data = await ttdl(url); // 👈 Ganti jadi ttdl
+            try {
+                const data = await ttdl(url);
+                const videoUrl = data.url || data.video || data.nowm || data.music;
+                if (!videoUrl) return msg.reply("❌ Gagal. Video TikTok tidak ketemu.");
 
-            if (!data.url && !data.video) return msg.reply("❌ Gagal ambil video TikTok.");
-            const videoUrl = data.url || data.video || data.nowm;
-
-            await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                caption: `🎵 *TikTok Downloader*\nAuthor: ${data.nickname || '-'}\nDesc: ${data.title || '-'}`
-            });
-            return true;
-        }
-
-        // --- 2. INSTAGRAM DOWNLOADER (Pake igdl) ---
-        if (url.includes('instagram.com')) {
-            await msg.react('⏳');
-            const data = await igdl(url); // 👈 Ganti jadi igdl
-
-            if (!data || data.length === 0) return msg.reply("❌ Gagal. Pastikan akun tidak di-private.");
-
-            for (let i = 0; i < Math.min(data.length, 5); i++) {
-                const mediaUrl = data[i].url;
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }));
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
+                    caption: `🎵 *TikTok*\n👤 ${data.nickname || '-'}\n📝 ${data.title || '-'}`
+                });
+            } catch (e) {
+                console.error("TikTok Error:", e);
+                await msg.reply("❌ Gagal download TikTok.");
             }
             return true;
         }
 
-        // --- 3. FACEBOOK DOWNLOADER (Pake fbdown) ---
-        if (url.includes('facebook.com') || url.includes('fb.watch')) {
+        // --- 2. INSTAGRAM DOWNLOADER ---
+        if (url.includes('instagram.com')) {
             await msg.react('⏳');
-            const data = await fbdown(url); // 👈 Ganti jadi fbdown
+            try {
+                const data = await igdl(url);
+                if (!data || data.length === 0) return msg.reply("❌ Akun Private / Gagal.");
 
-            if (!data) return msg.reply("❌ Gagal ambil video FB.");
-            const videoUrl = data.hd || data.sd || data.Normal_video || data.HD; // Jaga-jaga nama property beda
-
-            if (!videoUrl) return msg.reply("❌ Video tidak ditemukan/private.");
-
-            await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                caption: `💙 *Facebook Downloader*`
-            });
+                for (let i = 0; i < Math.min(data.length, 5); i++) {
+                    await client.sendMessage(msg.from, await MessageMedia.fromUrl(data[i].url, { unsafeMime: true }));
+                }
+            } catch (e) {
+                await msg.reply("❌ Gagal download IG.");
+            }
             return true;
         }
 
-        // --- 4. YOUTUBE DOWNLOADER (Tetap youtube) ---
+        // --- 3. FACEBOOK DOWNLOADER (YANG LAGI BERMASALAH) ---
+        if (url.includes('facebook.com') || url.includes('fb.watch')) {
+            await msg.react('⏳');
+            try {
+                console.log(`🔍 Mencoba FB Downloader untuk: ${url}`);
+                const data = await fbdown(url);
+
+                // 👇 [SPY MODE] LIAT DI TERMINAL TERMUX LU NANTI MUNCUL APA 👇
+                console.log("📦 DATA DARI FB:", JSON.stringify(data, null, 2));
+
+                if (!data) return msg.reply("❌ Gagal ambil data FB.");
+
+                // 👇 [SAPU JAGAT] Cek semua kemungkinan nama
+                const videoUrl = data.url || data.video || data.hd || data.sd || data.Normal_video || data.HD || data.link;
+
+                if (!videoUrl) {
+                    return msg.reply("❌ Video tidak ditemukan/private. Cek terminal buat liat log-nya.");
+                }
+
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
+                    caption: `💙 *Facebook Downloader*`
+                });
+            } catch (e) {
+                console.error("FB Error:", e);
+                await msg.reply("❌ Gagal download FB (Mungkin Private).");
+            }
+            return true;
+        }
+
+        // --- 4. YOUTUBE DOWNLOADER ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
             await msg.react('⏳');
-            const data = await youtube(url);
+            try {
+                const data = await youtube(url);
+                if (!data || !data.mp4) return msg.reply("❌ Gagal YT.");
 
-            if (!data || !data.mp4) return msg.reply("❌ Gagal ambil video YT.");
-
-            await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), {
-                caption: `📺 *YouTube Downloader*\nJudul: ${data.title}`
-            });
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), {
+                    caption: `📺 *${data.title}*`
+                });
+            } catch (e) {
+                await msg.reply("❌ Gagal download YT.");
+            }
             return true;
         }
 
         return false;
 
     } catch (error) {
-        console.error("Downloader Error:", error);
+        console.error("Downloader System Error:", error);
         return false;
     }
 };
@@ -79,6 +101,6 @@ module.exports = async (client, msg, text) => {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect URL)', desc: 'Download TikTok/IG/FB/YT' }
+        { command: '(Auto Detect)', desc: 'DL Sosmed' }
     ]
 };
