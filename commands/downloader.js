@@ -1,8 +1,7 @@
 const config = require('../config');
 const axios = require('axios');
-// 👇 PERBAIKAN 1: Pake kurung kurawal {} buat ambil fungsi spesifik
-const { getFbVideoInfo } = require('fb-downloader-scrapper');
-const { instagram, youtube } = require('api-dylux');
+const { getFbVideoInfo } = require('fb-downloader-scrapper'); // Spesialis FB
+const { youtube, igdl } = require('btch-downloader'); // Spesialis YT & IG
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -11,66 +10,51 @@ module.exports = async (client, msg, text) => {
         const match = text.match(urlRegex);
         if (!match) return false;
 
-        const url = match[0];
+        let url = match[0];
 
-        // --- 1. TIKTOK DOWNLOADER (TikWM API + Auto Patch) ---
+        // --- 1. TIKTOK (AXIOS - TIKWM) ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
                 const response = await axios.post('https://www.tikwm.com/api/', {
-                    url: url,
-                    count: 12,
-                    cursor: 0,
-                    web: 1,
-                    hd: 1
-                }, {
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                });
+                    url: url, count: 12, cursor: 0, web: 1, hd: 1
+                }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' } });
 
-                const res = response.data;
-                if (!res.data) return msg.reply("❌ Gagal ambil data TikTok (API Down).");
+                const data = response.data.data;
+                if (!data) return msg.reply("❌ Gagal TikTok.");
 
-                const data = res.data;
                 let videoUrl = data.play || data.wmplay;
-
-                // 👇 PERBAIKAN 2: Cek Link Buntung
-                if (videoUrl && !videoUrl.startsWith('http')) {
-                    videoUrl = `https://www.tikwm.com${videoUrl}`;
-                }
-
-                if (!videoUrl) return msg.reply("❌ Video tidak ditemukan.");
+                if (videoUrl && !videoUrl.startsWith('http')) videoUrl = `https://www.tikwm.com${videoUrl}`;
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                    caption: `🎵 *TikTok No Watermark*\n👤 ${data.author?.nickname || '-'}\n❤️ ${data.digg_count || '-'}\n📝 ${data.title || '-'}`
+                    caption: `🎵 *TikTok*\n👤 ${data.author?.nickname || '-'}`
                 });
-
-            } catch (e) {
-                console.error("TikTok API Error:", e);
-                await msg.reply("❌ Gagal koneksi ke TikTok Server.");
-            }
+            } catch (e) { await msg.reply("❌ Error TikTok."); }
             return true;
         }
 
-        // --- 2. FACEBOOK DOWNLOADER (Fixed Import) ---
+        // --- 2. FACEBOOK (SCRAPPER + EXPANDER) ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                console.log(`🔍 FB Specialist Try: ${url}`);
+                // 👇 FITUR RAHASIA: Benerin Link Share/Shortlink dulu
+                if (url.includes('share') || url.includes('fb.watch') || url.includes('/v/')) {
+                    console.log(`🔗 Link Singkatan terdeteksi: ${url}`);
+                    try {
+                        url = await expandUrl(url);
+                        console.log(`✅ Link Asli: ${url}`);
+                    } catch (err) {
+                        console.log("⚠️ Gagal expand URL, pake link asli aja.");
+                    }
+                }
 
-                // 👇 Panggil fungsi yang bener
+                console.log(`🔍 FB Try: ${url}`);
                 const data = await getFbVideoInfo(url);
+                
+                if (!data) return msg.reply("❌ FB Gagal (Private?).");
 
-                console.log(`📦 FB Data:`, JSON.stringify(data, null, 2));
-
-                if (!data) return msg.reply("❌ Gagal jebol FB (Link keramat/Private).");
-
-                // Cari video (biasanya dia kasih sd/hd)
                 const videoUrl = data.hd || data.sd;
-
-                if (!videoUrl) return msg.reply("❌ Link video FB tidak ketemu di data.");
+                if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Video*\n${data.title || ''}`
@@ -78,39 +62,34 @@ module.exports = async (client, msg, text) => {
 
             } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Gagal download FB.");
+                await msg.reply("❌ Gagal FB.");
             }
             return true;
         }
 
-        // --- 3. INSTAGRAM (DYLUX) ---
+        // --- 3. INSTAGRAM (BTCH) ---
         if (url.includes('instagram.com')) {
             await msg.react('⏳');
             try {
-                const data = await instagram(url);
-                let mediaList = [];
-                if (Array.isArray(data)) mediaList = data;
-                else if (data.url_list) mediaList = data.url_list;
-                else if (data.url) mediaList = [data.url];
+                const data = await igdl(url);
+                if (!data || data.length === 0) return msg.reply("❌ IG Gagal.");
 
-                if (mediaList.length === 0) return msg.reply("❌ IG Gagal.");
-
-                for (let i = 0; i < Math.min(mediaList.length, 5); i++) {
-                    if (mediaList[i]) await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaList[i], { unsafeMime: true }));
+                for (let i = 0; i < Math.min(data.length, 5); i++) {
+                     if (data[i].url) await client.sendMessage(msg.from, await MessageMedia.fromUrl(data[i].url, { unsafeMime: true }));
                 }
             } catch (e) { await msg.reply("❌ Error IG."); }
             return true;
         }
 
-        // --- 4. YOUTUBE (DYLUX) ---
+        // --- 4. YOUTUBE (BTCH) ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            await msg.react('⏳');
-            try {
+             await msg.react('⏳');
+             try {
                 const data = await youtube(url);
-                if (!data || (!data.mp4 && !data.url)) return msg.reply("❌ Gagal YT.");
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4 || data.url, { unsafeMime: true }), { caption: `📺 ${data.title || 'Youtube'}` });
-            } catch (e) { await msg.reply("❌ Error YT."); }
-            return true;
+                if (!data || !data.mp4) return msg.reply("❌ Gagal YT.");
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), { caption: `📺 ${data.title || 'YouTube'}` });
+             } catch (e) { await msg.reply("❌ Error YT."); }
+             return true;
         }
 
         return false;
@@ -120,6 +99,22 @@ module.exports = async (client, msg, text) => {
         return false;
     }
 };
+
+// 👇 FUNGSI RAHASIA BUAT BENERIN LINK FB
+async function expandUrl(shortUrl) {
+    try {
+        const response = await axios.get(shortUrl, { 
+            maxRedirects: 0, // Matikan auto redirect axios biar kita bisa tangkep header location
+            validateStatus: status => status >= 200 && status < 400 
+        });
+        return response.headers.location || shortUrl; // Ambil lokasi redirectnya
+    } catch (error) {
+        if (error.response && error.response.status >= 300 && error.response.status < 400) {
+            return error.response.headers.location;
+        }
+        return shortUrl;
+    }
+}
 
 module.exports.metadata = {
     category: "DOWNLOADER",
