@@ -6,13 +6,17 @@ const { MessageMedia } = require('whatsapp-web.js');
 module.exports = async (client, msg, text) => {
     try {
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const match = text.match(urlRegex);
+
+        // 👇 PERBAIKAN FATAL DI SINI 👇
+        // Jangan pake 'text' (karena udah lowercase), pake 'msg.body' (asli)
+        const match = msg.body.match(urlRegex);
+
         if (!match) return false;
 
         let url = match[0];
 
         // =========================================================
-        // 1. TIKTOK DOWNLOADER (TikWM) - [AMAN JAYA]
+        // 1. TIKTOK DOWNLOADER (TikWM) - [AMAN]
         // =========================================================
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
@@ -35,16 +39,15 @@ module.exports = async (client, msg, text) => {
         }
 
         // =========================================================
-        // 2. FACEBOOK DOWNLOADER (THE FIXER V2)
+        // 2. FACEBOOK DOWNLOADER (SHARE LINK FIX)
         // =========================================================
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                // 👇 LOGIC FIX LINK SHARE (VERSI LEBIH PINTAR) 👇
+                // Expand Link Share
                 if (url.includes('share') || url.includes('/r/') || url.includes('fb.watch')) {
-                    console.log(`🔗 Link Share Terdeteksi: ${url}`);
+                    console.log(`🔗 Link Share Terdeteksi (RAW): ${url}`);
                     try {
-                        // Kita paksa cari link aslinya sampe ketemu
                         const originalUrl = await expandFbUrl(url);
                         if (originalUrl && originalUrl !== url) {
                             url = originalUrl;
@@ -55,10 +58,9 @@ module.exports = async (client, msg, text) => {
                     }
                 }
 
-                // Eksekusi Library yang lu bilang WORK
                 const data = await getFbVideoInfo(url);
 
-                if (!data) return msg.reply("❌ Gagal FB (Konten Private/Dihapus).");
+                if (!data) return msg.reply("❌ Gagal FB (Private/Hapus).");
 
                 const videoUrl = data.hd || data.sd;
                 if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
@@ -69,8 +71,7 @@ module.exports = async (client, msg, text) => {
 
             } catch (e) {
                 console.error("FB Error:", e);
-                // Fallback pesimis
-                await msg.reply("❌ Gagal FB. Coba buka linknya di browser, terus salin link dari address bar.");
+                await msg.reply("❌ Gagal FB. Pastikan link benar (Case Sensitive).");
             }
             return true;
         }
@@ -83,20 +84,16 @@ module.exports = async (client, msg, text) => {
     }
 };
 
-// 👇 FUNGSI BUKA LINK (FOLLOW REDIRECTS ENABLED)
+// Fungsi Expand URL
 async function expandFbUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, {
-            // HAPUS maxRedirects: 0 -> Biarin dia ngikutin redirect sampe tujuan akhir
             headers: {
-                // Pake User-Agent PC biar dapet link www.facebook.com (bukan m.facebook)
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
-        // Ambil URL terakhir setelah redirect selesai
         return response.request.res.responseUrl || response.request.responseURL || shortUrl;
     } catch (error) {
-        console.log("Expand Error:", error.message);
         return shortUrl;
     }
 }
