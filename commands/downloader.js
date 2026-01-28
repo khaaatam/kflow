@@ -1,6 +1,6 @@
 const config = require('../config');
 const axios = require('axios');
-const { getFbVideoInfo } = require('fb-downloader-scrapper'); // FB Tetap Ini
+const { getFbVideoInfo } = require('fb-downloader-scrapper'); // Pake library yang lu bilang Work
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -11,7 +11,9 @@ module.exports = async (client, msg, text) => {
 
         let url = match[0];
 
-        // --- 1. TIKTOK (AXIOS - TIKWM) [SUKSES] ---
+        // =========================================================
+        // 1. TIKTOK DOWNLOADER (TikWM - STATUS: SUKSES)
+        // =========================================================
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
@@ -32,71 +34,42 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 2. FACEBOOK (SCRAPPER + EXPANDER) [SUKSES] ---
+        // =========================================================
+        // 2. FACEBOOK DOWNLOADER (Fixed Share Link)
+        // =========================================================
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                if (url.includes('share') || url.includes('fb.watch') || url.includes('/v/')) {
-                    try { url = await expandUrl(url); } catch (e) { }
+                // 👇 LOGIC FIX LINK SHARE 👇
+                // Kalau link mengandung 'share' atau format '/r/' (Reels pendek), kita bedah dulu
+                if (url.includes('share') || url.includes('/r/')) {
+                    console.log(`🔗 Link Share Terdeteksi: ${url}`);
+                    try {
+                        const originalUrl = await expandFbUrl(url);
+                        if (originalUrl) {
+                            url = originalUrl;
+                            console.log(`✅ Link Asli Ditemukan: ${url}`);
+                        }
+                    } catch (err) {
+                        console.log("⚠️ Gagal expand, mencoba link mentah...");
+                    }
                 }
 
+                // Eksekusi Download
                 const data = await getFbVideoInfo(url);
-                if (!data) return msg.reply("❌ Gagal FB.");
+
+                if (!data) return msg.reply("❌ Gagal FB (Konten Private/Dihapus).");
 
                 const videoUrl = data.hd || data.sd;
-                if (!videoUrl) return msg.reply("❌ Video FB Kosong.");
+                if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Video*\n${data.title || ''}`
                 });
 
-            } catch (e) { await msg.reply("❌ Gagal FB."); }
-            return true;
-        }
-
-        // --- 3. INSTAGRAM (NEBENG COBALT COMMUNITY) ---
-        if (url.includes('instagram.com')) {
-            await msg.react('⏳');
-            try {
-                const data = await cobalt(url);
-
-                if (!data || data.status === 'error') {
-                    console.log("IG Error Log:", data);
-                    return msg.reply("❌ IG Gagal (Server Sibuk/Private).");
-                }
-
-                if (data.status === 'picker') {
-                    for (const item of data.picker) {
-                        await client.sendMessage(msg.from, await MessageMedia.fromUrl(item.url, { unsafeMime: true }));
-                    }
-                } else if (data.url) {
-                    await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url, { unsafeMime: true }));
-                } else {
-                    return msg.reply("❌ Media IG tidak ditemukan.");
-                }
             } catch (e) {
-                console.error("IG Error:", e);
-                await msg.reply("❌ Error IG.");
-            }
-            return true;
-        }
-
-        // --- 4. YOUTUBE (NEBENG COBALT COMMUNITY) ---
-        if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            await msg.react('⏳');
-            try {
-                const data = await cobalt(url);
-
-                if (!data || data.status === 'error' || !data.url) {
-                    return msg.reply("❌ Gagal YT (Server Sibuk).");
-                }
-
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url, { unsafeMime: true }), {
-                    caption: `📺 *YouTube Video*`
-                });
-            } catch (e) {
-                console.error("YT Error:", e);
-                await msg.reply("❌ Error YT.");
+                console.error("FB Error:", e);
+                await msg.reply("❌ Gagal FB. Pastikan video Publik.");
             }
             return true;
         }
@@ -109,44 +82,14 @@ module.exports = async (client, msg, text) => {
     }
 };
 
-// 👇 FUNGSI EXPAND URL (FB)
-async function expandUrl(shortUrl) {
+// 👇 FUNGSI SPESIAL BUAT BUKA LINK SHARE FB
+async function expandFbUrl(shortUrl) {
     try {
-        const response = await axios.get(shortUrl, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400 });
-        return response.headers.location || shortUrl;
-    } catch (error) {
-        if (error.response && error.response.status >= 300 && error.response.status < 400) return error.response.headers.location;
-        return shortUrl;
-    }
-}
-
-// 👇 FUNGSI COBALT (NEBENG SERVER TETANGGA)
-async function cobalt(url) {
-    try {
-        // GANTI KE SERVER COMMUNITY (xy24.eu)
-        const response = await axios.post('https://cobalt.xy24.eu', {
-            url: url,
-            // Settingan standard v10
-            vQuality: "720",
-            filenamePattern: "basic"
-        }, {
+        const response = await axios.get(shortUrl, {
+            maxRedirects: 0, // Matikan auto-redirect biar kita bisa tangkap header Location
+            validateStatus: status => status >= 200 && status < 400,
             headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                // Pura-pura jadi Chrome di HP Android biar FB gak curiga
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
             }
         });
-        return response.data;
-    } catch (error) {
-        // Kalau server community ini mati, errornya bakal muncul di sini
-        console.error("Cobalt API Error:", error.response ? error.response.data : error.message);
-        return null;
-    }
-}
-
-module.exports.metadata = {
-    category: "DOWNLOADER",
-    commands: [
-        { command: '(Auto Detect)', desc: 'DL Sosmed (Community)' }
-    ]
-};
