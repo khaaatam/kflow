@@ -11,7 +11,7 @@ module.exports = async (client, msg, text) => {
 
         let url = match[0];
 
-        // --- 1. TIKTOK (AXIOS - TIKWM) [SUKSES - JANGAN UBAH] ---
+        // --- 1. TIKTOK (AXIOS - TIKWM) [AMAN JAYA] ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
@@ -32,18 +32,18 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 2. FACEBOOK (SCRAPPER + EXPANDER) [SUKSES - JANGAN UBAH] ---
+        // --- 2. FACEBOOK (SCRAPPER + EXPANDER) [AMAN JAYA] ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
                 if (url.includes('share') || url.includes('fb.watch') || url.includes('/v/')) {
-                    try { url = await expandUrl(url); } catch (e) { }
+                    try { url = await expandUrl(url); } catch (e) {}
                 }
 
                 const data = await getFbVideoInfo(url);
                 if (!data) return msg.reply("❌ Gagal FB.");
 
-                const videoUrl = data.hd || data.sd;
+                const videoUrl = data.hd || data.sd; 
                 if (!videoUrl) return msg.reply("❌ Video FB Kosong.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
@@ -54,51 +54,52 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 3. INSTAGRAM (COBALT API) ---
+        // --- 3. INSTAGRAM (COBALT V10) ---
         if (url.includes('instagram.com')) {
             await msg.react('⏳');
             try {
-                // Tembak API Cobalt
                 const data = await cobalt(url);
+                
+                if (!data || data.status === 'error') {
+                    console.log("IG Error Log:", data);
+                    return msg.reply("❌ IG Gagal (Cobalt Error).");
+                }
 
-                if (!data || data.status === 'error') return msg.reply("❌ IG Gagal (Cobalt Error).");
-
-                // Cobalt kadang balikin 'picker' (kalo multiple slide) atau 'stream' (kalo single)
+                // Cobalt v10 response: { status: 'stream'/'picker', url: '...', picker: [...] }
                 if (data.status === 'picker') {
-                    // Multiple Slide
                     for (const item of data.picker) {
                         await client.sendMessage(msg.from, await MessageMedia.fromUrl(item.url, { unsafeMime: true }));
                     }
-                } else {
-                    // Single Post/Reels
+                } else if (data.url) {
                     await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url, { unsafeMime: true }));
+                } else {
+                    return msg.reply("❌ Media IG tidak ditemukan.");
                 }
-            } catch (e) {
+            } catch (e) { 
                 console.error("IG Error:", e);
-                await msg.reply("❌ Error IG (Server Busy).");
+                await msg.reply("❌ Error IG."); 
             }
             return true;
         }
 
-        // --- 4. YOUTUBE (COBALT API) ---
+        // --- 4. YOUTUBE (COBALT V10) ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            await msg.react('⏳');
-            try {
-                // Tembak API Cobalt
+             await msg.react('⏳');
+             try {
                 const data = await cobalt(url);
 
                 if (!data || data.status === 'error' || !data.url) {
-                    return msg.reply("❌ Gagal YT (Cobalt Busy).");
+                    return msg.reply("❌ Gagal YT.");
                 }
 
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url, { unsafeMime: true }), {
-                    caption: `📺 *YouTube Video*`
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url, { unsafeMime: true }), { 
+                    caption: `📺 *YouTube Video*` 
                 });
-            } catch (e) {
-                console.error("YT Error:", e);
-                await msg.reply("❌ Error YT.");
-            }
-            return true;
+             } catch (e) { 
+                 console.error("YT Error:", e);
+                 await msg.reply("❌ Error YT."); 
+             }
+             return true;
         }
 
         return false;
@@ -109,7 +110,7 @@ module.exports = async (client, msg, text) => {
     }
 };
 
-// 👇 FUNGSI EXPAND URL (BUAT FB)
+// 👇 FUNGSI EXPAND URL (FB)
 async function expandUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400 });
@@ -120,19 +121,17 @@ async function expandUrl(shortUrl) {
     }
 }
 
-// 👇 FUNGSI COBALT (BUAT IG & YT)
+// 👇 FUNGSI COBALT V10 (RUMAH BARU)
 async function cobalt(url) {
     try {
-        const response = await axios.post('https://api.cobalt.tools/api/json', {
+        const response = await axios.post('https://api.cobalt.tools', { // 👈 Endpoint Baru (Tanpa /api/json)
             url: url,
-            vCodec: "h264",
-            vQuality: "720",
-            aFormat: "mp3",
-            filenamePattern: "basic"
+            // v10 gak butuh banyak parameter codec aneh-aneh buat default
         }, {
             headers: {
                 'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
         return response.data;
@@ -145,6 +144,6 @@ async function cobalt(url) {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL Sosmed (Cobalt)' }
+        { command: '(Auto Detect)', desc: 'DL Sosmed (Cobalt V10)' }
     ]
 };
