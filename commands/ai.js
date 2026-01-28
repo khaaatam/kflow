@@ -1,14 +1,17 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const config = require('../config');
 
+// Kita pake model sesuai pilihan lu di config.js (Gemini 2.5 Flash Lite)
 const genAI = new GoogleGenerativeAI(config.ai.apiKey);
 const model = genAI.getGenerativeModel({ model: config.ai.modelName });
 
 // --- OBSERVER (Auto Learn) ---
 const observe = async (client, msg, db, namaPengirim) => {
     const text = msg.body;
+    // Filter: Abaikan pesan pendek
     if (text.length < 5 || text.split(' ').length < 2) return;
 
+    // Trigger words tetap
     const triggerWords = ['aku', 'gw', 'saya', 'suka', 'benci', 'pengen', 'mau', 'rumah', 'tinggal', 'anak', 'lahir', 'ultah', 'umur', 'jangan', 'kecewa', 'senang', 'marah', 'sedih'];
     if (!triggerWords.some(word => text.toLowerCase().includes(word))) return;
 
@@ -35,17 +38,20 @@ const observe = async (client, msg, db, namaPengirim) => {
         const result = await model.generateContent(promptObserver);
         const response = result.response.text().trim();
         const match = response.match(/\[\[SAVEMEMORY:\s*(.*?)\]\]/);
-        
+
         if (match && match[1]) {
             let memory = match[1].trim();
             const blacklist = ['lagi', 'sedang', 'akan', 'barusan', 'tadi', 'mungkin', '?'];
             if (blacklist.some(b => memory.toLowerCase().includes(b))) return;
 
             const [duplikat] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${memory}%`]);
+
+            // --- FIX BUG LUPA INSERT ---
             if (duplikat.length === 0) {
-                // 1. Simpan ke Database
+                // 1. Simpan ke Database DULU (Wajib!)
                 await db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-                // 2. Log ke WA
+
+                // 2. Baru Lapor ke WA
                 console.log(`🧠 [MEMORI] ${memory}`);
                 if (config.system?.logNumber) {
                     const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
@@ -53,7 +59,7 @@ const observe = async (client, msg, db, namaPengirim) => {
                 }
             }
         }
-    } catch (e) { } 
+    } catch (e) { }
 };
 
 // --- INTERACT (!ai) ---
@@ -69,7 +75,7 @@ const interact = async (client, msg, text, db, namaPengirim) => {
     if (text.startsWith('!ai') || text.startsWith('!analisa')) {
         let promptUser = msg.body.replace(/!ai|!analisa/i, '').trim();
         let imagePart = null;
-        
+
         if (msg.hasMedia) {
             try {
                 const media = await msg.downloadMedia();
@@ -87,47 +93,45 @@ const interact = async (client, msg, text, db, namaPengirim) => {
             // RAG Limit (Ambil konteks secukupnya)
             const [m] = await db.query("SELECT fakta FROM memori ORDER BY id DESC LIMIT 20");
             const [h] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs WHERE pesan NOT LIKE '!%' ORDER BY id DESC LIMIT 10");
-            
+
             const textM = m.map(x => `- ${x.fakta}`).join("\n");
-            // Format History kita perjelas biar AI gak bingung
-            const textH = h.reverse().map(x => `[${x.nama_pengirim}]: ${x.pesan}`).join("\n");
+            // Format History kita kasih tanda biar AI tau ini "Record" bukan "Dialog Aktif"
+            const textH = h.reverse().map(x => `[History] ${x.nama_pengirim}: ${x.pesan}`).join("\n");
 
-            // PROMPT BARU YANG LEBIH TEGAS
+            // PROMPT ANTI GOBLOK & ANTI PREFIX
             const finalPrompt = `
-            ROLE: Kamu adalah AI Asisten Pintar.
-            TARGET USER: ${namaPengirim}
-
-            [MEMORY / FAKTA USER]:
+            ROLE: Kamu adalah AI Assistant yang cerdas.
+            
+            [CONTEXT MEMORY USER]:
             ${textM}
 
-            [CHAT HISTORY TERAKHIR]:
+            [CONTEXT HISTORY CHAT]:
             ${textH}
 
-            [PERMINTAAN USER SAAT INI]:
+            [PERINTAH USER SAAT INI]:
             "${promptUser}"
 
-            INSTRUKSI PENTING:
-            1. Jawab permintaan user dengan TEPAT.
-            2. JANGAN menerjemahkan jika diminta paraphrase/tulis ulang (kecuali diminta translate).
-            3. JANGAN mengawali jawaban dengan nama user (contoh: "Dini: ...") atau "Bot: ...".
-            4. Jika diminta Bahasa Inggris, jawab Bahasa Inggris. Jika Indonesia, jawab Indonesia.
-            5. Langsung berikan jawaban intinya.
+            ATURAN JAWAB (STRICT):
+            1. JAWAB LANGSUNG isinya. JANGAN pakai awalan nama seperti "Dini:", "Bot:", "AI:". HARAM.
+            2. Jika User minta "Parafrase" atau "Rewrite", TULIS ULANG kalimatnya dalam bahasa yang sama (Jangan Translate kecuali diminta).
+            3. Jika User minta "Translate", baru terjemahkan.
+            4. Gunakan bahasa yang santai tapi sopan.
             `;
 
             const payload = imagePart ? [finalPrompt, imagePart] : [finalPrompt];
             const result = await model.generateContent(payload);
             let responseAi = result.response.text().trim();
 
-            // CLEANING OUTPUT (Anti Halu)
-            // Kalau dia masih bandel nulis "Dini:" atau "Bot:", kita hapus paksa.
-            responseAi = responseAi.replace(/^(Dini|Tami|Bot|AI):\s*/i, '');
-            responseAi = responseAi.replace(/^"\s*/, '').replace(/\s*"$/, ''); // Hapus kutip di awal/akhir yg gak perlu
+            // --- FILTER SCRIPT (SAFETY NET) ---
+            // Ini bakal ngehapus paksa kalau AI masih ngeyel nulis prefix
+            responseAi = responseAi.replace(/^(Dini|Tami|Bot|AI|Asisten):\s*/i, ''); // Hapus Nama:
+            responseAi = responseAi.replace(/^["']+|["']+$/g, ''); // Hapus tanda kutip di awal/akhir
 
             await client.sendMessage(chatDestination, responseAi);
 
         } catch (error) {
             console.error("AI Error:", error);
-            await client.sendMessage(chatDestination, "🤕 Otak gw nge-lag (API Error). Coba lagi bentar.");
+            await client.sendMessage(chatDestination, "🤕 Otak gw nge-lag dikit. Coba lagi.");
         }
     }
 };
