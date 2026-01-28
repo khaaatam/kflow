@@ -1,25 +1,22 @@
 const config = require('../config');
-const { tiktok, instagram, youtube, facebook } = require('btch-downloader');
+// 👇 INI DIA PERBAIKANNYA (Ganti nama variabel import) 👇
+const { ttdl, igdl, youtube, fbdown } = require('btch-downloader');
+const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
     try {
-        // Cek apakah pesan berisi URL?
         const urlRegex = /(https?:\/\/[^\s]+)/g;
         const match = text.match(urlRegex);
-
-        // Kalau gak ada link, skip
         if (!match) return false;
 
         const url = match[0];
 
-        // --- 1. TIKTOK DOWNLOADER ---
+        // --- 1. TIKTOK DOWNLOADER (Pake ttdl) ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
-            const data = await tiktok(url);
+            const data = await ttdl(url); // 👈 Ganti jadi ttdl
 
             if (!data.url && !data.video) return msg.reply("❌ Gagal ambil video TikTok.");
-
-            // Prioritas: Video No Watermark -> Video Original
             const videoUrl = data.url || data.video || data.nowm;
 
             await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
@@ -28,14 +25,13 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 2. INSTAGRAM DOWNLOADER (Reels/Post) ---
+        // --- 2. INSTAGRAM DOWNLOADER (Pake igdl) ---
         if (url.includes('instagram.com')) {
             await msg.react('⏳');
-            const data = await instagram(url);
+            const data = await igdl(url); // 👈 Ganti jadi igdl
 
             if (!data || data.length === 0) return msg.reply("❌ Gagal. Pastikan akun tidak di-private.");
 
-            // IG bisa multiple slide, kita ambil semua (max 5 biar gak spam)
             for (let i = 0; i < Math.min(data.length, 5); i++) {
                 const mediaUrl = data[i].url;
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }));
@@ -43,15 +39,15 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 3. FACEBOOK DOWNLOADER ---
+        // --- 3. FACEBOOK DOWNLOADER (Pake fbdown) ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
-            const data = await facebook(url);
+            const data = await fbdown(url); // 👈 Ganti jadi fbdown
 
             if (!data) return msg.reply("❌ Gagal ambil video FB.");
+            const videoUrl = data.hd || data.sd || data.Normal_video || data.HD; // Jaga-jaga nama property beda
 
-            // Ambil kualitas HD dulu, kalau gak ada baru SD
-            const videoUrl = data.hd || data.sd;
+            if (!videoUrl) return msg.reply("❌ Video tidak ditemukan/private.");
 
             await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                 caption: `💙 *Facebook Downloader*`
@@ -59,14 +55,13 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 4. YOUTUBE DOWNLOADER (Shorts/Video) ---
+        // --- 4. YOUTUBE DOWNLOADER (Tetap youtube) ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
             await msg.react('⏳');
             const data = await youtube(url);
 
             if (!data || !data.mp4) return msg.reply("❌ Gagal ambil video YT.");
 
-            // Cek size dulu, WA nolak file > 100MB biasanya
             await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), {
                 caption: `📺 *YouTube Downloader*\nJudul: ${data.title}`
             });
@@ -77,13 +72,9 @@ module.exports = async (client, msg, text) => {
 
     } catch (error) {
         console.error("Downloader Error:", error);
-        // Jangan reply error ke user biar gak spam kalau dia kirim link biasa
         return false;
     }
 };
-
-// Helper buat download file dari URL (Karena WA Web JS butuh MessageMedia)
-const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports.metadata = {
     category: "DOWNLOADER",
