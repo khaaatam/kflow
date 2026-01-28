@@ -76,6 +76,19 @@ module.exports = async (client, msg, text, db) => {
         return true;
     }
 
+    // --- 6. COMMAND: RESTART BOT ---
+    if (text === '!restart' || text === '!reboot') {
+        try {
+            await client.sendMessage(msg.from, "♻️ *Restarting System...*\nTunggu sebentar ya Bang.");
+        } catch (e) { }
+
+        console.log("⚠️ Manual Restart Triggered!");
+        setTimeout(() => {
+            process.exit(0); // Membunuh proses biar PM2/Loop nyalain ulang
+        }, 1000);
+        return true;
+    }
+
     return false;
 };
 
