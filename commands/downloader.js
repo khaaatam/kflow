@@ -12,7 +12,7 @@ module.exports = async (client, msg, text) => {
         let url = match[0];
 
         // =========================================================
-        // 1. TIKTOK DOWNLOADER (TikWM)
+        // 1. TIKTOK DOWNLOADER (TikWM) - [AMAN JAYA]
         // =========================================================
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
@@ -35,28 +35,30 @@ module.exports = async (client, msg, text) => {
         }
 
         // =========================================================
-        // 2. FACEBOOK DOWNLOADER (Fixed Share Link)
+        // 2. FACEBOOK DOWNLOADER (THE FIXER V2)
         // =========================================================
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                // Logic Fix Link Share
-                if (url.includes('share') || url.includes('/r/')) {
+                // 👇 LOGIC FIX LINK SHARE (VERSI LEBIH PINTAR) 👇
+                if (url.includes('share') || url.includes('/r/') || url.includes('fb.watch')) {
                     console.log(`🔗 Link Share Terdeteksi: ${url}`);
                     try {
+                        // Kita paksa cari link aslinya sampe ketemu
                         const originalUrl = await expandFbUrl(url);
-                        if (originalUrl) {
+                        if (originalUrl && originalUrl !== url) {
                             url = originalUrl;
-                            console.log(`✅ Link Asli: ${url}`);
+                            console.log(`✅ Link Asli Ditemukan: ${url}`);
                         }
                     } catch (err) {
-                        console.log("⚠️ Gagal expand, coba link mentah...");
+                        console.log("⚠️ Gagal expand, lanjut pake link mentah.");
                     }
                 }
 
+                // Eksekusi Library yang lu bilang WORK
                 const data = await getFbVideoInfo(url);
 
-                if (!data) return msg.reply("❌ Gagal FB (Private/Hapus).");
+                if (!data) return msg.reply("❌ Gagal FB (Konten Private/Dihapus).");
 
                 const videoUrl = data.hd || data.sd;
                 if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
@@ -67,7 +69,8 @@ module.exports = async (client, msg, text) => {
 
             } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Gagal FB.");
+                // Fallback pesimis
+                await msg.reply("❌ Gagal FB. Coba buka linknya di browser, terus salin link dari address bar.");
             }
             return true;
         }
@@ -80,21 +83,20 @@ module.exports = async (client, msg, text) => {
     }
 };
 
-// 👇 Fungsi buat buka link share FB (PENTING)
+// 👇 FUNGSI BUKA LINK (FOLLOW REDIRECTS ENABLED)
 async function expandFbUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, {
-            maxRedirects: 0,
-            validateStatus: status => status >= 200 && status < 400,
+            // HAPUS maxRedirects: 0 -> Biarin dia ngikutin redirect sampe tujuan akhir
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+                // Pake User-Agent PC biar dapet link www.facebook.com (bukan m.facebook)
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
         });
-        return response.headers.location || shortUrl;
+        // Ambil URL terakhir setelah redirect selesai
+        return response.request.res.responseUrl || response.request.responseURL || shortUrl;
     } catch (error) {
-        if (error.response && error.response.status >= 300 && error.response.status < 400) {
-            return error.response.headers.location;
-        }
+        console.log("Expand Error:", error.message);
         return shortUrl;
     }
 }
@@ -102,6 +104,6 @@ async function expandFbUrl(shortUrl) {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL FB & TikTok Only' }
+        { command: '(Auto Detect)', desc: 'DL FB & TikTok' }
     ]
 };
