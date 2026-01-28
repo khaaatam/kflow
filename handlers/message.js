@@ -25,11 +25,15 @@ module.exports = async (client, msg) => {
 
         // [IDENTIFIKASI] Sender ID
         let senderId = msg.fromMe ? client.info.wid._serialized : (msg.author || msg.from);
+        console.log(`📡 PESAN MASUK DARI: ${senderId}`);
         if (!senderId) return;
 
         // --- LEVEL 1: GATEKEEPER (USER CHECK) ---
         const namaPengirim = config.users[senderId];
-        if (!namaPengirim) return; // Ignore unknown users
+        if (!namaPengirim) {
+            console.log("⛔ DITOLAK: Nomor tidak terdaftar di config.js");
+            return;
+        }
 
         // --- LEVEL 2: ADMIN & LOGGING ---
         if (await commands.admin(client, msg, text, db)) return;
