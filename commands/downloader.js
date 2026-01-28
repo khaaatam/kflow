@@ -1,8 +1,7 @@
 const config = require('../config');
 const axios = require('axios');
-const snapsave = require('snapsave-downloader2'); // Spesialis FB
-const instagramDl = require('instagram-url-direct'); // Spesialis IG
-const ytdl = require('ytdl-core'); // Spesialis YT
+const { getFbVideoInfo } = require('fb-downloader-scrapper'); // Balik pake ini (Output Video Jernih)
+const { igdl, youtube } = require('btch-downloader'); // Buat IG & YT
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -13,8 +12,7 @@ module.exports = async (client, msg, text) => {
 
         let url = match[0];
 
-        // --- 1. TIKTOK (AXIOS - TIKWM) ---
-        // (Tetep pake ini karena udah terbukti sukses)
+        // --- 1. TIKTOK (AXIOS - SUKSES) ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
@@ -31,87 +29,81 @@ module.exports = async (client, msg, text) => {
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `🎵 *TikTok*\n👤 ${data.author?.nickname || '-'}`
                 });
-            } catch (e) { 
-                console.error("TikTok Error:", e);
-                await msg.reply("❌ Error TikTok."); 
-            }
+            } catch (e) { await msg.reply("❌ Error TikTok."); }
             return true;
         }
 
-        // --- 2. FACEBOOK (SNAPSAVE) ---
+        // --- 2. FACEBOOK (SCRAPPER + EXPANDER) ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                // Fitur Expand URL (Biar link share tembus)
+                // 👇 LANGKAH PENTING: Benerin link dulu sebelum dikasih ke scrapper
                 if (url.includes('share') || url.includes('fb.watch') || url.includes('/v/')) {
-                    try { url = await expandUrl(url); } catch (e) {}
+                    try {
+                        console.log(`🔗 Link Share terdeteksi, expanding...`);
+                        url = await expandUrl(url);
+                        console.log(`✅ Link Asli: ${url}`);
+                    } catch (e) {
+                        console.log("⚠️ Gagal expand, coba link mentah.");
+                    }
                 }
 
-                console.log(`🔍 FB SnapSave Try: ${url}`);
-                const data = await snapsave(url);
-                
-                // Cek hasil snapsave
-                if (!data || !data.data) return msg.reply("❌ Gagal FB (Private/Link Error).");
+                // Pake library favorite lu
+                const data = await getFbVideoInfo(url);
 
-                // SnapSave balikin array resolusi. Kita cari yang paling tinggi tapi masih masuk akal (720p/HD)
-                // data.data = [{ resolution: "720p (HD)", url: "..." }, { resolution: "360p (SD)", url: "..." }]
-                
-                let videoUrl = null;
-                const bestRes = data.data.find(x => x.resolution && x.resolution.includes('HD'));
-                const fallbackRes = data.data.find(x => x.resolution && x.resolution.includes('SD'));
-                
-                videoUrl = (bestRes || fallbackRes || data.data[0]).url;
+                if (!data) return msg.reply("❌ Gagal FB (Private/Link Error).");
+
+                // Scrapper ini outputnya .mp4 yang solid, jadi gak bakal jadi dokumen
+                const videoUrl = data.hd || data.sd;
 
                 if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                    caption: `💙 *Facebook Video*`
+                    caption: `💙 *Facebook Video*\n${data.title || ''}`
                 });
 
             } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Gagal FB (Coba kirim link video aslinya, jangan link share).");
+                await msg.reply("❌ Gagal FB.");
             }
             return true;
         }
 
-        // --- 3. INSTAGRAM (INSTAGRAM-URL-DIRECT) ---
+        // --- 3. INSTAGRAM (BTCH) ---
         if (url.includes('instagram.com')) {
             await msg.react('⏳');
             try {
-                const data = await instagramDl(url);
-                
-                // Output library ini: { results_number: 1, url_list: [ 'url1', 'url2' ] }
-                if (!data.url_list || data.url_list.length === 0) return msg.reply("❌ IG Gagal (Private/Login).");
+                const data = await igdl(url);
 
-                for (let i = 0; i < Math.min(data.url_list.length, 5); i++) {
-                     await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url_list[i], { unsafeMime: true }));
+                if (!data || data.length === 0) {
+                    return msg.reply("❌ IG Gagal. (Mungkin akun Private atau IP Server keblokir).");
                 }
-            } catch (e) { 
+
+                for (let i = 0; i < Math.min(data.length, 5); i++) {
+                    if (data[i].url) await client.sendMessage(msg.from, await MessageMedia.fromUrl(data[i].url, { unsafeMime: true }));
+                }
+            } catch (e) {
                 console.error("IG Error:", e);
-                await msg.reply("❌ Gagal IG."); 
+                await msg.reply("❌ Error IG.");
             }
             return true;
         }
 
-        // --- 4. YOUTUBE (YTDL-CORE) ---
+        // --- 4. YOUTUBE (BTCH) ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-             await msg.react('⏳');
-             try {
-                const info = await ytdl.getInfo(url);
-                // Pilih format video+audio (mp4) yang ada
-                const format = ytdl.chooseFormat(info.formats, { quality: '18' }); // quality 18 biasanya 360p (aman buat WA)
-                
-                if (!format || !format.url) return msg.reply("❌ Gagal parsing YT.");
+            await msg.react('⏳');
+            try {
+                const data = await youtube(url);
+                if (!data || !data.mp4) return msg.reply("❌ Gagal YT.");
 
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(format.url, { unsafeMime: true }), { 
-                    caption: `📺 *${info.videoDetails.title}*` 
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), {
+                    caption: `📺 *${data.title || 'YouTube'}*`
                 });
-             } catch (e) { 
-                 console.error("YT Error:", e);
-                 await msg.reply("❌ Gagal YT (Mungkin proteksi IP)."); 
-             }
-             return true;
+            } catch (e) {
+                console.error("YT Error:", e);
+                await msg.reply("❌ Error YT.");
+            }
+            return true;
         }
 
         return false;
@@ -122,7 +114,7 @@ module.exports = async (client, msg, text) => {
     }
 };
 
-// Fungsi Helper Expand URL
+// Fungsi Expand URL (Juru Selamat FB)
 async function expandUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400 });
@@ -136,6 +128,6 @@ async function expandUrl(shortUrl) {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL Sosmed (Avengers)' }
+        { command: '(Auto Detect)', desc: 'DL Sosmed' }
     ]
 };
