@@ -12,36 +12,51 @@ module.exports = async (client, msg, text, db) => {
 
     // --- 1. COMMAND: UPDATE SYSTEM (!update) ---
     if (text === '!update' || text === '!gitpull') {
-        // 👇 TRY-CATCH BIAR GAK CRASH KALAU GAGAL KIRIM CHAT
         try {
             await client.sendMessage(msg.from, "⏳ Sedang mengecek update dari GitHub...");
-        } catch (e) {
-            console.log("⚠️ Gagal kirim pesan loading, tapi tetep lanjut update...");
-        }
+        } catch (e) { }
 
         exec('git pull', async (error, stdout, stderr) => {
             if (error) {
-                console.error(`Git Error: ${error.message}`);
-                // Coba lapor error, kalau gagal yaudah
                 try { await client.sendMessage(msg.from, `❌ Gagal Update:\n${error.message}`); } catch (e) { }
                 return;
             }
 
             if (stdout.includes('Already up to date')) {
-                try { await client.sendMessage(msg.from, "✅ Udah paling baru Bos."); } catch (e) { }
+                try { await client.sendMessage(msg.from, "✅ Udah paling baru Bos. Aman."); } catch (e) { }
                 return;
             }
 
-            // Kalau update sukses
-            try {
-                await client.sendMessage(msg.from, `✅ *UPDATE SUKSES!*\n\n${stdout}\n\n♻️ Restarting...`);
-            } catch (e) {
-                console.log("Update sukses, otw restart...");
-            }
+            // 👇 LOGIC PINTAR DI SINI 👇
+            // Cek apakah file 'package.json' ikut berubah?
+            const needInstall = stdout.includes('package.json');
 
-            setTimeout(() => {
-                process.exit(0);
-            }, 2000);
+            let statusMsg = `✅ *UPDATE SUKSES!*\nFiles changed:\n${stdout}`;
+
+            if (needInstall) {
+                // Kalo ada perubahan library, baru kita install
+                statusMsg += `\n\n📦 *Terdeteksi perubahan library!*\nSedang menjalankan 'npm install'...`;
+                try { await client.sendMessage(msg.from, statusMsg); } catch (e) { }
+
+                exec('npm install', async (err, std, ste) => {
+                    if (err) {
+                        try { await client.sendMessage(msg.from, "⚠️ Gagal install dependencies, tapi tetep restart..."); } catch (e) { }
+                    } else {
+                        try { await client.sendMessage(msg.from, "✅ Library kelar diinstall."); } catch (e) { }
+                    }
+                    // Restart setelah install
+                    console.log("Install kelar, restart...");
+                    setTimeout(() => { process.exit(0); }, 2000);
+                });
+
+            } else {
+                // Kalo gak ada perubahan library, LANGSUNG RESTART (Hemat Waktu)
+                statusMsg += `\n\n⚡ *Gak ada library baru.* Langsung restart...`;
+                try { await client.sendMessage(msg.from, statusMsg); } catch (e) { }
+
+                console.log("Gak perlu install, langsung restart...");
+                setTimeout(() => { process.exit(0); }, 2000);
+            }
         });
         return true;
     }

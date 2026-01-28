@@ -13,6 +13,7 @@ const commands = {
     saran: require('../commands/saran'),
     tami: require('../commands/tami'),
     sticker: require('../commands/sticker')
+    downloader: require('../commands/downloader')
 };
 
 module.exports = async (client, msg) => {
@@ -53,11 +54,13 @@ module.exports = async (client, msg) => {
         if (await commands.saran(client, msg, text, db)) return;
         if (await commands.tami(client, msg, text, db)) return;
         if (await commands.ai.interact(client, msg, text, db, namaPengirim)) return;
+        if (await commands.downloader(client, msg, text)) return;
 
         if ((text === '!s' || text === '!sticker') && await commands.sticker(client, msg, text)) return;
         if (text.startsWith('!event') && await commands.event(client, msg, text, db, senderId)) return;
         if ((text.startsWith('!ingatin') || text.startsWith('!remind')) && await commands.reminder(client, msg, text, db, senderId)) return;
         if (text === '!ayang' && await commands.ayang(client, msg, db, namaPengirim)) return;
+
 
         // --- LEVEL 4: AI OBSERVER ---
         if (text.startsWith('!')) return;
