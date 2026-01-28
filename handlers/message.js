@@ -11,7 +11,8 @@ const commands = {
     event: require('../commands/event'),
     stats: require('../commands/stats'),
     saran: require('../commands/saran'),
-    tami: require('../commands/tami')
+    tami: require('../commands/tami'),
+    sticker: require('../commands/sticker')
 };
 
 module.exports = async (client, msg) => {
@@ -53,6 +54,7 @@ module.exports = async (client, msg) => {
         if (await commands.tami(client, msg, text, db)) return;
         if (await commands.ai.interact(client, msg, text, db, namaPengirim)) return;
 
+        if ((text === '!s' || text === '!sticker') && await commands.sticker(client, msg, text)) return;
         if (text.startsWith('!event') && await commands.event(client, msg, text, db, senderId)) return;
         if ((text.startsWith('!ingatin') || text.startsWith('!remind')) && await commands.reminder(client, msg, text, db, senderId)) return;
         if (text === '!ayang' && await commands.ayang(client, msg, db, namaPengirim)) return;
