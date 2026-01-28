@@ -13,15 +13,17 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.4",
-    "caliph-api": "^1.0.1",
     "dotenv": "^17.2.3",
     "ejs": "^4.0.1",
     "express": "^5.2.1",
+    "instagram-url-direct": "^2.0.7",
     "moment": "^2.30.1",
     "mysql2": "^3.16.0",
     "node-schedule": "^2.1.1",
     "puppeteer": "^24.35.0",
     "qrcode-terminal": "^0.12.0",
-    "whatsapp-web.js": "github:lindionez/whatsapp-web.js"
+    "snapsave-downloader2": "^6.9.5",
+    "whatsapp-web.js": "github:lindionez/whatsapp-web.js",
+    "ytdl-core": "^4.11.5"
   }
 }

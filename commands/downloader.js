@@ -1,6 +1,8 @@
 const config = require('../config');
 const axios = require('axios');
-const caliph = require('caliph-api'); // 👇 ENGINE BARU
+const snapsave = require('snapsave-downloader2'); // Spesialis FB
+const instagramDl = require('instagram-url-direct'); // Spesialis IG
+const ytdl = require('ytdl-core'); // Spesialis YT
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -11,7 +13,8 @@ module.exports = async (client, msg, text) => {
 
         let url = match[0];
 
-        // --- 1. TIKTOK (TETEP PAKE AXIOS - KARENA SUKSES) ---
+        // --- 1. TIKTOK (AXIOS - TIKWM) ---
+        // (Tetep pake ini karena udah terbukti sukses)
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
@@ -35,97 +38,78 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 2. INSTAGRAM (CALIPH) ---
-        if (url.includes('instagram.com')) {
-            await msg.react('⏳');
-            try {
-                // Caliph IG Downloader
-                const result = await caliph.downloader.instagram(url);
-                
-                // Cek format output (biasanya array)
-                console.log("📸 IG Data:", result);
-
-                if (!result || result.length === 0) {
-                    return msg.reply("❌ Gagal IG (Mungkin akun private/Link expired).");
-                }
-
-                // Kirim maksimal 5 slide
-                for (let i = 0; i < Math.min(result.length, 5); i++) {
-                    const mediaUrl = result[i].url;
-                    if (mediaUrl) {
-                        await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }));
-                    }
-                }
-            } catch (e) { 
-                console.error("IG Error:", e);
-                await msg.reply("❌ Error IG (Server Down/Private)."); 
-            }
-            return true;
-        }
-
-        // --- 3. FACEBOOK (CALIPH) ---
+        // --- 2. FACEBOOK (SNAPSAVE) ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                // Fitur rahasia: Expand URL dulu (biar link share tembus)
+                // Fitur Expand URL (Biar link share tembus)
                 if (url.includes('share') || url.includes('fb.watch') || url.includes('/v/')) {
                     try { url = await expandUrl(url); } catch (e) {}
                 }
+
+                console.log(`🔍 FB SnapSave Try: ${url}`);
+                const data = await snapsave(url);
                 
-                console.log(`🔍 FB Try: ${url}`);
-                const result = await caliph.downloader.facebook(url);
-                console.log("📦 FB Data:", result);
+                // Cek hasil snapsave
+                if (!data || !data.data) return msg.reply("❌ Gagal FB (Private/Link Error).");
 
-                if (!result || !result.result) return msg.reply("❌ Gagal FB.");
-
-                // Ambil HD atau SD
-                // Format caliph fb: { result: { url: "...", quality: "HD" }, ... }
-                // Kadang dia balikin array, kita cari yang mp4
+                // SnapSave balikin array resolusi. Kita cari yang paling tinggi tapi masih masuk akal (720p/HD)
+                // data.data = [{ resolution: "720p (HD)", url: "..." }, { resolution: "360p (SD)", url: "..." }]
                 
                 let videoUrl = null;
-                const res = result.result;
+                const bestRes = data.data.find(x => x.resolution && x.resolution.includes('HD'));
+                const fallbackRes = data.data.find(x => x.resolution && x.resolution.includes('SD'));
+                
+                videoUrl = (bestRes || fallbackRes || data.data[0]).url;
 
-                if (Array.isArray(res)) {
-                    // Cari yang HD
-                    const hd = res.find(x => x.quality === 'HD' || x.url.includes('hd'));
-                    const sd = res.find(x => x.quality === 'SD' || x.url.includes('sd'));
-                    videoUrl = (hd || sd || res[0]).url;
-                } else {
-                     videoUrl = res.url;
-                }
-
-                if (!videoUrl) return msg.reply("❌ Video FB Kosong.");
+                if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                    caption: `💙 *Facebook*`
+                    caption: `💙 *Facebook Video*`
                 });
-            } catch (e) { 
+
+            } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Error FB."); 
+                await msg.reply("❌ Gagal FB (Coba kirim link video aslinya, jangan link share).");
             }
             return true;
         }
 
-        // --- 4. YOUTUBE (CALIPH) ---
+        // --- 3. INSTAGRAM (INSTAGRAM-URL-DIRECT) ---
+        if (url.includes('instagram.com')) {
+            await msg.react('⏳');
+            try {
+                const data = await instagramDl(url);
+                
+                // Output library ini: { results_number: 1, url_list: [ 'url1', 'url2' ] }
+                if (!data.url_list || data.url_list.length === 0) return msg.reply("❌ IG Gagal (Private/Login).");
+
+                for (let i = 0; i < Math.min(data.url_list.length, 5); i++) {
+                     await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.url_list[i], { unsafeMime: true }));
+                }
+            } catch (e) { 
+                console.error("IG Error:", e);
+                await msg.reply("❌ Gagal IG."); 
+            }
+            return true;
+        }
+
+        // --- 4. YOUTUBE (YTDL-CORE) ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
              await msg.react('⏳');
              try {
-                const result = await caliph.downloader.youtube.video(url);
-                console.log("📺 YT Data:", result);
+                const info = await ytdl.getInfo(url);
+                // Pilih format video+audio (mp4) yang ada
+                const format = ytdl.chooseFormat(info.formats, { quality: '18' }); // quality 18 biasanya 360p (aman buat WA)
+                
+                if (!format || !format.url) return msg.reply("❌ Gagal parsing YT.");
 
-                if (!result || !result.result) return msg.reply("❌ Gagal YT.");
-
-                const videoUrl = result.result.url || result.result.link; 
-                const title = result.result.title || 'YouTube Video';
-
-                if (!videoUrl) return msg.reply("❌ Link Video YT tidak ketemu.");
-
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), { 
-                    caption: `📺 *${title}*` 
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(format.url, { unsafeMime: true }), { 
+                    caption: `📺 *${info.videoDetails.title}*` 
                 });
              } catch (e) { 
                  console.error("YT Error:", e);
-                 await msg.reply("❌ Error YT (Coba video durasi pendek)."); 
+                 await msg.reply("❌ Gagal YT (Mungkin proteksi IP)."); 
              }
              return true;
         }
@@ -133,12 +117,12 @@ module.exports = async (client, msg, text) => {
         return false;
 
     } catch (error) {
-        console.error("Downloader Error:", error);
+        console.error("Downloader System Error:", error);
         return false;
     }
 };
 
-// Fungsi Expand URL (Tetep dipake buat FB)
+// Fungsi Helper Expand URL
 async function expandUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400 });
@@ -152,6 +136,6 @@ async function expandUrl(shortUrl) {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL Sosmed (Caliph)' }
+        { command: '(Auto Detect)', desc: 'DL Sosmed (Avengers)' }
     ]
 };
