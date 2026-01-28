@@ -1,7 +1,8 @@
 const config = require('../config');
-const axios = require('axios'); // 👈 ENGINE BARU BUAT TIKTOK
-const getFbVideo = require('fb-downloader-scrapper'); // SPESIALIS FB
-const { instagram, youtube } = require('api-dylux'); // SISANYA
+const axios = require('axios');
+// 👇 PERBAIKAN 1: Pake kurung kurawal {} buat ambil fungsi spesifik
+const { getFbVideoInfo } = require('fb-downloader-scrapper');
+const { instagram, youtube } = require('api-dylux');
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -12,12 +13,10 @@ module.exports = async (client, msg, text) => {
 
         const url = match[0];
 
-        // --- 1. TIKTOK DOWNLOADER (VIA TIKWM API) ---
-        // Kita gak pake library, kita request manual biar lebih kebal error
+        // --- 1. TIKTOK DOWNLOADER (TikWM API + Auto Patch) ---
         if (url.includes('tiktok.com')) {
             await msg.react('⏳');
             try {
-                // Request ke TikWM
                 const response = await axios.post('https://www.tikwm.com/api/', {
                     url: url,
                     count: 12,
@@ -32,26 +31,21 @@ module.exports = async (client, msg, text) => {
                 });
 
                 const res = response.data;
-
-                if (!res.data) {
-                    // Fallback kalau TikWM gagal, coba API cadangan
-                    console.log("TikWM gagal, coba LoLhuman/Others...");
-                    return msg.reply("❌ Gagal ambil data TikTok (API Down).");
-                }
+                if (!res.data) return msg.reply("❌ Gagal ambil data TikTok (API Down).");
 
                 const data = res.data;
-                const videoUrl = data.play || data.wmplay;
-                const musicUrl = data.music;
+                let videoUrl = data.play || data.wmplay;
+
+                // 👇 PERBAIKAN 2: Cek Link Buntung
+                if (videoUrl && !videoUrl.startsWith('http')) {
+                    videoUrl = `https://www.tikwm.com${videoUrl}`;
+                }
 
                 if (!videoUrl) return msg.reply("❌ Video tidak ditemukan.");
 
-                // Kirim Video
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                    caption: `🎵 *TikTok No Watermark*\n👤 ${data.author.nickname}\n❤️ ${data.digg_count} Likes\n📝 ${data.title}`
+                    caption: `🎵 *TikTok No Watermark*\n👤 ${data.author?.nickname || '-'}\n❤️ ${data.digg_count || '-'}\n📝 ${data.title || '-'}`
                 });
-
-                // (Opsional) Kirim Audio kalau mau
-                // await client.sendMessage(msg.from, await MessageMedia.fromUrl(musicUrl, { unsafeMime: true }), { sendAudioAsVoice: true });
 
             } catch (e) {
                 console.error("TikTok API Error:", e);
@@ -60,22 +54,31 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 2. FACEBOOK DOWNLOADER (SCRAPPER) ---
+        // --- 2. FACEBOOK DOWNLOADER (Fixed Import) ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                const data = await getFbVideo(url);
-                if (!data.success) return msg.reply("❌ FB Gagal (Private/Link Error).");
+                console.log(`🔍 FB Specialist Try: ${url}`);
 
+                // 👇 Panggil fungsi yang bener
+                const data = await getFbVideoInfo(url);
+
+                console.log(`📦 FB Data:`, JSON.stringify(data, null, 2));
+
+                if (!data) return msg.reply("❌ Gagal jebol FB (Link keramat/Private).");
+
+                // Cari video (biasanya dia kasih sd/hd)
                 const videoUrl = data.hd || data.sd;
-                if (!videoUrl) return msg.reply("❌ Video FB kosong.");
+
+                if (!videoUrl) return msg.reply("❌ Link video FB tidak ketemu di data.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Video*\n${data.title || ''}`
                 });
+
             } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Gagal FB.");
+                await msg.reply("❌ Gagal download FB.");
             }
             return true;
         }
@@ -105,7 +108,7 @@ module.exports = async (client, msg, text) => {
             try {
                 const data = await youtube(url);
                 if (!data || (!data.mp4 && !data.url)) return msg.reply("❌ Gagal YT.");
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4 || data.url, { unsafeMime: true }), { caption: `📺 ${data.title}` });
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4 || data.url, { unsafeMime: true }), { caption: `📺 ${data.title || 'Youtube'}` });
             } catch (e) { await msg.reply("❌ Error YT."); }
             return true;
         }
