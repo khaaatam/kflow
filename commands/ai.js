@@ -9,45 +9,52 @@ const observe = async (client, msg, db, namaPengirim) => {
     const text = msg.body;
     if (text.length < 5 || text.split(' ').length < 2) return;
 
+    // Trigger words tetap sama
     const triggerWords = ['aku', 'gw', 'saya', 'suka', 'benci', 'pengen', 'mau', 'rumah', 'tinggal', 'anak', 'lahir', 'ultah', 'umur', 'jangan', 'kecewa', 'senang', 'marah', 'sedih'];
     if (!triggerWords.some(word => text.toLowerCase().includes(word))) return;
 
     try {
         const [rowsChat] = await db.query("SELECT nama_pengirim, pesan FROM full_chat_logs WHERE pesan NOT LIKE '!%' ORDER BY id DESC LIMIT 10");
         const contextHistory = rowsChat.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
-        
+
         const promptObserver = `
         Tugas: Ekstrak FAKTA BARU user ${namaPengirim}.
         Chat: ${contextHistory}
         User: "${text}"
         Output: [[SAVEMEMORY: Fakta]] atau KOSONG
         `;
-        
+
         const result = await model.generateContent(promptObserver);
         const response = result.response.text().trim();
         const match = response.match(/\[\[SAVEMEMORY:\s*(.*?)\]\]/);
-        
+
         if (match && match[1]) {
             let memory = match[1].trim();
             const [duplikat] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${memory}%`]);
-            
+
             if (duplikat.length === 0) {
                 // 1. Simpan ke Database
                 await db.query("INSERT INTO memori (fakta) VALUES (?)", [memory]);
-                console.log(`🧠 [MEMORI] ${memory}`);
 
-                // 2. 👇 INI DIA YANG TADI ILANG (Lapor ke WA) 👇
+                // 👇 UPDATE 1: Console lebih jelas
+                console.log(`🧠 [MEMORI] ${namaPengirim}: ${memory}`);
+
+                // 👇 UPDATE 2: Laporan WA lebih detail (Ada Nama & Waktu)
                 if (config.system?.logNumber) {
                     const now = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
                     try {
-                        await client.sendMessage(config.system.logNumber, `📝 *MEMORI BARU* [${now}]\n"${memory}"`);
+                        const laporan = `📝 *MEMORI BARU* [${now}]\n` +
+                            `👤 *Subjek:* ${namaPengirim}\n` +
+                            `💡 *Fakta:* "${memory}"`;
+
+                        await client.sendMessage(config.system.logNumber, laporan);
                     } catch (e) {
                         console.error("Gagal kirim log memori:", e.message);
                     }
                 }
             }
         }
-    } catch (e) {}
+    } catch (e) { }
 };
 
 // --- INTERACT (Dynamic Persona) ---
