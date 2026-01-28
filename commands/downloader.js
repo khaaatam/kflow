@@ -1,7 +1,7 @@
 const config = require('../config');
 const axios = require('axios');
-const { getFbVideoInfo } = require('fb-downloader-scrapper'); // Balik pake ini (Output Video Jernih)
-const { igdl, youtube } = require('btch-downloader'); // Buat IG & YT
+const { getFbVideoInfo } = require('fb-downloader-scrapper'); // FB Tetap Ini
+const { youtubedl, youtubedlv2, instagramdl, instagramdlv2, instagramdlv3, instagramdlv4 } = require('@bochilteam/scraper'); // 👇 PASUKAN KHUSUS
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
@@ -33,30 +33,20 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 2. FACEBOOK (SCRAPPER + EXPANDER) ---
+        // --- 2. FACEBOOK (SCRAPPER + EXPANDER - SUKSES) ---
         if (url.includes('facebook.com') || url.includes('fb.watch')) {
             await msg.react('⏳');
             try {
-                // 👇 LANGKAH PENTING: Benerin link dulu sebelum dikasih ke scrapper
+                // Expand Link
                 if (url.includes('share') || url.includes('fb.watch') || url.includes('/v/')) {
-                    try {
-                        console.log(`🔗 Link Share terdeteksi, expanding...`);
-                        url = await expandUrl(url);
-                        console.log(`✅ Link Asli: ${url}`);
-                    } catch (e) {
-                        console.log("⚠️ Gagal expand, coba link mentah.");
-                    }
+                    try { url = await expandUrl(url); } catch (e) {}
                 }
 
-                // Pake library favorite lu
                 const data = await getFbVideoInfo(url);
+                if (!data) return msg.reply("❌ Gagal FB.");
 
-                if (!data) return msg.reply("❌ Gagal FB (Private/Link Error).");
-
-                // Scrapper ini outputnya .mp4 yang solid, jadi gak bakal jadi dokumen
-                const videoUrl = data.hd || data.sd;
-
-                if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
+                const videoUrl = data.hd || data.sd; 
+                if (!videoUrl) return msg.reply("❌ Video FB Kosong.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Video*\n${data.title || ''}`
@@ -69,52 +59,70 @@ module.exports = async (client, msg, text) => {
             return true;
         }
 
-        // --- 3. INSTAGRAM (BTCH) ---
+        // --- 3. INSTAGRAM (BOCHIL TEAM) ---
         if (url.includes('instagram.com')) {
             await msg.react('⏳');
             try {
-                const data = await igdl(url);
+                // Kita coba beberapa engine IG dari Bochil (v1, v2, v3, v4) sampe ada yang tembus
+                let data = await instagramdl(url).catch(async () => 
+                           await instagramdlv2(url)).catch(async () => 
+                           await instagramdlv3(url)).catch(async () => 
+                           await instagramdlv4(url));
+                
+                if (!data || data.length === 0) return msg.reply("❌ IG Gagal (Akun Private/API Error).");
 
-                if (!data || data.length === 0) {
-                    return msg.reply("❌ IG Gagal. (Mungkin akun Private atau IP Server keblokir).");
-                }
-
+                // Bochil balikin array object { url: '...', thumbnail: '...' }
                 for (let i = 0; i < Math.min(data.length, 5); i++) {
-                    if (data[i].url) await client.sendMessage(msg.from, await MessageMedia.fromUrl(data[i].url, { unsafeMime: true }));
+                     const mediaUrl = data[i].url;
+                     if (mediaUrl) await client.sendMessage(msg.from, await MessageMedia.fromUrl(mediaUrl, { unsafeMime: true }));
                 }
-            } catch (e) {
+            } catch (e) { 
                 console.error("IG Error:", e);
-                await msg.reply("❌ Error IG.");
+                await msg.reply("❌ Error IG (IP Blocked/Private)."); 
             }
             return true;
         }
 
-        // --- 4. YOUTUBE (BTCH) ---
+        // --- 4. YOUTUBE (BOCHIL TEAM) ---
         if (url.includes('youtube.com') || url.includes('youtu.be')) {
-            await msg.react('⏳');
-            try {
-                const data = await youtube(url);
-                if (!data || !data.mp4) return msg.reply("❌ Gagal YT.");
+             await msg.react('⏳');
+             try {
+                // Coba Engine V1 dulu, kalau gagal V2
+                let data = await youtubedl(url).catch(async () => await youtubedlv2(url));
+                
+                if (!data || !data.video) return msg.reply("❌ Gagal YT.");
 
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(data.mp4, { unsafeMime: true }), {
-                    caption: `📺 *${data.title || 'YouTube'}*`
+                // Ambil kualitas terbaik (biasanya key-nya '720p', '480p', etc)
+                // data.video adalah object: { '360p': { fileSize:..., download: async() }, '720p': ... }
+                
+                const quality = data.video['720p'] || data.video['480p'] || data.video['360p'] || data.video['auto'];
+                
+                if (!quality) return msg.reply("❌ Video YT tidak ada link download.");
+                
+                // KITA HARUS EKSEKUSI FUNGSI DOWNLOADNYA
+                const dlUrl = await quality.download();
+
+                if (!dlUrl) return msg.reply("❌ Gagal generate link YT.");
+
+                await client.sendMessage(msg.from, await MessageMedia.fromUrl(dlUrl, { unsafeMime: true }), { 
+                    caption: `📺 *${data.title || 'YouTube'}*` 
                 });
-            } catch (e) {
-                console.error("YT Error:", e);
-                await msg.reply("❌ Error YT.");
-            }
-            return true;
+             } catch (e) { 
+                 console.error("YT Error:", e);
+                 await msg.reply("❌ Error YT."); 
+             }
+             return true;
         }
 
         return false;
 
     } catch (error) {
-        console.error("Downloader System Error:", error);
+        console.error("Downloader Error:", error);
         return false;
     }
 };
 
-// Fungsi Expand URL (Juru Selamat FB)
+// Fungsi Expand URL
 async function expandUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, { maxRedirects: 0, validateStatus: s => s >= 200 && s < 400 });
@@ -128,6 +136,6 @@ async function expandUrl(shortUrl) {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL Sosmed' }
+        { command: '(Auto Detect)', desc: 'DL Sosmed (Bochil)' }
     ]
 };
