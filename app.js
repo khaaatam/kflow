@@ -93,7 +93,10 @@ client.on('ready', async () => {
 });
 
 // --- 4. SAMBUNGKAN OTAK BOT ---
-client.on('message_create', (msg) => messageHandler(client, msg));
+client.on('message_create', (msg) => {
+    console.log(`TESTER: Ada pesan masuk! -> ${msg.body}`); // 👈 KITA PASANG PENYADAP DISINI
+    messageHandler(client, msg);
+});
 
 // --- 5. START ---
 client.initialize();
