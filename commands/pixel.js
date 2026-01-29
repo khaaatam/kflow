@@ -55,9 +55,10 @@ module.exports = async (client, msg, text) => {
                     '-pix_fmt yuv420p',  // Wajib buat WA
 
                     // Opsi Audio (Kita bikin audionya mendam sekalian)
-                    '-ac 1',      // Jadi Mono (bukan Stereo)
-                    '-ar 22050'   // Sample rate rendah (suara jadi kyk radio butut)
-                    // Kalau mau audio aslinya aja, hapus 2 baris di atas, ganti jadi: '-c:a copy'
+                    '-c:a aac',         // Codec Audio
+                    '-ac 1',            // Mono
+                    '-ar 8000',         // Sample rate telepon (8000Hz) - Bikin suara "sempit"
+                    '-b:a 12k'          // Bitrate audio super rendah (12kbps)
                 ])
                 .on('end', resolve)
                 .on('error', (err) => {
