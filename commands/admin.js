@@ -3,20 +3,51 @@ const config = require('../config');
 const db = require('../lib/database');
 
 module.exports = async (client, msg, args, senderId) => {
-    // 🛡️ SECURITY CHECK (SAFE MODE)
+    // 🛡️ 1. SECURITY CHECK (DENGAN LOG DEBUG)
     const owners = config.ownerNumber || [];
-    const isOwner = owners.includes(senderId.replace('@c.us', ''));
+    // Format ID dari WA biasanya: 628xxx@c.us -> Kita ambil angkanya doang
+    const cleanId = senderId.replace('@c.us', '');
 
-    if (!isOwner) return false; // Silent block
+    const isOwner = owners.includes(cleanId);
+
+    // 👇 LOG INI BAKAL MUNCUL DI TERMINAL
+    console.log(`[ADMIN CHECK] Sender: ${cleanId} | Is Owner? ${isOwner}`);
+
+    if (!isOwner) return false; // Silent block buat orang asing
 
     const command = args[0];
 
-    // --- 1. COMMAND: UPDATE SYSTEM (!update) ---
+    // --- 2. COMMAND: FORCE UPDATE (!forceupdate) ---
+    // Gunakan ini kalau !update biasa gagal karena "Conflict"
+    if (command === '!forceupdate') {
+        await msg.reply("☢️ *FORCE UPDATE DETECTED*\nMenghapus perubahan lokal & maksa tarik dari GitHub...");
+
+        // Command sakti: Reset hard ke origin/main (atau master)
+        // Pastikan branch lu 'main' atau 'master', sesuaikan di bawah
+        exec('git fetch --all && git reset --hard origin/main && git pull', async (error, stdout, stderr) => {
+            if (error) {
+                // Coba fallback ke 'master' kalau 'main' gagal
+                exec('git fetch --all && git reset --hard origin/master && git pull', async (err2, out2) => {
+                    if (err2) return msg.reply(`❌ Gagal Total:\n${error.message}`);
+                    await msg.reply("✅ Sukses Force Update (via Master).\nRestarting...");
+                    setTimeout(() => process.exit(0), 1000);
+                });
+                return;
+            }
+            await msg.reply(`✅ *SUKSES SINKRONISASI!*\nSekarang kodingan sama persis kayak di GitHub.\n\nRestarting...`);
+            setTimeout(() => process.exit(0), 1000);
+        });
+        return true;
+    }
+
+    // --- 3. COMMAND: UPDATE BIASA (!update) ---
     if (command === '!update' || command === '!gitpull') {
         try { await msg.react('⏳'); } catch (e) { }
 
         exec('git pull', async (error, stdout, stderr) => {
-            if (error) return msg.reply(`❌ Gagal Update:\n${error.message}`);
+            if (error) {
+                return msg.reply(`❌ Gagal Update (Mungkin Conflict?):\nCoba ketik: *!forceupdate*\n\nError: ${error.message}`);
+            }
             if (stdout.includes('Already up to date')) return msg.reply("✅ Udah paling baru Bos.");
 
             const needInstall = stdout.includes('package.json');
@@ -37,34 +68,25 @@ module.exports = async (client, msg, args, senderId) => {
         return true;
     }
 
-    // --- 2. COMMAND: RESET LOGS (!resetlogs) ---
+    // --- 4. COMMAND LAINNYA ---
     if (command === '!resetlogs') {
-        try {
-            await db.query("TRUNCATE TABLE full_chat_logs");
-            msg.reply("✅ Logs chat bersih.");
-        } catch (e) { msg.reply("❌ Gagal reset logs."); }
+        await db.query("TRUNCATE TABLE full_chat_logs");
+        msg.reply("✅ Logs chat bersih.");
         return true;
     }
 
-    // --- 3. COMMAND: RESET MEMORI (!resetmemori) ---
     if (command === '!resetmemori') {
-        try {
-            await db.query("TRUNCATE TABLE memori");
-            msg.reply("🧠 Memori AI bersih.");
-        } catch (e) { msg.reply("❌ Gagal reset memori."); }
+        await db.query("TRUNCATE TABLE memori");
+        msg.reply("🧠 Memori AI bersih.");
         return true;
     }
 
-    // --- 4. COMMAND: RESET FINANCE (!resetfinance) 👈 INI DIA
     if (command === '!resetfinance') {
-        try {
-            await db.query("TRUNCATE TABLE transaksi");
-            msg.reply("💸 Data keuangan di-reset ke 0 (Dompet Kosong).");
-        } catch (e) { msg.reply("❌ Gagal reset finance."); }
+        await db.query("TRUNCATE TABLE transaksi");
+        msg.reply("💸 Data keuangan di-reset ke 0.");
         return true;
     }
 
-    // --- 5. COMMAND: RESTART (!restart) ---
     if (command === '!restart') {
         await msg.reply("♻️ Restarting...");
         setTimeout(() => process.exit(0), 1000);
@@ -77,10 +99,9 @@ module.exports = async (client, msg, args, senderId) => {
 module.exports.metadata = {
     category: "SYSTEM",
     commands: [
-        { command: '!update', desc: 'Git Pull' },
+        { command: '!forceupdate', desc: 'Paksa Update (Hapus Local Changes)' },
+        { command: '!update', desc: 'Git Pull Aman' },
         { command: '!restart', desc: 'Restart Bot' },
-        { command: '!resetlogs', desc: 'Hapus Chat Logs' },
-        { command: '!resetmemori', desc: 'Hapus Ingatan AI' },
-        { command: '!resetfinance', desc: 'Hapus Data Keuangan' }
+        { command: '!resetfinance', desc: 'Reset Data Keuangan' }
     ]
 };
