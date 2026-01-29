@@ -50,7 +50,7 @@ module.exports = async (client, msg, text) => {
                     // 🔥 KUNCI KEBURIKAN: Bitrate Video Rendah 🔥
                     // Normalnya 720p itu 2000k++. Kita kasih cuma 150k.
                     // Makin kecil angkanya, makin hancur/kotak-kotak kompresinya.
-                    '-b:v 150k',
+                    '-b:v 80k',
 
                     '-pix_fmt yuv420p',  // Wajib buat WA
 
