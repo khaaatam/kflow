@@ -4,6 +4,7 @@ const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
+    // Cek trigger (Masih pake !pixel gapapa, atau mau ganti !burik juga boleh)
     if (text.toLowerCase() !== '!pixel') return false;
 
     try {
@@ -30,30 +31,37 @@ module.exports = async (client, msg, text) => {
 
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // --- SETTINGAN PIXEL ---
-        const pixelFactor = 25;
-
+        // --- PROSES FFMPEG ALA HP JADUL (3GP VIBES) ---
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
+                // 1. Filter Video
                 .videoFilters([
-                    // Downscale: Pake -2 biar dimensi tetep genap
-                    `scale=iw/${pixelFactor}:-2`,
-                    // Upscale: Pake -2 lagi biar output final genap (Wajib buat libx264)
-                    `scale=iw*${pixelFactor}:-2:flags=neighbor`
+                    // Set resolusi ke 240p (resolusi umum HP jadul: 320x240)
+                    // 'scale=320:-2' artinya lebar 320, tinggi menyesuaikan tapi harus genap (-2)
+                    'scale=320:-2',
+                    // Set FPS jadi 15 biar agak patah-patah ala kamera VGA
+                    'fps=fps=15'
                 ])
+                // 2. Opsi Output (Ini yang bikin burik)
                 .outputOptions([
-                    '-c:v libx264',      // Codec video standar
-                    '-preset ultrafast', // Biar cepet render di HP
-                    '-pix_fmt yuv420p',  // WAJIB: Biar warna compatible sama WA/Android
-                    '-c:a copy'          // Audio gak usah diotak-atik (biar cepet)
+                    '-c:v libx264',      // Codec standar
+                    '-preset ultrafast', // Preset paling cepet (kualitas encode jelek, bagus buat kita)
+
+                    // 🔥 KUNCI KEBURIKAN: Bitrate Video Rendah 🔥
+                    // Normalnya 720p itu 2000k++. Kita kasih cuma 150k.
+                    // Makin kecil angkanya, makin hancur/kotak-kotak kompresinya.
+                    '-b:v 150k',
+
+                    '-pix_fmt yuv420p',  // Wajib buat WA
+
+                    // Opsi Audio (Kita bikin audionya mendam sekalian)
+                    '-ac 1',      // Jadi Mono (bukan Stereo)
+                    '-ar 22050'   // Sample rate rendah (suara jadi kyk radio butut)
+                    // Kalau mau audio aslinya aja, hapus 2 baris di atas, ganti jadi: '-c:a copy'
                 ])
-                // 👇 DEBUG: Biar ketahuan kalo error kenapa
-                .on('stderr', function (stderrLine) {
-                    // console.log('FFmpeg Log: ' + stderrLine); // Uncomment kalo mau liat log
-                })
                 .on('end', resolve)
                 .on('error', (err) => {
-                    console.error('FFmpeg Error Detail:', err); // Bakal muncul di console
+                    console.error('FFmpeg Error Detail:', err);
                     reject(err);
                 })
                 .save(outputPath);
@@ -61,7 +69,7 @@ module.exports = async (client, msg, text) => {
 
         const processedMedia = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(msg.from, processedMedia, {
-            caption: 'Nih hasil pixelated-nya! 👾',
+            caption: 'Nih vibes HP Nokia 2005! 📹',
             sendMediaAsDocument: false
         });
 
@@ -71,7 +79,6 @@ module.exports = async (client, msg, text) => {
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
 
     } catch (error) {
-        // Tampilkan pesan error yang lebih detail ke console biar gampang debug
         console.error("Gagal Pixelate:", error.message);
         await msg.reply(`❌ Gagal render: ${error.message}`);
     }
@@ -81,6 +88,6 @@ module.exports = async (client, msg, text) => {
 module.exports.metadata = {
     category: "MEDIA",
     commands: [
-        { command: '!pixel', desc: 'Ubah video jadi pixelated/8-bit' }
+        { command: '!pixel', desc: 'Ubah video jadi burik ala HP jadul' }
     ]
 };
