@@ -3,72 +3,70 @@ const config = require('../config');
 const db = require('../lib/database');
 
 module.exports = async (client, msg, args, senderId) => {
-    // 🛡️ 1. SECURITY CHECK (DENGAN LOG DEBUG)
+    // 🛡️ SECURITY CHECK
     const owners = config.ownerNumber || [];
-    // Format ID dari WA biasanya: 628xxx@c.us -> Kita ambil angkanya doang
+    // Bersihin ID dari @c.us biar cocok sama config
     const cleanId = senderId.replace('@c.us', '');
-
     const isOwner = owners.includes(cleanId);
 
-    // 👇 LOG INI BAKAL MUNCUL DI TERMINAL
-    console.log(`[ADMIN CHECK] Sender: ${cleanId} | Is Owner? ${isOwner}`);
-
-    if (!isOwner) return false; // Silent block buat orang asing
+    if (!isOwner) return false; // Silent block
 
     const command = args[0];
 
-    // --- 2. COMMAND: FORCE UPDATE (!forceupdate) ---
-    // Gunakan ini kalau !update biasa gagal karena "Conflict"
+    // --- 1. FORCE UPDATE (!forceupdate) ---
     if (command === '!forceupdate') {
-        await msg.reply("☢️ *FORCE UPDATE DETECTED*\nMenghapus perubahan lokal & maksa tarik dari GitHub...");
+        // 👇 Respon Awal
+        await msg.reply("☢️ *FORCE UPDATE DIMULAI...*\nMenghapus semua perubahan di Termux & maksa ambil dari GitHub.");
 
-        // Command sakti: Reset hard ke origin/main (atau master)
-        // Pastikan branch lu 'main' atau 'master', sesuaikan di bawah
         exec('git fetch --all && git reset --hard origin/main && git pull', async (error, stdout, stderr) => {
             if (error) {
-                // Coba fallback ke 'master' kalau 'main' gagal
+                // Fallback ke branch 'master' kalau 'main' gak ada
                 exec('git fetch --all && git reset --hard origin/master && git pull', async (err2, out2) => {
-                    if (err2) return msg.reply(`❌ Gagal Total:\n${error.message}`);
-                    await msg.reply("✅ Sukses Force Update (via Master).\nRestarting...");
+                    if (err2) return msg.reply(`❌ Gagal Force Update:\n${error.message}`);
+                    await msg.reply("✅ *SUKSES SINKRONISASI (Master)*\nSekarang kodingan sama persis kayak di GitHub.\n♻️ Restarting...");
                     setTimeout(() => process.exit(0), 1000);
                 });
                 return;
             }
-            await msg.reply(`✅ *SUKSES SINKRONISASI!*\nSekarang kodingan sama persis kayak di GitHub.\n\nRestarting...`);
+            await msg.reply(`✅ *SUKSES SINKRONISASI (Main)*\nOutput:\n\`\`\`${stdout}\`\`\`\n\n♻️ Restarting...`);
             setTimeout(() => process.exit(0), 1000);
         });
         return true;
     }
 
-    // --- 3. COMMAND: UPDATE BIASA (!update) ---
+    // --- 2. UPDATE BIASA (!update) ---
     if (command === '!update' || command === '!gitpull') {
-        try { await msg.react('⏳'); } catch (e) { }
+        // 👇 INI YANG LU CARI: Respon Konfirmasi Awal
+        await msg.reply("⏳ *Sedang mengecek update dari GitHub...*");
 
         exec('git pull', async (error, stdout, stderr) => {
             if (error) {
-                return msg.reply(`❌ Gagal Update (Mungkin Conflict?):\nCoba ketik: *!forceupdate*\n\nError: ${error.message}`);
+                return msg.reply(`❌ Gagal Update:\n${error.message}\n\n*Tips:* Coba ketik *!forceupdate*`);
             }
-            if (stdout.includes('Already up to date')) return msg.reply("✅ Udah paling baru Bos.");
+
+            if (stdout.includes('Already up to date')) {
+                return msg.reply("✅ *Bot sudah versi paling baru.* Aman Bos.");
+            }
 
             const needInstall = stdout.includes('package.json');
-            let statusMsg = `✅ *UPDATE SUKSES!*\nChanged:\n${stdout}`;
+            let statusMsg = `✅ *UPDATE BERHASIL!*\n\n📝 *Perubahan:*\n\`\`\`${stdout}\`\`\``;
 
             if (needInstall) {
-                statusMsg += `\n📦 Install libs...`;
+                statusMsg += `\n\n📦 *Ada Library Baru!* Sedang menjalankan npm install...`;
                 await msg.reply(statusMsg);
                 exec('npm install', () => {
-                    setTimeout(() => process.exit(0), 1000);
+                    setTimeout(() => process.exit(0), 2000);
                 });
             } else {
-                statusMsg += `\n⚡ Restarting...`;
+                statusMsg += `\n\n♻️ Restarting System...`;
                 await msg.reply(statusMsg);
-                setTimeout(() => process.exit(0), 1000);
+                setTimeout(() => process.exit(0), 2000);
             }
         });
         return true;
     }
 
-    // --- 4. COMMAND LAINNYA ---
+    // --- 3. RESET & RESTART ---
     if (command === '!resetlogs') {
         await db.query("TRUNCATE TABLE full_chat_logs");
         msg.reply("✅ Logs chat bersih.");
@@ -99,9 +97,11 @@ module.exports = async (client, msg, args, senderId) => {
 module.exports.metadata = {
     category: "SYSTEM",
     commands: [
-        { command: '!forceupdate', desc: 'Paksa Update (Hapus Local Changes)' },
-        { command: '!update', desc: 'Git Pull Aman' },
+        { command: '!update', desc: 'Cek Update GitHub' },
+        { command: '!forceupdate', desc: 'Paksa Samakan GitHub' },
         { command: '!restart', desc: 'Restart Bot' },
-        { command: '!resetfinance', desc: 'Reset Data Keuangan' }
+        { command: '!resetfinance', desc: 'Reset Data Keuangan' },
+        { command: '!resetmemori', desc: 'Reset AI Memory' },
+        { command: '!resetlogs', desc: 'Reset Chat Logs' }
     ]
 };
