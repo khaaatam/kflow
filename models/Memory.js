@@ -2,7 +2,6 @@ const db = require('../lib/database');
 
 class Memory {
     static async add(fakta) {
-        // Cek duplikat dulu
         const [rows] = await db.query("SELECT id FROM memori WHERE fakta LIKE ?", [`%${fakta}%`]);
         if (rows.length === 0) {
             return db.query("INSERT INTO memori (fakta) VALUES (?)", [fakta]);

@@ -1,105 +1,87 @@
 const moment = require('moment');
+const db = require('../lib/database'); // Import DB manual karena handler baru gak ngirim db
 
-module.exports = async (client, msg, text, db, senderId) => {
+module.exports = async (client, msg, args, senderId) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
-    const args = text.split(' ');
-    const command = args[1];
+    const subCommand = args[1]; // tambah, list, hapus
 
     try {
         // 1. TAMBAH EVENT
-        if (command === 'tambah' || command === 'add') {
+        if (subCommand === 'tambah' || subCommand === 'add') {
             const dateStr = args[2];
             const eventName = args.slice(3).join(' ');
 
             if (!dateStr || !eventName || !dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                return client.sendMessage(chatDestination, "❌ Format salah!\nContoh: `!event tambah 2025-05-12 Ulang Tahun Dini`");
+                return msg.reply("❌ Format: `!event tambah YYYY-MM-DD Nama Event`");
             }
 
             await db.query("INSERT INTO events (nama_event, tanggal, dibuat_oleh) VALUES (?, ?, ?)",
                 [eventName, dateStr, senderId]);
 
-            client.sendMessage(chatDestination, `✅ Siap! Event *"${eventName}"* pada *${dateStr}* berhasil disimpan.`);
+            return msg.reply(`✅ Event *"${eventName}"* (${dateStr}) disimpan.`);
         }
 
         // 2. LIST EVENT
-        else if (command === 'list' || !command) {
+        if (subCommand === 'list' || !subCommand) {
             const [rows] = await db.query("SELECT * FROM events ORDER BY tanggal ASC");
+            if (rows.length === 0) return msg.reply("Belum ada event. `!event tambah` dulu.");
 
-            if (rows.length === 0) return client.sendMessage(chatDestination, "Belum ada event yang dicatat. Ketik `!event tambah` dulu.");
-
-            let pesan = "🗓️ *AGENDA & EVENT MENDATANG* 🗓️\n\n";
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            let pesan = "🗓️ *AGENDA MENDATANG* 🗓️\n\n";
+            const today = moment().startOf('day');
 
             rows.forEach(row => {
-                const eventDate = new Date(row.tanggal);
-                const diffTime = eventDate - today;
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                const eventDate = moment(row.tanggal);
+                const diffDays = eventDate.diff(today, 'days');
 
-                let status = "";
-                if (diffDays < 0) status = "✅ (Lewat)";
-                else if (diffDays === 0) status = "🔥 *HARI INI!*";
-                else status = `⏳ H-${diffDays}`;
+                let status = diffDays < 0 ? "✅ (Lewat)" : diffDays === 0 ? "🔥 *HARI INI!*" : `⏳ H-${diffDays}`;
 
-                if (diffDays >= -7) {
-                    pesan += `• *${row.nama_event}*\n   📅 ${row.tanggal.toISOString().split('T')[0]} | ${status}\n`;
+                if (diffDays >= -7) { // Tampilkan yg baru lewat seminggu atau akan datang
+                    pesan += `• *${row.nama_event}*\n   📅 ${moment(row.tanggal).format('DD MMM YYYY')} | ${status}\n`;
                 }
             });
-
-            client.sendMessage(chatDestination, pesan);
+            return client.sendMessage(chatDestination, pesan);
         }
 
         // 3. HAPUS EVENT
-        else if (command === 'hapus' || command === 'del') {
+        if (subCommand === 'hapus' || subCommand === 'del') {
             const id = args[2];
-            const [res] = await db.query("DELETE FROM events WHERE id = ?", [id]);
+            if (!id) return msg.reply("ID mana? Cek `!event list` dulu.");
 
-            if (res.affectedRows === 0) return client.sendMessage(chatDestination, "❌ Gagal hapus. ID salah mungkin?");
-            client.sendMessage(chatDestination, "🗑️ Event berhasil dihapus.");
+            await db.query("DELETE FROM events WHERE id = ?", [id]);
+            return msg.reply("🗑️ Event dihapus.");
         }
 
     } catch (err) {
-        console.error("Event DB Error:", err);
-        client.sendMessage(chatDestination, "❌ Terjadi kesalahan database.");
+        console.error(err);
+        msg.reply("❌ Database Error.");
     }
 };
 
-// --- FUNGSI OTOMATIS: CEK TIAP PAGI (MODE PROMISE) ---
-module.exports.cekEventHarian = async (client, db, logNumber) => {
+// --- FUNGSI BACKGROUND (Dipanggil App.js) ---
+module.exports.cekEventHarian = async (client, dbParam, logNumber) => {
     try {
-        const [rows] = await db.query("SELECT * FROM events");
-        if (!rows) return;
-
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const database = dbParam || db; // Pake DB yg dikirim app.js atau yg di-require
+        const [rows] = await database.query("SELECT * FROM events");
+        const today = moment().startOf('day');
 
         for (const row of rows) {
-            const eventDate = new Date(row.tanggal);
-            const diffTime = eventDate - today;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const eventDate = moment(row.tanggal);
+            const diffDays = eventDate.diff(today, 'days');
 
             if ([7, 3, 1, 0].includes(diffDays)) {
-                let msg = "";
-                if (diffDays === 0) msg = `🚨 *PENGUMUMAN HARI INI!* 🚨\n\nHari ini adalah: *"${row.nama_event}"*\nJangan lupa ya Bang!`;
-                else msg = `⏰ *REMINDER EVENT* (H-${diffDays})\n\nPersiapan untuk: *"${row.nama_event}"*\nTanggal: ${row.tanggal.toISOString().split('T')[0]}`;
+                let msg = diffDays === 0
+                    ? `🚨 *HARI INI!* "${row.nama_event}"`
+                    : `⏰ *REMINDER H-${diffDays}*: "${row.nama_event}"`;
 
-                try {
-                    await client.sendMessage(logNumber, msg);
-                } catch (e) {
-                    console.log("Gagal kirim reminder event");
-                }
+                if (logNumber) await client.sendMessage(logNumber, msg);
             }
         }
-    } catch (err) {
-        console.error("Cek Event Harian Error:", err);
-    }
+    } catch (e) { console.error("Event Check Error:", e); }
 };
 
 module.exports.metadata = {
     category: "EVENT",
     commands: [
-        { command: '!event tambah [YYYY-MM-DD] [nama]', desc: 'Catat Event Penting' },
-        { command: '!event list', desc: 'Cek Hitung Mundur Event' },
-        { command: '!event hapus [id]', desc: 'Hapus Event' }
+        { command: '!event', desc: 'Kelola Agenda (tambah/list/hapus)' }
     ]
 };

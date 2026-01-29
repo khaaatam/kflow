@@ -6,12 +6,10 @@ const config = require('../config');
 // --- OBSERVER ---
 const observe = async (client, msg, namaPengirim) => {
     const text = msg.body;
-    // Filter Sampah
     if (text.startsWith('!') || text.length < 5) return;
     const blacklist = ['bot', 'fitur', 'command', 'reset', 'menu'];
     if (blacklist.some(w => text.toLowerCase().includes(w))) return;
 
-    // Trigger Words
     const triggers = ['suka', 'benci', 'mau', 'pengen', 'sedih', 'senang', 'marah', 'lapar', 'sakit'];
     if (!triggers.some(w => text.toLowerCase().includes(w))) return;
 
@@ -67,7 +65,6 @@ const interact = async (client, msg, args, senderId, namaPengirim) => {
             [USER INPUT]: "${content || 'Jelasin ini'}"
             `;
 
-            // Handle Gambar
             let payload = [finalPrompt];
             if (msg.hasMedia) {
                 const media = await msg.downloadMedia();

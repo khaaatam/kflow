@@ -1,104 +1,28 @@
-const schedule = require('node-schedule');
-const moment = require('moment');
+const db = require('../lib/database');
 
-// Object buat nyimpen job yang aktif di memory
-const activeJobs = {};
+module.exports = async (client, msg, args) => {
+    const menit = parseInt(args[1]);
+    const pesan = args.slice(2).join(' ');
 
-module.exports = async (client, msg, text, db, senderId) => { // Perhatikan: db gak perlu di-import ulang kalau udah di-pass dari handler
-    // Kalau text kosong (cuma dipanggil buat init), skip logic parsing
-    if (!text) return;
+    if (isNaN(menit) || !pesan) return msg.reply('Format: !ingetin [menit] [pesan]');
 
-    const args = text.split(' ');
+    // Simpan ke DB biar kalau restart gak ilang (Opsional, simpel dulu)
+    // Di sini kita pake setTimeout biasa dulu sesuai request
+    msg.reply(`Oke, diingetin ${menit} menit lagi.`);
 
-    if (args.length < 3) {
-        return client.sendMessage(msg.from, "⚠️ Format salah.\n\n*Contoh:*\n`!ingatin 10m matikan kompor`\n`!ingatin 2026-01-20 08:00 meeting google`");
-    }
-
-    let targetTime = null;
-    let pesan = "";
-
-    // --- LOGIKA PARSING WAKTU ---
-    const relativeMatch = args[1].match(/^(\d+)([mhs])$/);
-
-    if (relativeMatch) {
-        const amount = parseInt(relativeMatch[1]);
-        const unit = relativeMatch[2];
-        targetTime = moment();
-        if (unit === 'm') targetTime.add(amount, 'minutes');
-        if (unit === 'h') targetTime.add(amount, 'hours');
-        if (unit === 's') targetTime.add(amount, 'seconds');
-        pesan = args.slice(2).join(' ');
-    } else {
-        const potentialDateStr = `${args[1]} ${args[2]}`;
-        if (moment(potentialDateStr, 'YYYY-MM-DD HH:mm', true).isValid()) {
-            targetTime = moment(potentialDateStr, 'YYYY-MM-DD HH:mm');
-            pesan = args.slice(3).join(' ');
-        } else {
-            return client.sendMessage(msg.from, "❌ Format waktu gak dikenali.\nGunakan: `10m`, `1h`, atau `YYYY-MM-DD HH:mm`.");
-        }
-    }
-
-    if (!pesan.trim()) return client.sendMessage(msg.from, "⚠️ Pesannya kosong bang.");
-    if (targetTime.isBefore(moment())) return client.sendMessage(msg.from, "❌ Waktunya udah lewat bang.");
-
-    const mysqlTime = targetTime.format('YYYY-MM-DD HH:mm:ss');
-    const displayTime = targetTime.format('DD MMM, HH:mm');
-
-    // --- SIMPAN KE DATABASE (MODE PROMISE) ---
-    try {
-        const [result] = await db.query(
-            "INSERT INTO reminders (sender_id, pesan, waktu_eksekusi) VALUES (?, ?, ?)",
-            [senderId, pesan, mysqlTime]
-        );
-
-        const reminderId = result.insertId;
-
-        // --- JADWALIN JOB ---
-        const job = schedule.scheduleJob(targetTime.toDate(), async function () {
-            client.sendMessage(senderId, `⏰ *PENGINGAT DARI MASA LALU*\n\n"${pesan}"\n\n_Waktunya: ${displayTime}_`);
-
-            // Update status (Promise)
-            await db.query("UPDATE reminders SET status='sent' WHERE id=?", [reminderId]);
-            delete activeJobs[reminderId];
-        });
-
-        activeJobs[reminderId] = job;
-        client.sendMessage(msg.from, `✅ *Siap!* Gw ingetin:\n"${pesan}"\n\n📅 ${displayTime}`);
-
-    } catch (err) {
-        client.sendMessage(msg.from, "❌ Gagal nyatet jadwal: " + err.message);
-    }
+    setTimeout(() => {
+        client.sendMessage(msg.from, `⏰ *REMINDER*: ${pesan}`);
+    }, menit * 60 * 1000);
 };
 
-// --- FUNGSI RESTORE (MODE PROMISE) ---
+// --- FUNGSI RESTORE (Biar app.js gak error) ---
+// Walaupun logic DB-nya belum full, kita siapin wadahnya.
 module.exports.restoreReminders = async (client, db) => {
-    console.log("🔄 [System] Me-restore jadwal pending...");
-
-    try {
-        const [rows] = await db.query("SELECT * FROM reminders WHERE status='pending' AND waktu_eksekusi > NOW()");
-
-        let count = 0;
-        rows.forEach(row => {
-            const targetTime = new Date(row.waktu_eksekusi);
-
-            const job = schedule.scheduleJob(targetTime, async function () {
-                client.sendMessage(row.sender_id, `⏰ *PENGINGAT (RESTORED)*\n\n"${row.pesan}"`);
-                await db.query("UPDATE reminders SET status='sent' WHERE id=?", [row.id]);
-            });
-
-            activeJobs[row.id] = job;
-            count++;
-        });
-
-        if (count > 0) console.log(`✅ Berhasil restore ${count} jadwal.`);
-    } catch (err) {
-        console.error("Gagal restore:", err.message);
-    }
+    console.log("🔄 Cek Pending Reminders...");
+    // Logic restore dari DB bisa ditaruh sini nanti
 };
 
 module.exports.metadata = {
-    category: "SYSTEM",
-    commands: [
-        { command: '!ingatin [waktu] [pesan]', desc: 'Set Reminder (10m/1h)' }
-    ]
+    category: "LAINNYA",
+    commands: [{ command: '!ingetin', desc: 'Set Reminder' }]
 };

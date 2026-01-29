@@ -1,7 +1,6 @@
 const db = require('../lib/database');
 
 class ChatLog {
-    // 1. Ambil History Chat (Buat AI Context)
     static async getHistory(limit = 10, excludeCommands = true) {
         let query = "SELECT nama_pengirim, pesan FROM full_chat_logs";
         if (excludeCommands) query += " WHERE pesan NOT LIKE '!%'";
@@ -11,7 +10,6 @@ class ChatLog {
         return rows.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
     }
 
-    // 2. Ambil Statistik Harian (Buat !stats)
     static async getDailyStats() {
         const query = `
             SELECT 
@@ -25,7 +23,6 @@ class ChatLog {
         return rows[0] || { total_chat: 0, total_forward: 0 };
     }
 
-    // 3. Ambil Top Bawel (Buat !stats)
     static async getTopUser() {
         const query = `
             SELECT nama_pengirim, COUNT(*) as jumlah 
@@ -40,11 +37,9 @@ class ChatLog {
         return rows.length > 0 ? rows[0] : { nama_pengirim: 'Sepi...', jumlah: 0 };
     }
 
-    // 4. Ambil 100 Pesan Terakhir (Buat Trending Word)
     static async getRecentMessages(limit = 100) {
         const [rows] = await db.query("SELECT pesan FROM full_chat_logs WHERE nama_pengirim NOT LIKE '%Tami%' ORDER BY id DESC LIMIT ?", [limit]);
         return rows;
     }
 }
-
 module.exports = ChatLog;

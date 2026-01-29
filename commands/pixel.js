@@ -3,92 +3,65 @@ const fs = require('fs');
 const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 
-module.exports = async (client, msg, text) => {
-    // Cek trigger (Masih pake !pixel gapapa, atau mau ganti !burik juga boleh)
-    if (text.toLowerCase() !== '!pixel') return false;
+module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
+    // 1. Cek Media
+    const isMedia = msg.hasMedia;
+    const isQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
+
+    if (!isMedia && !isQuotedMedia) {
+        return msg.reply("❌ Kirim/Reply video pake caption `!pixel`");
+    }
+
+    await msg.react('🍳'); // Lagi masak...
 
     try {
-        const isMedia = msg.hasMedia;
-        const isQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
-
-        if (!isMedia && !isQuotedMedia) {
-            await msg.reply("❌ Kirim/Reply video pake caption *!pixel*");
-            return true;
-        }
-
-        await msg.react('🍳');
-
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
         const media = await targetMsg.downloadMedia();
 
-        if (!media || !media.mimetype.includes('video')) {
-            return msg.reply("❌ Format salah! Kirim video ya bang.");
-        }
+        if (!media.mimetype.includes('video')) return msg.reply("❌ Khusus Video Bang!");
 
-        const timestamp = new Date().getTime();
+        // 2. Setup Path
+        const timestamp = Date.now();
+        // Simpan di temp folder (sesuai kode lama lu)
         const inputPath = path.join(__dirname, `../.wwebjs_cache/temp_in_${timestamp}.mp4`);
         const outputPath = path.join(__dirname, `../.wwebjs_cache/temp_out_${timestamp}.mp4`);
 
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // --- PROSES FFMPEG ALA HP JADUL (3GP VIBES) ---
+        // 3. Proses FFmpeg (Resep Burik)
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
-                // 1. Filter Video
-                .videoFilters([
-                    // Set resolusi ke 240p (resolusi umum HP jadul: 320x240)
-                    // 'scale=320:-2' artinya lebar 320, tinggi menyesuaikan tapi harus genap (-2)
-                    'scale=320:-2',
-                    // Set FPS jadi 15 biar agak patah-patah ala kamera VGA
-                    'fps=fps=15'
-                ])
-                // 2. Opsi Output (Ini yang bikin burik)
+                .videoFilters(['scale=320:-2', 'fps=fps=15']) // Resolusi kecil & Patah-patah
                 .outputOptions([
-                    '-c:v libx264',      // Codec standar
-                    '-preset ultrafast', // Preset paling cepet (kualitas encode jelek, bagus buat kita)
-
-                    // 🔥 KUNCI KEBURIKAN: Bitrate Video Rendah 🔥
-                    // Normalnya 720p itu 2000k++. Kita kasih cuma 150k.
-                    // Makin kecil angkanya, makin hancur/kotak-kotak kompresinya.
-                    '-b:v 80k',
-
-                    '-pix_fmt yuv420p',  // Wajib buat WA
-
-                    // Opsi Audio (Kita bikin audionya mendam sekalian)
-                    '-c:a aac',         // Codec Audio
-                    '-ac 1',            // Mono
-                    '-ar 8000',         // Sample rate telepon (8000Hz) - Bikin suara "sempit"
-                    '-b:a 12k'          // Bitrate audio super rendah (12kbps)
+                    '-c:v libx264', '-preset ultrafast',
+                    '-b:v 80k', // Bitrate Video Hancur
+                    '-pix_fmt yuv420p',
+                    '-c:a aac', '-ac 1', '-ar 8000', '-b:a 12k' // Audio Mendem
                 ])
                 .on('end', resolve)
-                .on('error', (err) => {
-                    console.error('FFmpeg Error Detail:', err);
-                    reject(err);
-                })
+                .on('error', reject)
                 .save(outputPath);
         });
 
+        // 4. Kirim Hasil
         const processedMedia = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(msg.from, processedMedia, {
-            caption: 'Nih vibes HP Nokia 2005! 📹',
+            caption: 'Nih vibes Nokia 2005! 📹',
             sendMediaAsDocument: false
         });
 
+        // 5. Bersih-bersih
+        fs.unlinkSync(inputPath);
+        fs.unlinkSync(outputPath);
         await msg.react('✅');
 
-        if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
-        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
-
     } catch (error) {
-        console.error("Gagal Pixelate:", error.message);
-        await msg.reply(`❌ Gagal render: ${error.message}`);
+        console.error(error);
+        msg.reply(`❌ Gagal render: ${error.message}`);
     }
-    return true;
 };
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [
-        { command: '!pixel', desc: 'Ubah video jadi burik ala HP jadul' }
-    ]
+    commands: [{ command: '!pixel', desc: 'Video -> Burik (HD)' }]
 };
