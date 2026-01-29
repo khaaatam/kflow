@@ -4,56 +4,61 @@ const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 
 module.exports = async (client, msg, text) => {
-    // Cek trigger
     if (text.toLowerCase() !== '!pixel') return false;
 
     try {
-        // Cek media (langsung atau quoted)
         const isMedia = msg.hasMedia;
         const isQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
 
         if (!isMedia && !isQuotedMedia) {
-            await msg.reply("❌ Kirim video pake caption *!pixel* atau Reply video orang.");
+            await msg.reply("❌ Kirim/Reply video pake caption *!pixel*");
             return true;
         }
 
-        await msg.react('🍳'); // Reaksi lagi dimasak
+        await msg.react('🍳');
 
-        // Tentukan target pesan
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
-
-        // Download Media
         const media = await targetMsg.downloadMedia();
+
         if (!media || !media.mimetype.includes('video')) {
             return msg.reply("❌ Format salah! Kirim video ya bang.");
         }
 
-        // Bikin path file temporary
-        const timestamp = new Date().getTime(); // 👈 PERBAIKAN 1: new Date()
+        const timestamp = new Date().getTime();
         const inputPath = path.join(__dirname, `../.wwebjs_cache/temp_in_${timestamp}.mp4`);
         const outputPath = path.join(__dirname, `../.wwebjs_cache/temp_out_${timestamp}.mp4`);
 
-        // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // PROSES FFMPEG (Logic Pixelated)
-        // pixelFactor: 20 (makin gede makin kotak2)
+        // --- SETTINGAN PIXEL ---
         const pixelFactor = 25;
 
-        await new Promise((resolve, reject) => { // 👈 PERBAIKAN 2: new Promise()
+        await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
                 .videoFilters([
-                    `scale=iw/${pixelFactor}:-1`,             // Kecilin (Downscale)
-                    `scale=iw*${pixelFactor}:-1:flags=neighbor` // Gedein lagi (Upscale + Neighbor)
+                    // Downscale: Pake -2 biar dimensi tetep genap
+                    `scale=iw/${pixelFactor}:-2`,
+                    // Upscale: Pake -2 lagi biar output final genap (Wajib buat libx264)
+                    `scale=iw*${pixelFactor}:-2:flags=neighbor`
                 ])
-                .outputOptions('-c:v libx264') // Codec aman buat WA
-                .outputOptions('-preset ultrafast') // Biar cepet
+                .outputOptions([
+                    '-c:v libx264',      // Codec video standar
+                    '-preset ultrafast', // Biar cepet render di HP
+                    '-pix_fmt yuv420p',  // WAJIB: Biar warna compatible sama WA/Android
+                    '-c:a copy'          // Audio gak usah diotak-atik (biar cepet)
+                ])
+                // 👇 DEBUG: Biar ketahuan kalo error kenapa
+                .on('stderr', function (stderrLine) {
+                    // console.log('FFmpeg Log: ' + stderrLine); // Uncomment kalo mau liat log
+                })
                 .on('end', resolve)
-                .on('error', reject)
+                .on('error', (err) => {
+                    console.error('FFmpeg Error Detail:', err); // Bakal muncul di console
+                    reject(err);
+                })
                 .save(outputPath);
         });
 
-        // Kirim hasilnya
         const processedMedia = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(msg.from, processedMedia, {
             caption: 'Nih hasil pixelated-nya! 👾',
@@ -62,13 +67,13 @@ module.exports = async (client, msg, text) => {
 
         await msg.react('✅');
 
-        // Bersih-bersih file sampah
         if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
         if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
 
     } catch (error) {
-        console.error("Pixel Video Error:", error);
-        await msg.reply("❌ Gagal render video.");
+        // Tampilkan pesan error yang lebih detail ke console biar gampang debug
+        console.error("Gagal Pixelate:", error.message);
+        await msg.reply(`❌ Gagal render: ${error.message}`);
     }
     return true;
 };
