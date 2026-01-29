@@ -1,13 +1,20 @@
-require('dotenv').config(); // <--- BARIS SAKTI: Load .env
+require('dotenv').config();
 
-// 1. DAFTAR USER (WHITELIST)
+// 1. DAFTAR USER (WHITELIST - Buat Nama doang)
 const users = {
     '6289608506367@c.us': 'Tami',
     '62881081132332@c.us': "Tami2",
     '6283806618448@c.us': 'Dini'
 };
 
-// 2. DATABASE CONFIG
+// 2. DAFTAR OWNER/ADMIN (PENTING! INI YANG BOLEH PAKE !update)
+// Masukin angkanya aja tanpa @c.us
+const ownerNumber = [
+    '6289608506367', // Tami Utama
+    '62881081132332' // Tami Cadangan
+];
+
+// 3. DATABASE CONFIG
 const database = {
     host: 'localhost',
     user: 'root',
@@ -20,19 +27,17 @@ const database = {
     keepAliveInitialDelay: 0
 };
 
-// 3. AI CONFIG (GEMINI)
+// 4. AI CONFIG (GEMINI)
 const ai = {
-    // SEKARANG DIA BACA DARI FILE .ENV (Bukan Hardcoded lagi)
     apiKey: process.env.GEMINI_API_KEY,
-    modelName: "gemini-2.5-flash-lite" // Ganti ke model terbaru yang valid
+    modelName: "gemini-2.0-flash-lite" // Ganti ke model yang valid/terbaru
 };
 
-// 4. SYSTEM CONFIG
+// 5. SYSTEM CONFIG
 const system = {
     port: 3000,
     logNumber: '62881081132332@c.us',
     puppeteer: {
-        // executablePath: '/data/data/com.termux/files/usr/bin/chromium-browser',
         headless: true,
         args: [
             '--no-sandbox',
@@ -45,4 +50,5 @@ const system = {
     }
 };
 
-module.exports = { users, database, ai, system };
+// 👇 JANGAN LUPA EXPORT 'ownerNumber' DISINI!
+module.exports = { users, ownerNumber, database, ai, system };
