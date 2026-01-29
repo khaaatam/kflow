@@ -13,7 +13,8 @@ const commands = {
     saran: require('../commands/saran'),
     tami: require('../commands/tami'),
     sticker: require('../commands/sticker'),
-    downloader: require('../commands/downloader')
+    downloader: require('../commands/downloader'),
+    pixel: require('../commands/pixel')
 };
 
 module.exports = async (client, msg) => {
@@ -55,6 +56,7 @@ module.exports = async (client, msg) => {
         if (await commands.tami(client, msg, text, db)) return;
         if (await commands.ai.interact(client, msg, text, db, namaPengirim)) return;
         if (await commands.downloader(client, msg, text)) return;
+        if (await commands.pixel(client, msg, text)) return;
 
         if ((text === '!s' || text === '!sticker') && await commands.sticker(client, msg, text)) return;
         if (text.startsWith('!event') && await commands.event(client, msg, text, db, senderId)) return;
