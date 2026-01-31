@@ -15,7 +15,6 @@ for (const file of commandFiles) {
         if (module.metadata && module.metadata.commands) {
             module.metadata.commands.forEach(cmd => {
                 const handler = module.interact || module;
-                // Simpan command apa adanya (Case Sensitive)
                 commands.set(cmd.command, handler);
             });
         }
@@ -27,16 +26,16 @@ const cooldowns = new Map();
 
 module.exports = async (client, msg) => {
     try {
+        // Filter System Messages
         if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
         const senderId = msg.author || msg.from;
         const isGroup = msg.from.includes('@g.us');
 
-        // --- IDENTITY CHECK ---
         let namaPengirim = "User";
         if (msg.fromMe) {
-            namaPengirim = "Tami";
+            namaPengirim = "Tami"; 
         } else {
             try {
                 const contact = await msg.getContact();
@@ -44,13 +43,10 @@ module.exports = async (client, msg) => {
             } catch (e) { }
         }
 
-        // SPY LOG (Biar lu tau siapa yang chat)
-        console.log(`\n🕵️ [SPY] Chat dari: ${namaPengirim} | ID: ${senderId}`);
-
-        // FIX SELF-CHAT ID
+        // 🔥 FIX SENDER ID SELF-CHAT
         const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
 
-        // AUTO-LOGGING
+        // LOGGING DATABASE
         try {
             await db.query(
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
@@ -59,12 +55,13 @@ module.exports = async (client, msg) => {
         } catch (err) { }
 
         // ============================================================
-        // A. HANDLE NORMAL COMMANDS (!command)
+        // A. HANDLE COMMANDS (!command)
         // ============================================================
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
-            const commandName = args[0].toLowerCase();
+            const commandName = args[0].toLowerCase(); // Lowercase buat command biasa
 
+            // Cek command biasa
             if (commands.has(commandName)) {
                 if (cooldowns.has(senderId)) {
                     if (Date.now() < cooldowns.get(senderId) + 1500) return;
@@ -73,7 +70,7 @@ module.exports = async (client, msg) => {
                 const handler = commands.get(commandName);
                 try {
                     await handler(client, msg, args, senderId, namaPengirim, body);
-                } catch (e) { console.error(`Command Error: ${e.message}`); }
+                } catch (e) { console.error(`Cmd Error: ${e.message}`); }
 
                 cooldowns.set(senderId, Date.now());
                 setTimeout(() => cooldowns.delete(senderId), 1500);
@@ -82,35 +79,47 @@ module.exports = async (client, msg) => {
         }
 
         // ============================================================
-        // B. AUTO DOWNLOADER (LINK DETECTOR) - 🔥 FIX DISINI 🔥
+        // B. AUTO DOWNLOADER (LINK DETECTOR) - 🔥 FIX VITAL DISINI
         // ============================================================
-        if (body.match(/(https?:\/\/[^\s]+)/g) && !msg.fromMe) {
-            if (isGroup) return;
+        // 👇 PERUBAHAN 1: KITA HAPUS '!msg.fromMe'
+        // Biar lu bisa test kirim link ke diri sendiri dan bot tetep respon!
+        if (body.match(/(https?:\/\/[^\s]+)/g)) {
+            
+            // 👇 PERUBAHAN 2: ANTI-LOOP PROTECTION
+            // Kalau bot ngirim video, biasanya captionnya "Facebook Video" atau "TikTok"
+            // Kita skip biar bot gak mendeteksi captionnya sendiri sebagai link baru
+            if (msg.fromMe && (body.includes('Facebook Video') || body.includes('TikTok') || body.includes('Download Sukses'))) return;
+
+            if (isGroup) return; 
 
             const textLower = body.toLowerCase();
-
-            // 1. Cek Domain (Lengkap: FB, TikTok, IG)
-            if (textLower.includes('tiktok.com') ||
-                textLower.includes('facebook.com') ||
+            
+            // Cek Domain
+            if (textLower.includes('tiktok.com') || 
+                textLower.includes('facebook.com') || 
                 textLower.includes('fb.watch') ||   // Support FB Watch
                 textLower.includes('fb.com') ||     // Support FB Short
                 textLower.includes('instagram.com')) {
-
-                // 2. CARI COMMAND (DUAL KEY LOOKUP)
-                // Cek '(auto detect)' ATAU '(Auto Detect)' biar ga salah panggil
+                
+                // 👇 PERUBAHAN 3: CARI COMMAND DENGAN DUA CARA
+                // Cek '(auto detect)' (kecil) ATAU '(Auto Detect)' (Besar)
+                // Ini biar gak error "Handler not found"
                 const autoHandler = commands.get('(auto detect)') || commands.get('(Auto Detect)');
 
                 if (autoHandler) {
-                    console.log(`🔗 Link Detected: ${body.substring(0, 30)}... executing Auto Detect.`);
+                    console.log(`🔗 Link Detected: ${body.substring(0, 30)}... Executing Downloader.`);
+                    // Panggil Handler Downloader
                     await autoHandler(client, msg, [], senderId, namaPengirim, body);
                     return;
                 } else {
-                    console.log("⚠️ Auto Detect Triggered, tapi command '(auto detect)' gak ketemu di Map!");
+                    console.log("⚠️ Auto Detect Triggered, tapi command '(Auto Detect)' gak ketemu di Map!");
+                    // Debug: List semua command biar ketahuan salah tulis dimana
+                    console.log("Daftar Command Aktif:", [...commands.keys()]);
                 }
             }
         }
 
-        if (msg.fromMe) return;
+        if (msg.fromMe) return; 
 
         // ============================================================
         // C. AI OBSERVER
