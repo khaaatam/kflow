@@ -80,7 +80,13 @@ module.exports = async (client, msg) => {
             if (isGroup) return;
 
             const textLower = body.toLowerCase();
-            if (textLower.includes('tiktok.com') || textLower.includes('facebook.com') || textLower.includes('fb.watch')) {
+            // 👇 Pastikan ada fb.watch, fb.com, instagram.com juga
+            if (textLower.includes('tiktok.com') ||
+                textLower.includes('facebook.com') ||
+                textLower.includes('fb.watch') ||
+                textLower.includes('fb.com') ||     // Tambahan
+                textLower.includes('instagram.com')) { // Tambahan
+
                 if (commands.has('(auto detect)')) {
                     await commands.get('(auto detect)')(client, msg, [], senderId, namaPengirim, body);
                     return;
