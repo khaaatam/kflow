@@ -25,7 +25,7 @@ const database = {
 
 const ai = {
     apiKey: process.env.GEMINI_API_KEY,
-    modelName: "gemini-2.5-pro"
+    modelName: "gemini-3-flash"
 };
 
 const system = {
