@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 const { observe } = require('../commands/ai');
+const config = require('../config');
 
-// --- 1. LOAD COMMANDS OTOMATIS (Map System) ---
+// PRE-LOAD COMMANDS
 const commands = new Map();
 const commandFiles = fs.readdirSync(path.join(__dirname, '../commands')).filter(file => file.endsWith('.js'));
 
@@ -12,58 +13,51 @@ for (const file of commandFiles) {
         const module = require(`../commands/${file}`);
         if (module.metadata && module.metadata.commands) {
             module.metadata.commands.forEach(cmd => {
-                // Support export function langsung atau object { interact }
                 const handler = module.interact || module;
                 commands.set(cmd.command, handler);
             });
         }
-    } catch (e) {
-        console.error(`❌ Gagal load ${file}:`, e.message);
-    }
+    } catch (e) { console.error(`Skip ${file}: ${e.message}`); }
 }
-console.log(`✅ ${commands.size} Commands Siap!`);
+console.log(`✅ ${commands.size} Commands Loaded!`);
 
 const cooldowns = new Map();
 
 module.exports = async (client, msg) => {
     try {
-        // 🔥 FILTER DASAR 🔥
-        // Abaikan pesan dari diri sendiri, status WA, notif enkripsi, log telepon
+        // 🔥 1. ANTI LOOP & SPAM (WAJIB ADA)
         if (msg.fromMe || msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
-        const senderId = msg.author || msg.from; // Support Grup & Japri
+        const senderId = msg.author || msg.from;
 
-        // 👇👇 INI LOGIKA PENTINGNYA 👇👇
+        // 🔥 2. FILTER GRUP (ANTI SPAM DOWNLOADER)
         const isGroup = msg.from.includes('@g.us');
 
-        // Ambil Nama User (Safe Mode)
         let namaPengirim = "User";
         try {
             const contact = await msg.getContact();
             namaPengirim = contact.pushname || contact.name || "User";
         } catch (e) { }
 
-        // --- A. DETEKSI COMMAND (Manual pakai prefix ! atau /) ---
-        // Command Manual TETAP JALAN di grup (misal: !ping, !menu)
+        // --- A. HANDLE COMMANDS ---
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
             const commandName = args[0].toLowerCase();
 
             if (commands.has(commandName)) {
-                // Rate Limiter (Anti Spam)
+                // Rate Limiter
                 if (cooldowns.has(senderId)) {
                     const expiration = cooldowns.get(senderId) + 1500;
-                    if (Date.now() < expiration) return; // Silent ignore
+                    if (Date.now() < expiration) return;
                 }
 
                 const handler = commands.get(commandName);
-
                 try {
-                    // Execute Command
+                    // STANDAR ARGUMEN YANG BENAR
                     await handler(client, msg, args, senderId, namaPengirim, body);
-                } catch (errCmd) {
-                    console.error(`❌ Error Command ${commandName}:`, errCmd);
+                } catch (e) {
+                    console.error(`Command Error: ${e.message}`);
                 }
 
                 cooldowns.set(senderId, Date.now());
@@ -72,17 +66,12 @@ module.exports = async (client, msg) => {
             }
         }
 
-        // --- B. DETEKSI LINK (AUTO DOWNLOADER) ---
-        // 🛡️ FILTER ANTI SPAM GRUP 🛡️
+        // --- B. AUTO DOWNLOADER (LINK DETECTOR) ---
         if (body.match(/(https?:\/\/[^\s]+)/g)) {
+            if (isGroup) return; // ⛔ JANGAN DOWNLOAD DI GRUP
 
-            // 🛑 KALAU DI GRUP -> STOP! JANGAN DOWNLOAD!
-            if (isGroup) return;
-
-            // Cek Link TikTok / FB
             const textLower = body.toLowerCase();
             if (textLower.includes('tiktok.com') || textLower.includes('facebook.com') || textLower.includes('fb.watch')) {
-                // Panggil downloader manual lewat Map (metadata harus pas '(auto detect)')
                 if (commands.has('(auto detect)')) {
                     await commands.get('(auto detect)')(client, msg, [], senderId, namaPengirim, body);
                     return;
@@ -90,8 +79,7 @@ module.exports = async (client, msg) => {
             }
         }
 
-        // --- C. AI OBSERVER (MEMORY) ---
-        // AI jangan nguping di grup (Privasi & Hemat DB)
+        // --- C. AI OBSERVER ---
         if (!body.startsWith('!') && !isGroup) {
             observe(client, msg, namaPengirim).catch(() => { });
         }
