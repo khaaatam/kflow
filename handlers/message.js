@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 const { observe } = require('../commands/ai');
-const config = require('../config');
 const db = require('../lib/database');
 
 // PRE-LOAD COMMANDS
@@ -43,11 +42,6 @@ module.exports = async (client, msg) => {
                 namaPengirim = contact.pushname || contact.name || "User";
             } catch (e) { }
         }
-
-        console.log(`\n🕵️ [SPY] Chat dari: ${namaPengirim} | ID: ${senderId}`);
-
-        // 🔥 FIX SENDER ID BUAT SELF-CHAT
-        const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
 
         // 1. AUTO-LOGGING
         try {

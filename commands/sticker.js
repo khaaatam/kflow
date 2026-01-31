@@ -4,8 +4,8 @@ module.exports = async (client, msg, args) => {
             const media = await msg.downloadMedia();
             await client.sendMessage(msg.from, media, {
                 sendMediaAsSticker: true,
-                stickerAuthor: 'K-Flow Bot',
-                stickerName: 'Sticker'
+                stickerAuthor: 'ig: @khataaam_',
+                stickerName: 'JikaeL the Creator'
             });
         } catch (e) { msg.reply('❌ Gagal bikin stiker.'); }
     } else { msg.reply('Kirim gambar pake caption !sticker'); }
