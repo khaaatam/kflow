@@ -3,7 +3,7 @@ const path = require('path');
 const { observe } = require('../commands/ai');
 const config = require('../config');
 
-// PRE-LOAD COMMANDS
+// PRE-LOAD COMMANDS DENGAN PENGAMAN
 const commands = new Map();
 const commandFiles = fs.readdirSync(path.join(__dirname, '../commands')).filter(file => file.endsWith('.js'));
 
@@ -17,7 +17,10 @@ for (const file of commandFiles) {
                 commands.set(cmd.command, handler);
             });
         }
-    } catch (e) { console.error(`Skip ${file}: ${e.message}`); }
+    } catch (e) {
+        // 👇 INI PENYELAMATNYA: Kalau ada error, cuma file itu yg diskip.
+        console.error(`❌ Gagal load ${file}:`, e.message);
+    }
 }
 console.log(`✅ ${commands.size} Commands Loaded!`);
 
@@ -25,13 +28,12 @@ const cooldowns = new Map();
 
 module.exports = async (client, msg) => {
     try {
-        // 🔥 1. ANTI LOOP & SPAM (WAJIB ADA)
-        if (msg.fromMe || msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
+        // Filter Dasar (Anti Loop Bot Sendiri)
+        // Kalau lu mau pake bot ini buat akun sendiri (Self-bot), hapus baris "msg.fromMe" di bawah ini.
+        if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
-        const senderId = msg.author || msg.from;
-
-        // 🔥 2. FILTER GRUP (ANTI SPAM DOWNLOADER)
+        const senderId = msg.from; // ID Pengirim (Bisa Bot sendiri atau Orang lain)
         const isGroup = msg.from.includes('@g.us');
 
         let namaPengirim = "User";
@@ -46,41 +48,35 @@ module.exports = async (client, msg) => {
             const commandName = args[0].toLowerCase();
 
             if (commands.has(commandName)) {
-                // Rate Limiter
                 if (cooldowns.has(senderId)) {
-                    const expiration = cooldowns.get(senderId) + 1500;
-                    if (Date.now() < expiration) return;
+                    if (Date.now() < cooldowns.get(senderId) + 1500) return;
                 }
 
                 const handler = commands.get(commandName);
                 try {
-                    // STANDAR ARGUMEN YANG BENAR
                     await handler(client, msg, args, senderId, namaPengirim, body);
-                } catch (e) {
-                    console.error(`Command Error: ${e.message}`);
+                } catch (err) {
+                    console.error(`Command ${commandName} Error:`, err.message);
+                    msg.reply("❌ Error command.");
                 }
 
                 cooldowns.set(senderId, Date.now());
-                setTimeout(() => cooldowns.delete(senderId), 1500);
                 return;
             }
         }
 
-        // --- B. AUTO DOWNLOADER (LINK DETECTOR) ---
-        if (body.match(/(https?:\/\/[^\s]+)/g)) {
-            if (isGroup) return; // ⛔ JANGAN DOWNLOAD DI GRUP
-
+        // --- B. AUTO DOWNLOADER (SKIP GRUP) ---
+        if (body.match(/(https?:\/\/[^\s]+)/g) && !isGroup) {
             const textLower = body.toLowerCase();
-            if (textLower.includes('tiktok.com') || textLower.includes('facebook.com') || textLower.includes('fb.watch')) {
-                if (commands.has('(auto detect)')) {
-                    await commands.get('(auto detect)')(client, msg, [], senderId, namaPengirim, body);
-                    return;
-                }
+            if ((textLower.includes('tiktok') || textLower.includes('facebook') || textLower.includes('fb.watch')) && commands.has('(auto detect)')) {
+                await commands.get('(auto detect)')(client, msg, [], senderId, namaPengirim, body);
+                return;
             }
         }
 
-        // --- C. AI OBSERVER ---
-        if (!body.startsWith('!') && !isGroup) {
+        // --- C. OBSERVER ---
+        // AI jangan bales command sendiri
+        if (!body.startsWith('!') && !isGroup && !msg.fromMe) {
             observe(client, msg, namaPengirim).catch(() => { });
         }
 
