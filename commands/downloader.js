@@ -52,4 +52,11 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         }
     } catch (e) { console.error(e); }
 };
-module.exports.metadata = { category: "DOWNLOADER", commands: [{ command: '(Auto Detect)', desc: 'DL FB & TikTok' }] };
+module.exports.metadata = {
+    category: "DOWNLOADER",
+    commands: [
+        { command: '!fb', desc: 'Download FB' },
+        { command: '!tt', desc: 'Download TikTok' },
+        { command: '(auto detect)', desc: 'Auto DL Link' } // Ini penting buat Handler
+    ]
+};

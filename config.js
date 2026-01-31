@@ -1,20 +1,19 @@
 require('dotenv').config();
 
-// 1. DAFTAR USER (WHITELIST - Buat Nama doang)
+// 1. DAFTAR USER (Whitelist Nama)
 const users = {
     '6289608506367@c.us': 'Tami',
     '62881081132332@c.us': "Tami2",
     '6283806618448@c.us': 'Dini'
 };
 
-// 2. DAFTAR OWNER/ADMIN (PENTING! INI YANG BOLEH PAKE !update)
-// Masukin angkanya aja tanpa @c.us
+// 2. DAFTAR OWNER (Wajib isi angka saja)
 const ownerNumber = [
-    '6289608506367', // Tami Utama
-    '62881081132332' // Tami Cadangan
+    '6289608506367',
+    '62881081132332'
 ];
 
-// 3. DATABASE CONFIG
+// 3. DATABASE
 const database = {
     host: 'localhost',
     user: 'root',
@@ -27,16 +26,16 @@ const database = {
     keepAliveInitialDelay: 0
 };
 
-// 4. AI CONFIG (GEMINI)
+// 4. AI CONFIG
 const ai = {
     apiKey: process.env.GEMINI_API_KEY,
-    modelName: "gemini-2.0-flash-lite" // Ganti ke model yang valid/terbaru
+    modelName: "gemini-2.5-pro"
 };
 
 // 5. SYSTEM CONFIG
 const system = {
     port: 3000,
-    logNumber: '62881081132332@c.us',
+    logNumber: '62881081132332@c.us', // Nomor buat laporan error/startup
     puppeteer: {
         headless: true,
         args: [
@@ -50,5 +49,4 @@ const system = {
     }
 };
 
-// 👇 JANGAN LUPA EXPORT 'ownerNumber' DISINI!
 module.exports = { users, ownerNumber, database, ai, system };
