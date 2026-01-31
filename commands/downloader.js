@@ -3,17 +3,16 @@ const axios = require('axios');
 const { getFbVideoInfo } = require('fb-downloader-scrapper');
 const { MessageMedia } = require('whatsapp-web.js');
 
-module.exports = async (client, msg, text) => {
+module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     try {
+        // 👇 INI KUNCINYA: Langsung ambil link dari body pesan asli!
+        // Gak peduli argumen text/args error, yang penting ada link di chat.
         const urlRegex = /(https?:\/\/[^\s]+)/g;
-
-        // 👇 PERBAIKAN FATAL DI SINI 👇
-        // Jangan pake 'text' (karena udah lowercase), pake 'msg.body' (asli)
         const match = msg.body.match(urlRegex);
 
-        if (!match) return false;
+        if (!match) return false; // Gak ada link? Skip.
 
-        let url = match[0];
+        let url = match[0]; // Ambil link pertama yang ketemu
 
         // =========================================================
         // 1. TIKTOK DOWNLOADER (TikWM) - [AMAN]
@@ -26,7 +25,7 @@ module.exports = async (client, msg, text) => {
                 }, { headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' } });
 
                 const data = response.data.data;
-                if (!data) return msg.reply("❌ Gagal TikTok.");
+                if (!data) return msg.reply("❌ Gagal TikTok (API Down/Video Hapus).");
 
                 let videoUrl = data.play || data.wmplay;
                 if (videoUrl && !videoUrl.startsWith('http')) videoUrl = `https://www.tikwm.com${videoUrl}`;
@@ -34,18 +33,23 @@ module.exports = async (client, msg, text) => {
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `🎵 *TikTok*\n👤 ${data.author?.nickname || '-'}`
                 });
-            } catch (e) { await msg.reply("❌ Error TikTok."); }
+                await msg.react('✅');
+            } catch (e) {
+                console.error(e);
+                await msg.reply("❌ Error TikTok.");
+            }
             return true;
         }
 
         // =========================================================
         // 2. FACEBOOK DOWNLOADER (SHARE LINK FIX)
         // =========================================================
-        if (url.includes('facebook.com') || url.includes('fb.watch')) {
+        // Regex diperluas biar nangkep semua variasi FB
+        if (url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com')) {
             await msg.react('⏳');
             try {
-                // Expand Link Share
-                if (url.includes('share') || url.includes('/r/') || url.includes('fb.watch')) {
+                // Expand Link Share (Penting buat fb.watch)
+                if (url.includes('share') || url.includes('/r/') || url.includes('fb.watch') || url.includes('fb.com')) {
                     console.log(`🔗 Link Share Terdeteksi (RAW): ${url}`);
                     try {
                         const originalUrl = await expandFbUrl(url);
@@ -58,6 +62,7 @@ module.exports = async (client, msg, text) => {
                     }
                 }
 
+                // Pake Library Andalan Lu
                 const data = await getFbVideoInfo(url);
 
                 if (!data) return msg.reply("❌ Gagal FB (Private/Hapus).");
@@ -68,14 +73,16 @@ module.exports = async (client, msg, text) => {
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Video*\n${data.title || ''}`
                 });
+                await msg.react('✅');
 
             } catch (e) {
                 console.error("FB Error:", e);
-                await msg.reply("❌ Gagal FB. Pastikan link benar (Case Sensitive).");
+                await msg.reply("❌ Gagal FB. Pastikan link publik & valid.");
             }
             return true;
         }
 
+        // Kalau link lain (IG/YouTube) bisa ditambah di sini...
         return false;
 
     } catch (error) {
@@ -84,7 +91,7 @@ module.exports = async (client, msg, text) => {
     }
 };
 
-// Fungsi Expand URL
+// Fungsi Expand URL (Biar fb.watch kebaca)
 async function expandFbUrl(shortUrl) {
     try {
         const response = await axios.get(shortUrl, {
@@ -98,9 +105,14 @@ async function expandFbUrl(shortUrl) {
     }
 }
 
+// Metadata Tetap Lengkap Biar Command Manual Juga Jalan
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '(Auto Detect)', desc: 'DL FB & TikTok' }
+        { command: '!dl', desc: 'Download media' },
+        { command: '!tiktok', desc: 'Tiktok Downloader' },
+        { command: '!fb', desc: 'Facebook Downloader' },
+        { command: '!ig', desc: 'Instagram Downloader' }, // IG bakal skip di logic atas, tapi gpp
+        { command: '(auto detect)', desc: 'Auto Downloader Link' }
     ]
-}
+};
