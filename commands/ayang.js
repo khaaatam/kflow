@@ -1,23 +1,49 @@
 const db = require('../lib/database');
 const ai = require('../lib/ai');
+const config = require('../config');
 
 module.exports = async (client, msg, args, senderId, namaPengirim) => {
     try {
-        await msg.react('🧐'); // Kasih reaksi lagi mikir
+        // 1. CEK IDENTITAS PENGIRIM DARI CONFIG
+        // Kita cocokin senderId sama daftar di config.users
+        const senderName = config.users[senderId];
 
-        // 1. AMBIL 30 CHAT TERAKHIR DARI DATABASE
-        // Kita ambil semua chat (bukan cuma Dini) biar AI tau konteks percakapannya
+        if (!senderName) {
+            return msg.reply("⚠️ Lu siapa? Fitur ini cuma buat Tami & Dini.");
+        }
+
+        // 2. TENTUKAN TARGET OPERASI (OTOMATIS TUKAR PERAN)
+        let targetName = "";
+        let panggilan = "";
+
+        if (senderName.includes('Tami')) {
+            // Kalau Tami yang nanya -> Cari Dini
+            targetName = "Dini";
+            panggilan = "Ayang Dini";
+        } else if (senderName.includes('Dini')) {
+            // Kalau Dini yang nanya -> Cari Tami
+            targetName = "Tami"; // Pastikan di database nama lu "Tami" atau "JikaeL"
+            panggilan = "Ayang Tami";
+        } else {
+            return msg.reply("❌ Identitas tidak dikenali di skenario percintaan ini.");
+        }
+
+        await msg.react('🔍');
+
+        // 3. AMBIL CHAT SI TARGET DARI DATABASE
+        // Pake LIKE biar fleksibel (misal: "Tami (Ganteng)", "Dini (Sayang)")
         const [rows] = await db.query(
-            "SELECT nama_pengirim, pesan, waktu FROM full_chat_logs ORDER BY id DESC LIMIT 30"
+            `SELECT nama_pengirim, pesan, waktu FROM full_chat_logs 
+             WHERE nama_pengirim LIKE ? 
+             ORDER BY id DESC LIMIT 20`,
+            [`%${targetName}%`]
         );
 
         if (rows.length === 0) {
-            return msg.reply("❌ Belum ada riwayat chat, bot gak bisa nerawang.");
+            return msg.reply(`❌ Belum ada riwayat chat dari ${targetName} di database.`);
         }
 
-        // 2. FORMAT DATA BIAR DIBACA AI
-        // Kita balik urutannya (Reverse) biar jadi Kronologis (Lama -> Baru)
-        // Kita sertakan jam-nya biar AI tau itu chat kapan
+        // 4. FORMAT DATA
         const chatHistory = rows.reverse()
             .map(r => {
                 const jam = new Date(r.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -25,48 +51,46 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
             })
             .join('\n');
 
-        // 3. PROMPT "DETEKTIF CINTA"
+        // 5. PROMPT AI (ANALISA STATUS)
         const prompt = `
-        Kamu adalah asisten pribadi yang bertugas memantau aktivitas "Ayang" (Pacar User, biasanya bernama Dini).
+        PERAN: Kamu adalah asisten pribadi pasangan ini.
+        USER YANG BERTANYA: ${senderName}
+        TARGET YANG DIKEPOIN: ${targetName}
         
-        Ini adalah transkrip 30 chat terakhir di WA:
-        ------------------------------------------
+        DATA CHAT TERAKHIR DARI ${targetName}:
+        -----------------------------
         ${chatHistory}
-        ------------------------------------------
+        -----------------------------
         
-        TUGAS KAMU:
-        Analisa transkrip di atas dan simpulkan apa yang sedang dilakukan "Dini" (atau lawan bicara user) SAAT INI.
+        TUGAS:
+        Beritahu ${senderName} apa yang sedang dilakukan ${targetName} sekarang berdasarkan chat di atas.
         
-        ATURAN ANALISA:
-        1. LIHAT JAM TERAKHIR: 
-           - Jika chat terakhir sudah lebih dari 2 jam yang lalu, simpulkan dia "Tidur" atau "Lagi Sibuk/Di Jalan".
-           - Jika baru saja (kurang dari 10 menit), berarti dia "Online".
-        2. BACA KONTEKS:
-           - Kalau dia bilang "pamit", "mau makan", "otw", percayai itu.
-           - Kalau dia bales singkat/dingin, peringatkan user kalau dia mungkin lagi badmood.
+        ANALISA:
+        1. Cek Jam Chat Terakhir:
+           - Kalau sudah lama (> 2 jam): Bilang dia mungkin "Tidur", "Sibuk", atau "Di Jalan".
+           - Kalau baru saja: Bilang "Lagi Online".
+        2. Cek Isi Chat:
+           - Baca mood-nya. Apakah dia lagi manja, marah, capek, atau seneng?
+           - Apakah dia bilang pamit (misal: "mandi dlu", "otw")?
         
-        GAYA BAHASA:
-        - Santai, lucu, kayak temen tongkrongan.
-        - Langsung to the point (JANGAN bertele-tele).
-        - Contoh: "Kayaknya Dini lagi tidur deh bang, chat terakhirnya udah 3 jam lalu soalnya."
+        GAYA BICARA:
+        - Jawab ke ${senderName} dengan santai (gw/lu/aku/kamu bebas asal akrab).
+        - Contoh ke Tami: "Dini lagi bobo tuh bang, chat terakhirnya pamit tidur jam 10 malem."
+        - Contoh ke Dini: "Si Tami lagi ngoding kayaknya Din, dia lagi on fire barusan."
         `;
 
-        // 4. KIRIM KE GEMINI AI
         const result = await ai.generateContent(prompt);
-        const response = result.response.text();
-
-        // 5. JAWAB KE USER
-        msg.reply(response);
+        msg.reply(result.response.text());
 
     } catch (error) {
         console.error("Error Ayang:", error);
-        msg.reply("❌ Gagal menerawang... AI lagi pusing.");
+        msg.reply("❌ Error, detektif cinta lagi pusing.");
     }
 };
 
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
-        { command: '!ayang', desc: 'Pantau aktivitas ayang' }
+        { command: '!ayang', desc: 'Cek status pasangan (Otomatis)' }
     ]
 };
