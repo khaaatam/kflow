@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { observe } = require('../commands/ai');
 const config = require('../config');
-const db = require('../lib/database'); // 👈 WAJIB IMPORT DATABASE
+const db = require('../lib/database');
 
 // PRE-LOAD COMMANDS
 const commands = new Map();
@@ -26,8 +26,7 @@ const cooldowns = new Map();
 
 module.exports = async (client, msg) => {
     try {
-        // 🔥 1. FILTER DASAR (JANGAN BLOKIR 'fromMe' DISINI DULU)
-        // Kita butuh chat 'fromMe' (chat lu sendiri) buat disimpan di DB sebagai bahan belajar AI.
+        // Filter System Messages
         if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
@@ -40,24 +39,21 @@ module.exports = async (client, msg) => {
             namaPengirim = contact.pushname || contact.name || "User";
         } catch (e) { }
 
-        // 🔥 2. AUTO-LOGGING (CATAT SEMUA CHAT KE DATABASE)
-        // Ini kunci biar fitur !ayang dan !tami jalan
+        // 1. AUTO-LOGGING (Catat semua chat, termasuk punya bot sendiri buat history)
         try {
             await db.query(
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
                 [namaPengirim, body, msg.isForwarded ? 1 : 0]
             );
-        } catch (err) {
-            console.error("❌ Gagal Log Chat:", err.message);
-        }
+        } catch (err) { }
 
-        // --- A. HANDLE COMMANDS (PRIORITAS UTAMA) ---
+        // --- A. HANDLE COMMANDS ---
         if (body.startsWith('!') || body.startsWith('/')) {
+            // Command boleh dijalankan oleh bot sendiri (misal buat testing)
             const args = body.trim().split(/ +/);
             const commandName = args[0].toLowerCase();
 
             if (commands.has(commandName)) {
-                // Rate Limiter
                 if (cooldowns.has(senderId)) {
                     const expiration = cooldowns.get(senderId) + 1500;
                     if (Date.now() < expiration) return;
@@ -72,13 +68,15 @@ module.exports = async (client, msg) => {
 
                 cooldowns.set(senderId, Date.now());
                 setTimeout(() => cooldowns.delete(senderId), 1500);
-                return; // ⛔ STOP, JANGAN LANJUT KE BAWAH
+                return; // ⛔ STOP DISINI
             }
         }
 
         // --- B. AUTO DOWNLOADER (LINK DETECTOR) ---
-        if (body.match(/(https?:\/\/[^\s]+)/g)) {
-            if (isGroup) return; // ⛔ JANGAN DOWNLOAD DI GRUP
+        // 🔥 UPDATE ANTI-LOOP: Tambahin '!msg.fromMe'
+        // Jadi kalau bot ngirim link (di caption/balasan), dia GAK BAKAL download ulang.
+        if (body.match(/(https?:\/\/[^\s]+)/g) && !msg.fromMe) {
+            if (isGroup) return; // Jangan nyepam di grup
 
             const textLower = body.toLowerCase();
             if (textLower.includes('tiktok.com') || textLower.includes('facebook.com') || textLower.includes('fb.watch')) {
@@ -89,12 +87,12 @@ module.exports = async (client, msg) => {
             }
         }
 
-        // 🔥 3. FILTER AKHIR (ANTI-LOOP)
-        // Kalau chat ini dari LU SENDIRI (msg.fromMe) dan bukan command, 
-        // STOP DISINI. Jangan biarkan AI ngebales curhatan lu sendiri.
+        // 🔥 FILTER AKHIR
+        // Kalau chat ini dari Bot Sendiri (fromMe) & bukan command -> STOP.
+        // Biar AI gak ngebales curhatan bot sendiri.
         if (msg.fromMe) return;
 
-        // --- C. AI OBSERVER (BUAT REPLY CHAT ORANG LAIN) ---
+        // --- C. AI OBSERVER ---
         if (!body.startsWith('!') && !isGroup) {
             observe(client, msg, namaPengirim).catch(() => { });
         }
