@@ -2,8 +2,9 @@ const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
+const fs = require('fs'); // 👈 SAYA CUMA NAMBAH INI (BUAT HAPUS FILE SAMPAH)
 const config = require('./config');
-const db = require('./lib/database'); 
+const db = require('./lib/database');
 const messageHandler = require('./handlers/message');
 
 // --- LOAD FITUR BACKGROUND (Cuma ini yang perlu di-require manual) ---
@@ -13,7 +14,7 @@ const eventCommand = require('./commands/event');
 // --- 1. INISIALISASI DATABASE (WAJIB ADA) ---
 (async () => {
     try {
-        await db.init(); 
+        await db.init();
     } catch (e) {
         console.error("⚠️ Skip DB Init:", e.message);
     }
@@ -31,9 +32,9 @@ const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: config.system.puppeteer,
     // Fix untuk WA Web versi terbaru
-    webVersionCache: { 
-        type: 'remote', 
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html' 
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
     }
 });
 
@@ -43,24 +44,24 @@ client.on('qr', (qr) => {
 });
 
 client.on('ready', async () => {
+    console.log(`✅${config.botName} Siap Melayani!`);
     console.log('------------------------------------------------');
-    console.log(`✅ BOT SIAP! Web Dashboard: http://localhost:${config.system.port}`);
-    console.log('------------------------------------------------');
-    console.log('🧠 HANDLER: Siap memproses 13 Command Otomatis');
+    console.log(`🌐Web Dashboard: http://localhost:${config.system.port}`);
+    console.log(`🧠 HANDLER: Siap memproses ${commands.size} Command Otomatis`);
     console.log('⏰ CRON JOB: Event & Reminder Aktif');
     console.log('------------------------------------------------');
-    
+
     // Fix Bug "Send Seen"
-    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) {}
+    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
 
     // Notif ke Owner
     if (config.system.logNumber) {
-        client.sendMessage(config.system.logNumber, `♻️ *SYSTEM ONLINE*\nBot berhasil restart & database terhubung.`).catch(() => {});
+        client.sendMessage(config.system.logNumber, `♻️ *SYSTEM ONLINE*\nBot berhasil restart & database terhubung.`).catch(() => { });
     }
 
     // Restore Reminder yang tertunda (Background Task)
     reminderCommand.restoreReminders(client, db);
-    
+
     // Cek Event Harian tiap jam 7 pagi (Background Task)
     setInterval(() => {
         const now = new Date();
@@ -75,6 +76,30 @@ client.on('message_create', (msg) => {
     // Serahkan semua ke Manajer (Handler)
     messageHandler(client, msg);
 });
+
+// ============================================================
+// 🧹 FITUR TAMBAHAN: AUTO CLEAN TEMP (SAYA SELIPIN DISINI)
+// ============================================================
+// Ini gak bakal ganggu fitur lain, cuma jalan sekali pas start
+const cleanTempFolder = () => {
+    const tempDir = path.join(__dirname, 'temp');
+    if (fs.existsSync(tempDir)) {
+        const files = fs.readdirSync(tempDir);
+        files.forEach(file => {
+            // Hapus cuma file media sisa (biar storage gak penuh)
+            if (file.endsWith('.mp4') || file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.webp')) {
+                try {
+                    fs.unlinkSync(path.join(tempDir, file));
+                } catch (e) { }
+            }
+        });
+    } else {
+        try { fs.mkdirSync(tempDir); } catch (e) { }
+    }
+};
+// Jalankan pembersihan
+cleanTempFolder();
+// ============================================================
 
 // Start Client & Web
 client.initialize();

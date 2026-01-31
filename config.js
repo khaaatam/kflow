@@ -4,6 +4,8 @@ const creator = [
     'JikaeL'
 ]
 
+const botName = "JikaeL the Destroyer"
+
 const users = {
     '6289608506367@c.us': 'Tami',
     '193836185837720@lid': 'Tami',
@@ -53,4 +55,4 @@ const system = {
     }
 };
 
-module.exports = { creator, users, ownerNumber, database, ai, system };
+module.exports = { creator, botName, users, ownerNumber, database, ai, system };
