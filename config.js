@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+const creator = [
+    'JikaeL'
+]
+
 const users = {
     '6289608506367@c.us': 'Tami',
     '193836185837720@lid': 'Tami',
@@ -49,4 +53,4 @@ const system = {
     }
 };
 
-module.exports = { users, ownerNumber, database, ai, system };
+module.exports = { creator, users, ownerNumber, database, ai, system };
