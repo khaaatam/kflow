@@ -34,12 +34,22 @@ module.exports = async (client, msg) => {
         const isGroup = msg.from.includes('@g.us');
 
         let namaPengirim = "User";
-        try {
-            const contact = await msg.getContact();
-            namaPengirim = contact.pushname || contact.name || "User";
-        } catch (e) { }
+        if (msg.fromMe) {
+            // KALAU DARI DIRI SENDIRI -> PAKSA JADI "Tami"
+            // Atau ambil dari config.users kalau mau dinamis
+            namaPengirim = "Tami";
+        } else {
+            try {
+                const contact = await msg.getContact();
+                namaPengirim = contact.pushname || contact.name || "User";
+            } catch (e) { }
+        }
 
-        // 1. AUTO-LOGGING (Catat semua chat, termasuk punya bot sendiri buat history)
+        // 🔥 FIX SENDER ID BUAT SELF-CHAT
+        // Kadang self-chat ID-nya beda dikit, kita standardisasi
+        const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
+
+        // 1. AUTO-LOGGING (Sekarang harusnya kecatat sebagai Tami)
         try {
             await db.query(
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
