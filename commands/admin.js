@@ -3,64 +3,65 @@ const config = require('../config');
 const db = require('../lib/database');
 
 module.exports = async (client, msg, args, senderId) => {
-    // 🛡️ SECURITY CHECK (Cuma Owner yang boleh)
-    // Pastikan senderId string biar replace gak error
+    // 🛡️ SECURITY CHECK
     const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
-
-    // Cek apakah user ada di daftar owner config.js
     if (!config.ownerNumber.includes(cleanId)) return false;
 
-    const command = args[0];
+    const command = args[0].toLowerCase();
 
-    // --- FITUR UPDATE (AUTO NPM INSTALL) ---
+    // --- FITUR UPDATE ---
     if (command === '!update' || command === '!forceupdate') {
         const isForce = command === '!forceupdate';
-        // Kalau force, reset hard dulu baru pull
+
+        // Command Git:
+        // !forceupdate -> RESET HARD (Hapus semua editan manual lu, samain kayak repo)
+        // !update -> Coba pull biasa (Bakal gagal kalo ada konflik)
         const gitCmd = isForce
             ? 'git fetch --all && git reset --hard origin/main && git pull'
             : 'git pull';
 
-        await msg.reply(isForce ? "☢️ *FORCE UPDATING...*" : "⏳ *Mengecek Update...*");
+        await msg.reply(isForce ? "☢️ *FORCE UPDATING...* (Bye-bye editan manual)" : "⏳ *Mengecek Update...*");
 
-        exec(gitCmd, async (err, stdout) => {
-            if (err) return msg.reply(`❌ Gagal Git: ${err.message}`);
+        // 🔥 TANGKEP ERROR STDERR JUGA
+        exec(gitCmd, async (err, stdout, stderr) => {
+            // Kalau ada error fatal di exec
+            if (err) {
+                let errorMsg = `❌ Gagal Exec: ${err.message}`;
+                // Kalau error karena konflik file
+                if (stderr && stderr.includes('Please commit your changes')) {
+                    errorMsg = "⚠️ *GAGAL UPDATE: ADA FILE YANG LU EDIT MANUAL!*\n\nGit gak mau nimpa kerjaan lu. \n👉 Pake command: *!forceupdate* buat maksa update (editan lu bakal ilang).";
+                }
+                return msg.reply(errorMsg);
+            }
 
-            // Kalau gak ada update
+            // Kalau stderr ada isinya (kadang git ngasih info di stderr walau sukses)
+            if (stderr && !stdout) stdout = stderr;
+
             if (stdout.includes('Already up to date') && !isForce) {
                 return msg.reply("✅ Bot sudah versi terbaru, Bang.");
             }
 
-            // Kalau ada update
             let report = `✅ *GIT PULL SUKSES*\n\`\`\`${stdout}\`\`\`\n`;
 
-            // 🔍 DETEKSI APAKAH package.json BERUBAH?
+            // Cek Package.json
             if (stdout.includes('package.json')) {
-                report += "\n📦 *Mendeteksi Library Baru...*";
-                report += "\n⏳ _Sedang menjalankan 'npm install', tunggu bentar..._";
-                await msg.reply(report);
+                report += "\n📦 *Library Baru Terdeteksi...*";
+                await msg.reply(report + "\n⏳ Jalanin 'npm install'...");
 
-                // 🔥 JALANKAN NPM INSTALL
-                exec('npm install', (errInstall, stdoutInstall) => {
-                    if (errInstall) {
-                        return msg.reply(`❌ Gagal npm install: ${errInstall.message}\nCoba manual aja bang di terminal.`);
-                    }
-
-                    client.sendMessage(msg.from, "✅ *Library Terinstall!* Restarting bot sekarang... ♻️");
-
-                    // Restart PM2
+                exec('npm install', (errInstall) => {
+                    if (errInstall) return msg.reply("❌ Gagal npm install.");
+                    client.sendMessage(msg.from, "✅ *Selesai!* Restarting... ♻️");
                     setTimeout(() => process.exit(0), 2000);
                 });
-
             } else {
-                // Kalau cuma update kodingan biasa (gak ada library baru)
-                report += "\n♻️ Restarting bot...";
-                await msg.reply(report);
+                await msg.reply(report + "\n♻️ Restarting...");
                 setTimeout(() => process.exit(0), 2000);
             }
         });
         return true;
     }
 
+    // ... (SISANYA BIARIN AJA SAMA KAYAK YANG LAMA) ...
     // --- RESET DATA ---
     if (command === '!resetlogs') {
         await db.query("TRUNCATE TABLE full_chat_logs");
@@ -77,8 +78,6 @@ module.exports = async (client, msg, args, senderId) => {
         msg.reply("💸 Data keuangan direset.");
         return true;
     }
-
-    // --- RESTART MANUAL ---
     if (command === '!restart') {
         await msg.reply("♻️ Restarting manually...");
         setTimeout(() => process.exit(0), 1000);
@@ -91,8 +90,8 @@ module.exports = async (client, msg, args, senderId) => {
 module.exports.metadata = {
     category: "SYSTEM",
     commands: [
-        { command: '!update', desc: 'Update Bot & Dependencies' },
-        { command: '!forceupdate', desc: 'Paksa Update (Reset Local)' },
+        { command: '!update', desc: 'Update Bot (Cek conflict)' },
+        { command: '!forceupdate', desc: 'Paksa Update (Reset Editan Manual)' },
         { command: '!restart', desc: 'Restart Bot' },
         { command: '!resetlogs', desc: 'Hapus Log Chat' },
         { command: '!resetmemori', desc: 'Hapus Memori AI' },
