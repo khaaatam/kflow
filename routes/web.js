@@ -1,25 +1,53 @@
 const express = require('express');
 const router = express.Router();
-const Transaction = require('../models/Transaction');
+const db = require('../lib/database'); // Import Database
 
-router.get('/', (req, res) => {
-    res.render('index');
+// ROUTE UTAMA (DASHBOARD)
+router.get('/', async (req, res) => {
+    try {
+        // 1. AMBIL DATA EVENT DARI DATABASE
+        // Kita ambil semua event, diurutkan dari tanggal yang paling dekat
+        const [rows] = await db.query("SELECT * FROM events ORDER BY tanggal ASC");
+
+        // 2. RENDER HALAMAN DENGAN DATA
+        // Disini kita kirim 'rows' sebagai variabel 'data' ke file index.ejs
+        res.render('index', {
+            data: rows,
+            title: 'K-Flow Dashboard'
+        });
+
+    } catch (e) {
+        console.error("❌ Error Web Dashboard:", e);
+        // Kalau error, kirim data kosong biar gak crash (White Screen)
+        res.render('index', {
+            data: [],
+            error: "Gagal mengambil data dari database."
+        });
+    }
 });
 
+// ROUTE BUAT NAMBAH EVENT (DARI FORM WEB)
 router.post('/add', async (req, res) => {
-    const { jenis, nominal, keterangan } = req.body;
-
-    if (!jenis || !nominal) return res.status(400).send("Data tidak lengkap!");
-    if (isNaN(nominal) || nominal < 0) return res.status(400).send("Nominal tidak valid!");
-
-    const cleanKet = keterangan ? keterangan.substring(0, 255) : '-';
-
+    const { nama_event, tanggal } = req.body;
     try {
-        await Transaction.add('WEB_USER', jenis, nominal, cleanKet, 'Web Dashboard');
+        await db.query("INSERT INTO events (nama_event, tanggal, dibuat_oleh) VALUES (?, ?, ?)",
+            [nama_event, tanggal, 'Web Dashboard']
+        );
+        res.redirect('/'); // Balik ke halaman utama
+    } catch (e) {
+        console.error(e);
+        res.send("Gagal menyimpan event.");
+    }
+});
+
+// ROUTE BUAT HAPUS EVENT
+router.get('/delete/:id', async (req, res) => {
+    try {
+        await db.query("DELETE FROM events WHERE id = ?", [req.params.id]);
         res.redirect('/');
-    } catch (error) {
-        console.error(error);
-        res.status(500).send("Database Error");
+    } catch (e) {
+        console.error(e);
+        res.send("Gagal menghapus event.");
     }
 });
 
