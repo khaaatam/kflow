@@ -101,7 +101,18 @@ client.on('message_create', (msg) => {
     messageHandler(client, msg);
 });
 
-client.initialize();
-app.listen(config.system.port, () => {
-    console.log(`🌍 Server Web jalan di Port ${config.system.port}`);
-});
+// --- 4. START EVERYTHING ---
+const startBot = async () => {
+    // 1. Beresin Database dulu
+    await db.init();
+
+    // 2. Baru nyalain Bot WA
+    client.initialize();
+
+    // 3. Nyalain Web Dashboard
+    app.listen(config.system.port, () => {
+        console.log(`🌍 Server Web jalan di Port ${config.system.port}`);
+    });
+};
+
+startBot(); // <--- Ini saklar utamanya
