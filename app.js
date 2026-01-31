@@ -6,6 +6,9 @@ const fs = require('fs'); // 👈 SAYA CUMA NAMBAH INI (BUAT HAPUS FILE SAMPAH)
 const config = require('./config');
 const db = require('./lib/database');
 const messageHandler = require('./handlers/message');
+const commands = new Map();
+const commandFiles = fs.readdirSync(path.join(__dirname, '../commands')).filter(file => file.endsWith('.js'));
+
 
 // --- LOAD FITUR BACKGROUND (Cuma ini yang perlu di-require manual) ---
 const reminderCommand = require('./commands/reminder');
