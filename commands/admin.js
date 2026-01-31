@@ -4,11 +4,10 @@ const db = require('../lib/database');
 
 module.exports = async (client, msg, args, senderId) => {
     // 🛡️ SECURITY CHECK (VERSION: ANTI-BUNTUT)
-    // Kita ambil angkanya doang biar ID aneh-aneh tetep kebaca
+    // Biar ID @lid atau :12 tetep kebaca
     const cleanSender = String(senderId).replace(/[^0-9]/g, '');
     const cleanOwners = config.ownerNumber.map(id => String(id).replace(/[^0-9]/g, ''));
 
-    // Cek apakah pengirim adalah Owner
     if (!cleanOwners.includes(cleanSender)) {
         console.log(`⛔ Access Denied: ${cleanSender} bukan Owner.`);
         return false;
@@ -16,7 +15,7 @@ module.exports = async (client, msg, args, senderId) => {
 
     const command = args[0].toLowerCase();
 
-    // --- FITUR UPDATE ---
+    // --- FITUR UPDATE (DENGAN LOG DUMP) ---
     if (command === '!update' || command === '!forceupdate') {
         const isForce = command === '!forceupdate';
         const gitCmd = isForce
@@ -26,25 +25,40 @@ module.exports = async (client, msg, args, senderId) => {
         await msg.reply(isForce ? "☢️ *FORCE UPDATING...*" : "⏳ *Mengecek Update...*");
 
         exec(gitCmd, async (err, stdout, stderr) => {
+            // 1. HANDLE ERROR
             if (err) {
                 let errorMsg = `❌ Gagal: ${err.message}`;
                 if (stderr && stderr.includes('Please commit')) {
-                    errorMsg = "⚠️ *ADA KONFLIK!* Ketik *!forceupdate* buat reset.";
+                    errorMsg = "⚠️ *GAGAL: ADA KONFLIK!* \nKetik *!forceupdate* buat timpa editan manual lu.";
                 }
                 return msg.reply(errorMsg);
             }
 
+            // 2. CEK STATUS
             const output = stdout || stderr || "Done.";
-            if (output.includes('Already up to date') && !isForce) return msg.reply("✅ Bot udah paling update.");
+            if (output.includes('Already up to date') && !isForce) {
+                return msg.reply("✅ Bot sudah versi terbaru.");
+            }
 
+            // 3. SUSUN LAPORAN (LOG DUMP DI-BUNGKUS)
+            let report = `✅ *UPDATE SUKSES*\n\`\`\`${output}\`\`\`\n`;
+
+            // 4. CEK NPM INSTALL
             if (output.includes('package.json')) {
-                await msg.reply("📦 *Install Library Baru...*");
-                exec('npm install', () => {
-                    client.sendMessage(msg.from, "✅ *Selesai!* Restarting... ♻️");
-                    setTimeout(() => process.exit(0), 2000);
+                report += "\n📦 *Ada Library Baru, Installing...*";
+                await msg.reply(report);
+
+                exec('npm install', (errInstall) => {
+                    if (errInstall) {
+                        client.sendMessage(msg.from, "❌ Gagal npm install, coba manual.");
+                    } else {
+                        client.sendMessage(msg.from, "✅ *Install Selesai!* Restarting... ♻️");
+                        setTimeout(() => process.exit(0), 2000);
+                    }
                 });
             } else {
-                await msg.reply(`✅ *Update Sukses*\n\n♻️ Restarting...`);
+                // Tampilkan log dump lalu restart
+                await msg.reply(report + "\n♻️ Restarting...");
                 setTimeout(() => process.exit(0), 2000);
             }
         });
@@ -70,6 +84,7 @@ module.exports = async (client, msg, args, senderId) => {
         return true;
     }
 
+    // 👇 RESET FINANCE TETEP ADA
     if (command === '!resetfinance') {
         try {
             await db.query("TRUNCATE TABLE transaksi");
