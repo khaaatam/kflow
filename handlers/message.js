@@ -36,7 +36,6 @@ module.exports = async (client, msg) => {
         let namaPengirim = "User";
         if (msg.fromMe) {
             // KALAU DARI DIRI SENDIRI -> PAKSA JADI "Tami"
-            // Atau ambil dari config.users kalau mau dinamis
             namaPengirim = "Tami";
         } else {
             try {
@@ -45,11 +44,12 @@ module.exports = async (client, msg) => {
             } catch (e) { }
         }
 
+        console.log(`\n🕵️ [SPY] Chat dari: ${namaPengirim} | ID: ${senderId}`);
+
         // 🔥 FIX SENDER ID BUAT SELF-CHAT
-        // Kadang self-chat ID-nya beda dikit, kita standardisasi
         const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
 
-        // 1. AUTO-LOGGING (Sekarang harusnya kecatat sebagai Tami)
+        // 1. AUTO-LOGGING
         try {
             await db.query(
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
@@ -59,7 +59,6 @@ module.exports = async (client, msg) => {
 
         // --- A. HANDLE COMMANDS ---
         if (body.startsWith('!') || body.startsWith('/')) {
-            // Command boleh dijalankan oleh bot sendiri (misal buat testing)
             const args = body.trim().split(/ +/);
             const commandName = args[0].toLowerCase();
 
@@ -83,10 +82,8 @@ module.exports = async (client, msg) => {
         }
 
         // --- B. AUTO DOWNLOADER (LINK DETECTOR) ---
-        // 🔥 UPDATE ANTI-LOOP: Tambahin '!msg.fromMe'
-        // Jadi kalau bot ngirim link (di caption/balasan), dia GAK BAKAL download ulang.
         if (body.match(/(https?:\/\/[^\s]+)/g) && !msg.fromMe) {
-            if (isGroup) return; // Jangan nyepam di grup
+            if (isGroup) return;
 
             const textLower = body.toLowerCase();
             if (textLower.includes('tiktok.com') || textLower.includes('facebook.com') || textLower.includes('fb.watch')) {
@@ -98,8 +95,6 @@ module.exports = async (client, msg) => {
         }
 
         // 🔥 FILTER AKHIR
-        // Kalau chat ini dari Bot Sendiri (fromMe) & bukan command -> STOP.
-        // Biar AI gak ngebales curhatan bot sendiri.
         if (msg.fromMe) return;
 
         // --- C. AI OBSERVER ---
