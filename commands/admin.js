@@ -94,6 +94,8 @@ module.exports.metadata = {
         { command: '!update', desc: 'Update Bot & Dependencies' },
         { command: '!forceupdate', desc: 'Paksa Update (Reset Local)' },
         { command: '!restart', desc: 'Restart Bot' },
-        { command: '!resetlogs', desc: 'Hapus Log Chat' }
+        { command: '!resetlogs', desc: 'Hapus Log Chat' },
+        { command: '!resetmemori', desc: 'Hapus Memori AI' },
+        { command: '!resetfinance', desc: 'Hapus Data Keuangan' }
     ]
 };
