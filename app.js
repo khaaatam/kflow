@@ -31,12 +31,7 @@ app.use('/', require('./routes/web'));
 // --- 3. SETUP BOT WA ---
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: config.system.puppeteer,
-    // Fix untuk WA Web versi terbaru
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-    }
+    puppeteer: config.system.puppeteer
 });
 
 client.on('qr', (qr) => {
