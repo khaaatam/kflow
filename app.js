@@ -41,7 +41,7 @@ const client = new Client({
 
 client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
-    console.log('📱 SCAN QR CODE SEKARANG!');
+    console.log('📱 Scan QR Code Diatas!');
 });
 
 client.on('ready', async () => {
@@ -49,9 +49,9 @@ client.on('ready', async () => {
 
     console.log(`✅${config.botName} Siap Melayani!`);
     console.log('------------------------------------------------');
-    console.log(`🌐Web Dashboard: http://localhost:${config.system.port}`);
-    console.log(`🧠 HANDLER: Siap memproses ${cmdCount} Command Otomatis`);
-    console.log('⏰ CRON JOB: Event & Reminder Aktif');
+    console.log(`🌐 Web Dashboard: http://localhost:${config.system.port}`);
+    console.log(`🧠 Handler: Siap memproses ${cmdCount} Command Otomatis`);
+    console.log('⏰ Cron Job: Event & Reminder Aktif');
     console.log('------------------------------------------------');
 
     // Fix Bug "Send Seen"
