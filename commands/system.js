@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const config = require('../config');
 
 module.exports = async (client, msg, args, senderId, namaPengirim) => {
     const command = args[0];
@@ -19,7 +20,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 
     // --- MENU OTOMATIS ---
     if (command === '!menu' || command === '!help') {
-        let menu = `🤖 *K-FLOW BOT MENU* 🤖\n_Halo ${namaPengirim}!_\n\n`;
+        let menu = `🤖 *${config.botName} MENU* 🤖\n_Halo ${namaPengirim}!_\n\n`;
 
         const commandFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('.js'));
         const categories = {};
@@ -42,6 +43,9 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
             menu += `${icon} *${cat}*\n${cmds.join('\n')}\n\n`;
         }
 
+        const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        menu += `🕒 *${time}*`;
+        
         msg.reply(menu);
     }
 };

@@ -4,7 +4,7 @@ const creator = [
     'JikaeL'
 ]
 
-const botName = "JikaeL the Destroyer"
+const botName = "JikaeLBot"
 
 const users = {
     '6289608506367@c.us': 'Tami',
