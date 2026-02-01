@@ -44,7 +44,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         }
 
         const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        menu += `_Waktu saat ini: _🕒 *${time}*`;
+        menu += ` _Waktu saat ini:_ 🕒 *${time}*`;
 
         msg.reply(menu);
     }
