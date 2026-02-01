@@ -54,7 +54,7 @@ client.on('ready', async () => {
 
     // Notif ke Owner
     if (config.system.logNumber) {
-        client.sendMessage(config.system.logNumber, `♻️ *SYSTEM ONLINE*\nBot berhasil restart & database terhubung.`).catch(() => { });
+        client.sendMessage(config.system.logNumber, `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart & database terhubung.`).catch(() => { });
     }
 
     // Restore Reminder yang tertunda (Background Task)
