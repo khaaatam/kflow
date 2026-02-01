@@ -6,8 +6,6 @@ const fs = require('fs'); // 👈 SAYA CUMA NAMBAH INI (BUAT HAPUS FILE SAMPAH)
 const config = require('./config');
 const db = require('./lib/database');
 const messageHandler = require('./handlers/message');
-const commands = new Map();
-const commandFiles = fs.readdirSync(path.join(__dirname, '../commands')).filter(file => file.endsWith('.js'));
 
 
 // --- LOAD FITUR BACKGROUND (Cuma ini yang perlu di-require manual) ---
@@ -47,10 +45,12 @@ client.on('qr', (qr) => {
 });
 
 client.on('ready', async () => {
+    const cmdCount = messageHandler.commands ? messageHandler.commands.size : 0;
+
     console.log(`✅${config.botName} Siap Melayani!`);
     console.log('------------------------------------------------');
     console.log(`🌐Web Dashboard: http://localhost:${config.system.port}`);
-    console.log(`🧠 HANDLER: Siap memproses ${commands.size} Command Otomatis`);
+    console.log(`🧠 HANDLER: Siap memproses ${cmdCount} Command Otomatis`);
     console.log('⏰ CRON JOB: Event & Reminder Aktif');
     console.log('------------------------------------------------');
 

@@ -24,7 +24,8 @@ console.log(`✅ ${commands.size} Commands Loaded!`);
 
 const cooldowns = new Map();
 
-module.exports = async (client, msg) => {
+// FUNGSI UTAMA HANDLER
+const messageHandler = async (client, msg) => {
     try {
         // Filter System Messages
         if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
@@ -35,7 +36,7 @@ module.exports = async (client, msg) => {
 
         let namaPengirim = "User";
         if (msg.fromMe) {
-            namaPengirim = "Tami"; 
+            namaPengirim = "Tami";
         } else {
             try {
                 const contact = await msg.getContact();
@@ -59,9 +60,8 @@ module.exports = async (client, msg) => {
         // ============================================================
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
-            const commandName = args[0].toLowerCase(); // Lowercase buat command biasa
+            const commandName = args[0].toLowerCase();
 
-            // Cek command biasa
             if (commands.has(commandName)) {
                 if (cooldowns.has(senderId)) {
                     if (Date.now() < cooldowns.get(senderId) + 1500) return;
@@ -79,47 +79,33 @@ module.exports = async (client, msg) => {
         }
 
         // ============================================================
-        // B. AUTO DOWNLOADER (LINK DETECTOR) - 🔥 FIX VITAL DISINI
+        // B. AUTO DOWNLOADER (LINK DETECTOR)
         // ============================================================
-        // 👇 PERUBAHAN 1: KITA HAPUS '!msg.fromMe'
-        // Biar lu bisa test kirim link ke diri sendiri dan bot tetep respon!
         if (body.match(/(https?:\/\/[^\s]+)/g)) {
-            
-            // 👇 PERUBAHAN 2: ANTI-LOOP PROTECTION
-            // Kalau bot ngirim video, biasanya captionnya "Facebook Video" atau "TikTok"
-            // Kita skip biar bot gak mendeteksi captionnya sendiri sebagai link baru
-            if (msg.fromMe && (body.includes('Facebook Video') || body.includes('TikTok') || body.includes('Download Sukses'))) return;
-
-            if (isGroup) return; 
+            // Anti-Loop Protection
+            if (msg.fromMe && (body.includes('Facebook Downloader') || body.includes('TikTok') || body.includes('Download Sukses'))) return;
+            if (isGroup) return;
 
             const textLower = body.toLowerCase();
-            
-            // Cek Domain
-            if (textLower.includes('tiktok.com') || 
-                textLower.includes('facebook.com') || 
-                textLower.includes('fb.watch') ||   // Support FB Watch
-                textLower.includes('fb.com') ||     // Support FB Short
+
+            if (textLower.includes('tiktok.com') ||
+                textLower.includes('facebook.com') ||
+                textLower.includes('fb.watch') ||
+                textLower.includes('fb.com') ||
                 textLower.includes('instagram.com')) {
-                
-                // 👇 PERUBAHAN 3: CARI COMMAND DENGAN DUA CARA
-                // Cek '(auto detect)' (kecil) ATAU '(Auto Detect)' (Besar)
-                // Ini biar gak error "Handler not found"
+
+                // Dual Lookup (Kecil/Besar)
                 const autoHandler = commands.get('(auto detect)') || commands.get('(Auto Detect)');
 
                 if (autoHandler) {
                     console.log(`🔗 Link Detected: ${body.substring(0, 30)}... Executing Downloader.`);
-                    // Panggil Handler Downloader
                     await autoHandler(client, msg, [], senderId, namaPengirim, body);
                     return;
-                } else {
-                    console.log("⚠️ Auto Detect Triggered, tapi command '(Auto Detect)' gak ketemu di Map!");
-                    // Debug: List semua command biar ketahuan salah tulis dimana
-                    console.log("Daftar Command Aktif:", [...commands.keys()]);
                 }
             }
         }
 
-        if (msg.fromMe) return; 
+        if (msg.fromMe) return;
 
         // ============================================================
         // C. AI OBSERVER
@@ -132,3 +118,8 @@ module.exports = async (client, msg) => {
         console.error("Handler Fatal Error:", error);
     }
 };
+
+module.exports = messageHandler;
+
+// 👇 INI DIA KUNCINYA! KITA EKSPOR LIST COMMANDNYA BIAR BISA DIBACA APP.JS
+module.exports.commands = commands;
