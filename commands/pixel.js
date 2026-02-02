@@ -11,7 +11,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         return msg.reply("❌ Kirim/Reply video pake caption `!pixel`");
     }
 
-    await msg.react('🍳');
+    await msg.react('👾'); // React Pixel
 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
@@ -19,10 +19,10 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
         if (!media.mimetype.includes('video')) return msg.reply("❌ Khusus Video Bang!");
 
-        // 1. SETUP FOLDER TEMP (MANUAL CREATE BIAR GAK ERROR ENOENT)
+        // 1. SETUP FOLDER TEMP
         const tempDir = path.join(__dirname, '../temp');
         if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true }); // 🔥 Bikin folder kalo belom ada
+            fs.mkdirSync(tempDir, { recursive: true });
         }
 
         const timestamp = Date.now();
@@ -32,15 +32,20 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // 2. PROSES FFMPEG (HANCURKAN KUALITAS!)
+        // 2. PROSES FFMPEG (RETRO PIXEL STYLE)
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
-                .videoFilters(['scale=180:-2', 'fps=fps=10']) // Makin burik (180p, 10fps)
+                // Filter Sakti: Kecilin ke 240p -> Gedein lagi ke 720p pake 'neighbor' (Biar kotak-kotak tajam)
+                .videoFilters([
+                    'scale=240:-2',             // Kecilin (Sumber Pixel)
+                    'scale=720:-2:flags=neighbor', // Gedein lagi (Biar tajem di HP)
+                    'fps=fps=20'                // FPS Retro (Agak patah dikit biar vibes)
+                ])
                 .outputOptions([
                     '-c:v libx264', '-preset ultrafast',
-                    '-b:v 50k',     // Bitrate 50k (Hancur parah)
+                    '-b:v 1000k',    // Bitrate 1000k (Biar gak pecah compress)
                     '-pix_fmt yuv420p',
-                    '-c:a aac', '-ac 1', '-ar 8000', '-b:a 8k' // Audio kayak radio rusak
+                    '-c:a aac', '-b:a 128k' // Audio Normal (Gak kresek-kresek)
                 ])
                 .on('end', resolve)
                 .on('error', reject)
@@ -50,7 +55,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // 3. KIRIM HASIL
         const processedMedia = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(msg.from, processedMedia, {
-            caption: 'Nih vibes HP Esia Hidayah! 📹',
+            caption: '👾 Vibes Gameboy Advance! (Retro Style)',
             sendMediaAsDocument: false
         });
 
@@ -70,5 +75,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!pixel', desc: 'Video -> Burik (HD)' }]
+    commands: [{ command: '!pixel', desc: 'Efek Video Pixel Art' }]
 };
