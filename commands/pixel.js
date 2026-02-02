@@ -11,7 +11,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         return msg.reply("❌ Kirim/Reply video pake caption `!pixel`");
     }
 
-    await msg.react('👾'); // React Pixel
+    await msg.react('📠'); // React Fax/Jadul
 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
@@ -32,20 +32,22 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // 2. PROSES FFMPEG (RETRO PIXEL STYLE)
+        // 2. PROSES FFMPEG (STYLE NOKIA JADUL)
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
-                // Filter Sakti: Kecilin ke 240p -> Gedein lagi ke 720p pake 'neighbor' (Biar kotak-kotak tajam)
                 .videoFilters([
-                    'scale=240:-2',             // Kecilin (Sumber Pixel)
-                    'scale=720:-2:flags=neighbor', // Gedein lagi (Biar tajem di HP)
-                    'fps=fps=20'                // FPS Retro (Agak patah dikit biar vibes)
+                    'scale=176:-2',             // Resolusi QCIF (Standar Nokia X2-01 / HP Java)
+                    'scale=720:-2:flags=neighbor', // Tetep di-upscale biar pixelnya JELAS & KOTAK di layar modern
+                    'fps=fps=12'                // FPS 12 (Patah-patah khas rekaman HP jadul)
                 ])
                 .outputOptions([
                     '-c:v libx264', '-preset ultrafast',
-                    '-b:v 1000k',    // Bitrate 1000k (Biar gak pecah compress)
+                    '-b:v 400k',      // Bitrate rendah tapi cukup buat nampilin kotak-kotak
                     '-pix_fmt yuv420p',
-                    '-c:a aac', '-b:a 128k' // Audio Normal (Gak kresek-kresek)
+                    // 👇 SETTINGAN AUDIO BUSUK (Khas Nokia) 👇
+                    '-ar 8000',       // Sample Rate 8kHz (Kualitas Telepon Rumah)
+                    '-ac 1',          // Mono (1 Channel)
+                    '-c:a aac', '-b:a 24k' // Bitrate Audio Hancur
                 ])
                 .on('end', resolve)
                 .on('error', reject)
@@ -55,7 +57,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // 3. KIRIM HASIL
         const processedMedia = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(msg.from, processedMedia, {
-            caption: '👾 Vibes Gameboy Advance! (Retro Style)',
+            caption: '📼 Nokia X2-01 Mode (176p @ 12fps)',
             sendMediaAsDocument: false
         });
 
@@ -75,5 +77,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!pixel', desc: 'Efek Video Pixel Art' }]
+    commands: [{ command: '!pixel', desc: 'Efek Video Nokia Jadul' }]
 };
