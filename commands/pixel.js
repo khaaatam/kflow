@@ -11,7 +11,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         return msg.reply("❌ Kirim/Reply video pake caption `!pixel`");
     }
 
-    await msg.react('🍳');
+    await msg.react('📠'); // React Fax/Jadul
 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
@@ -19,10 +19,10 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
         if (!media.mimetype.includes('video')) return msg.reply("❌ Khusus Video Bang!");
 
-        // 1. SETUP FOLDER TEMP (MANUAL CREATE BIAR GAK ERROR ENOENT)
+        // 1. SETUP FOLDER TEMP
         const tempDir = path.join(__dirname, '../temp');
         if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true }); // 🔥 Bikin folder kalo belom ada
+            fs.mkdirSync(tempDir, { recursive: true });
         }
 
         const timestamp = Date.now();
@@ -32,15 +32,22 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // 2. PROSES FFMPEG (HANCURKAN KUALITAS!)
+        // 2. PROSES FFMPEG (STYLE NOKIA JADUL)
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
-                .videoFilters(['scale=180:-2', 'fps=fps=10']) // Makin burik (180p, 10fps)
+                .videoFilters([
+                    'scale=176:-2',             // Resolusi QCIF (Standar Nokia X2-01 / HP Java)
+                    'scale=720:-2:flags=neighbor', // Tetep di-upscale biar pixelnya JELAS & KOTAK di layar modern
+                    'fps=fps=12'                // FPS 12 (Patah-patah khas rekaman HP jadul)
+                ])
                 .outputOptions([
                     '-c:v libx264', '-preset ultrafast',
-                    '-b:v 50k',     // Bitrate 50k (Hancur parah)
+                    '-b:v 400k',      // Bitrate rendah tapi cukup buat nampilin kotak-kotak
                     '-pix_fmt yuv420p',
-                    '-c:a aac', '-ac 1', '-ar 8000', '-b:a 8k' // Audio kayak radio rusak
+                    // 👇 SETTINGAN AUDIO BUSUK (Khas Nokia) 👇
+                    '-ar 8000',       // Sample Rate 8kHz (Kualitas Telepon Rumah)
+                    '-ac 1',          // Mono (1 Channel)
+                    '-c:a aac', '-b:a 24k' // Bitrate Audio Hancur
                 ])
                 .on('end', resolve)
                 .on('error', reject)
@@ -50,7 +57,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // 3. KIRIM HASIL
         const processedMedia = MessageMedia.fromFilePath(outputPath);
         await client.sendMessage(msg.from, processedMedia, {
-            caption: 'Nih vibes HP Esia Hidayah! 📹',
+            caption: '📼 Nokia X2-01 Mode (176p @ 12fps)',
             sendMediaAsDocument: false
         });
 
@@ -70,5 +77,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!pixel', desc: 'Video -> Burik (HD)' }]
+    commands: [{ command: '!pixel', desc: 'Efek Video Nokia Jadul' }]
 };
