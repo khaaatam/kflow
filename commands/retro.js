@@ -29,36 +29,58 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         const inputPath = path.join(tempDir, `in_${timestamp}.jpg`);
         const outputPath = path.join(tempDir, `out_${timestamp}.jpg`);
 
+        // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // 2. PROSES FFMPEG (WARNA BUTEK NOKIA JADUL)
-        await new Promise((resolve, reject) => {
-            ffmpeg(inputPath)
-                .outputOptions([
+        // 2. CEK DIMENSI FOTO DULU (SMART DETECT)
+        ffmpeg.ffprobe(inputPath, async (err, metadata) => {
+            if (err) {
+                console.error("Probe Error:", err);
+                return msg.reply("❌ Gagal baca dimensi gambar.");
+            }
 
-                    '-vf scale=176:-1,eq=saturation=0.5:contrast=1.2:gamma_g=1.1:gamma_b=0.9,scale=1080:-1:flags=neighbor',
+            const width = metadata.streams[0].width;
+            const height = metadata.streams[0].height;
+            const isPortrait = height > width;
 
-                    '-q:v 15' // Kualitas JPG diturunin
-                ])
-                .save(outputPath)
-                .on('end', resolve)
-                .on('error', reject);
+            // TENTUKAN TARGET RESOLUSI (Sesuai Layar Nokia X2-01)
+            // Landscape: 320x240 (4:3)
+            // Portrait: 240x320 (3:4)
+            const targetW = isPortrait ? 240 : 320;
+            const targetH = isPortrait ? 320 : 240;
+
+            console.log(`🔍 Input: ${width}x${height} | Mode: ${isPortrait ? 'Portrait' : 'Landscape'} | Target: ${targetW}x${targetH}`);
+
+            // 3. PROSES FFMPEG (AUTO CROP + RETRO)
+            await new Promise((resolve, reject) => {
+                ffmpeg(inputPath)
+                    .outputOptions([
+                        '-vf',
+
+                        `scale=${targetW}:${targetH}:force_original_aspect_ratio=increase,crop=${targetW}:${targetH},eq=saturation=0.5:contrast=1.2:gamma_g=1.1:gamma_b=0.9,scale=1080:-1:flags=neighbor`,
+
+                        '-q:v 15' // Turunin kualitas JPG
+                    ])
+                    .save(outputPath)
+                    .on('end', resolve)
+                    .on('error', reject);
+            });
+
+            // 4. KIRIM HASIL
+            const processedMedia = MessageMedia.fromFilePath(outputPath);
+            await client.sendMessage(msg.from, processedMedia, {
+                caption: `📸 Nokia X2-01 Mode\n📟 ${isPortrait ? 'Portrait (240x320)' : 'Landscape (320x240)'}`,
+                sendMediaAsDocument: false
+            });
+
+            // 5. BERSIH-BERSIH
+            try {
+                fs.unlinkSync(inputPath);
+                fs.unlinkSync(outputPath);
+            } catch (e) { }
+
+            await msg.react('✅');
         });
-
-        // 3. KIRIM HASIL
-        const processedMedia = MessageMedia.fromFilePath(outputPath);
-        await client.sendMessage(msg.from, processedMedia, {
-            caption: '📸 Retrorized',
-            sendMediaAsDocument: false
-        });
-
-        // 4. BERSIH-BERSIH
-        try {
-            fs.unlinkSync(inputPath);
-            fs.unlinkSync(outputPath);
-        } catch (e) { }
-
-        await msg.react('✅');
 
     } catch (error) {
         console.error("Retro Error:", error);
@@ -68,5 +90,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!retro', desc: 'Efek Foto Nokia Jadul (Warna Butek)' }]
+    commands: [{ command: '!retro', desc: 'Efek Foto Nokia (Auto Crop)' }]
 };
