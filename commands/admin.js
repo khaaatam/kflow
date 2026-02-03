@@ -16,9 +16,9 @@ module.exports = async (client, msg, args, senderId) => {
     const restartBot = async (pesanTambahan = "") => {
         exec('pm2 flush', async (err) => {
             if (err) console.error("Gagal flush logs:", err);
-            
-            await msg.reply(`${pesanTambahan}\n✨ *Logs Bersih.* Bot Restarting... ♻️`);
-            
+
+            await msg.reply(`✨ *Logs Bersih.* Bot Restarting... `);
+
             setTimeout(() => process.exit(0), 2000);
         });
     };
@@ -65,7 +65,7 @@ module.exports = async (client, msg, args, senderId) => {
     }
 
     if (command === '!restart') {
-        await restartBot("🔄 Perintah Manual."); 
+        await restartBot("🔄 Perintah Manual.");
         return true;
     }
 
