@@ -24,8 +24,22 @@ module.exports = async (client, msg, args, senderId) => {
 
         await msg.reply(isForce ? "☢️ *FORCE UPDATING...*" : "⏳ *Mengecek Update...*");
 
+        // FUNGSI RESTART KHUSUS TERMUX/PM2
+        const restartBot = async (pesanTambahan = "") => {
+            // 1. Bersihkan Log Lama (Biar HP gak penuh/berat)
+            exec('pm2 flush', async (err) => {
+                if (err) console.error("Gagal flush logs:", err);
+
+                // 2. Kirim Pesan Terakhir ke WA
+                await msg.reply(`${pesanTambahan}\n✨ *Logs Bersih.* Bot Restarting... ♻️`);
+
+                // 3. MATIIN BOT (PM2 bakal otomatis nyalain lagi detik itu juga)
+                setTimeout(() => process.exit(0), 2000);
+            });
+        };
+
         exec(gitCmd, async (err, stdout, stderr) => {
-            // 1. HANDLE ERROR
+            // --- 1. HANDLE ERROR ---
             if (err) {
                 let errorMsg = `❌ Gagal: ${err.message}`;
                 if (stderr && stderr.includes('Please commit')) {
@@ -34,32 +48,32 @@ module.exports = async (client, msg, args, senderId) => {
                 return msg.reply(errorMsg);
             }
 
-            // 2. CEK STATUS
+            // --- 2. CEK STATUS UPDATE ---
             const output = stdout || stderr || "Done.";
             if (output.includes('Already up to date') && !isForce) {
                 return msg.reply("✅ Bot sudah versi terbaru.");
             }
 
-            // 3. SUSUN LAPORAN (LOG DUMP DI-BUNGKUS)
+            // --- 3. PROSES UPDATE ---
             let report = `✅ *UPDATE SUKSES*\n\`\`\`${output}\`\`\`\n`;
 
-            // 4. CEK NPM INSTALL
+            // Cek kalau ada update library (package.json)
             if (output.includes('package.json')) {
                 report += "\n📦 *Ada Library Baru, Installing...*";
                 await msg.reply(report);
 
+                // Install npm lalu restart
                 exec('npm install', (errInstall) => {
                     if (errInstall) {
                         client.sendMessage(msg.from, "❌ Gagal npm install, coba manual.");
                     } else {
-                        client.sendMessage(msg.from, "✅ *Install Selesai!* Restarting... ♻️");
-                        setTimeout(() => process.exit(0), 2000);
+                        restartBot("✅ *Install Library Selesai!*");
                     }
                 });
             } else {
-                // Tampilkan log dump lalu restart
-                await msg.reply(report + "\n♻️ Restarting...");
-                setTimeout(() => process.exit(0), 2000);
+                // Restart biasa
+                await msg.reply(report);
+                restartBot();
             }
         });
         return true;
@@ -67,8 +81,7 @@ module.exports = async (client, msg, args, senderId) => {
 
     // --- SYSTEM UTILS ---
     if (command === '!restart') {
-        await msg.reply("♻️ Restarting...");
-        setTimeout(() => process.exit(0), 1000);
+        await restartBot();
         return true;
     }
 
