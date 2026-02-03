@@ -40,13 +40,11 @@ const messageHandler = async (client, msg) => {
         // Disini kita cek: Apakah ID pengirim ada di daftar 'config.users'?
         // Format config.users harus: [{ id: '628xxx@c.us', name: 'Tami' }, ...]
 
-        const validUser = config.users.find(u => u.id === senderId);
+        const namaPengirim = config.users[senderId];
 
-        if (!validUser) {
+        if (!namaPengirim) {
             return;
         }
-
-        const namaPengirim = validUser.name;
 
         const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
 
