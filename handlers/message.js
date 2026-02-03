@@ -52,6 +52,8 @@ const messageHandler = async (client, msg) => {
             body.startsWith('♻️') ||
             body.startsWith('🤖') ||
             body.startsWith('📢') ||
+            body.startsWith('✨') ||
+            body.startsWith('☢️') ||
             body.includes('Ingatan Baru') // Filter log manual kalau bocor
         );
 
