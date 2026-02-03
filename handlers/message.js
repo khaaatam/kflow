@@ -34,6 +34,8 @@ const messageHandler = async (client, msg) => {
         const senderId = msg.author || msg.from;
         const isGroup = msg.from.includes('@g.us');
 
+        console.log(`🕵️ ID MASUK: '${senderId}'`);
+
         // ============================================================
         // 🛑 1. THE GATEKEEPER (STRICT FILTER USER)
         // ============================================================
