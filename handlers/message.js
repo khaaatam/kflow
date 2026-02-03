@@ -43,18 +43,22 @@ const messageHandler = async (client, msg) => {
         if (!namaPengirim) {
             return;
         }
+
+        const cleanBody = body.trim();
+
         const isBotResponse = msg.fromMe && (
-            body.startsWith('✅') ||
-            body.startsWith('❌') ||
-            body.startsWith('📸') ||
-            body.startsWith('⏳') ||
-            body.startsWith('📝') ||
-            body.startsWith('♻️') ||
-            body.startsWith('🤖') ||
-            body.startsWith('📢') ||
-            body.startsWith('✨') ||
-            body.startsWith('☢️') ||
-            body.includes('Ingatan Baru') // Filter log manual kalau bocor
+            cleanBody.startsWith('✅') ||
+            cleanBody.startsWith('❌') ||
+            cleanBody.startsWith('📸') ||
+            cleanBody.startsWith('⏳') ||
+            cleanBody.startsWith('📝') ||
+            cleanBody.startsWith('♻️') ||
+            cleanBody.startsWith('🤖') ||
+            cleanBody.startsWith('📢') ||
+            cleanBody.startsWith('✨') ||
+            cleanBody.startsWith('☢️') ||
+            cleanBody.includes('Ingatan Baru'),
+            cleanBody.includes('[DEBUG]')
         );
 
         if (isBotResponse) return;
