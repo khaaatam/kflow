@@ -39,7 +39,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
                     // LOGIKA BURIK:
                     // 1. scale=176:-1 -> Kecilin paksa ke lebar 176px (Resolusi QCIF Nokia)
                     // 2. scale=1080:-1:flags=neighbor -> Gedein lagi biar tajem kotak-kotaknya
-                    '-vf scale=176:-1,scale=1080:-1:flags=neighbor',
+                    '-vf scale=320:-1,scale=1080:-1',
 
                     // EFEK TAMBAHAN:
                     '-q:v 15' // Kualitas JPG diturunin (Range 2-31, makin gede makin burik). 15 udah pas "buluk"nya.
