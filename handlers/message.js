@@ -34,20 +34,25 @@ const messageHandler = async (client, msg) => {
         const senderId = msg.author || msg.from;
         const isGroup = msg.from.includes('@g.us');
 
-        let namaPengirim = "User";
-        if (msg.fromMe) {
-            namaPengirim = "Tami";
-        } else {
-            try {
-                const contact = await msg.getContact();
-                namaPengirim = contact.pushname || contact.name || "User";
-            } catch (e) { }
+        // ============================================================
+        // 🛑 1. THE GATEKEEPER (STRICT FILTER USER)
+        // ============================================================
+        // Disini kita cek: Apakah ID pengirim ada di daftar 'config.users'?
+        // Format config.users harus: [{ id: '628xxx@c.us', name: 'Tami' }, ...]
+
+        const validUser = config.users.find(u => u.id === senderId);
+
+        if (!validUser) {
+            return;
         }
 
-        // 🔥 FIX SENDER ID SELF-CHAT
+        const namaPengirim = validUser.name;
+
         const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
 
-        // LOGGING DATABASE
+        // ============================================================
+        // 💾 2. DATABASE LOGGING (Khusus User Valid)
+        // ============================================================
         try {
             await db.query(
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
@@ -56,7 +61,7 @@ const messageHandler = async (client, msg) => {
         } catch (err) { }
 
         // ============================================================
-        // A. HANDLE COMMANDS (!command)
+        // 🎮 3. HANDLE COMMANDS (!command)
         // ============================================================
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
@@ -69,6 +74,7 @@ const messageHandler = async (client, msg) => {
 
                 const handler = commands.get(commandName);
                 try {
+                    // Panggil handler dengan namaPengirim yang SUDAH VALID (Tami/Dini)
                     await handler(client, msg, args, senderId, namaPengirim, body);
                 } catch (e) { console.error(`Cmd Error: ${e.message}`); }
 
@@ -79,7 +85,7 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // B. AUTO DOWNLOADER (LINK DETECTOR)
+        // 📥 4. AUTO DOWNLOADER (LINK DETECTOR)
         // ============================================================
         if (body.match(/(https?:\/\/[^\s]+)/g)) {
             // Anti-Loop Protection
@@ -94,7 +100,6 @@ const messageHandler = async (client, msg) => {
                 textLower.includes('fb.com') ||
                 textLower.includes('instagram.com')) {
 
-                // Dual Lookup (Kecil/Besar)
                 const autoHandler = commands.get('(auto detect)') || commands.get('(Auto Detect)');
 
                 if (autoHandler) {
@@ -108,7 +113,7 @@ const messageHandler = async (client, msg) => {
         if (msg.fromMe) return;
 
         // ============================================================
-        // C. AI OBSERVER
+        // 🧠 5. AI OBSERVER
         // ============================================================
         if (!body.startsWith('!') && !isGroup) {
             observe(client, msg, namaPengirim).catch(() => { });
@@ -121,5 +126,5 @@ const messageHandler = async (client, msg) => {
 
 module.exports = messageHandler;
 
-// 👇 INI DIA KUNCINYA! KITA EKSPOR LIST COMMANDNYA BIAR BISA DIBACA APP.JS
+// 👇 INI PENTING BUAT APP.JS
 module.exports.commands = commands;

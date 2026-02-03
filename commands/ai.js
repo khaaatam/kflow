@@ -15,7 +15,8 @@ const observe = async (client, msg, namaPengirim) => {
     if (blacklist.some(w => text.toLowerCase().includes(w))) return;
 
     // Trigger Words: Cuma proses kalau ada kata emosional/penting
-    const triggers = ['suka', 'benci', 'mau', 'pengen', 'sedih', 'senang', 'marah', 'lapar', 'sakit', 'hari ini', 'besok', 'kemarin'];
+    // (Bisa lu tambahin lagi kata kuncinya)
+    const triggers = ['suka', 'benci', 'mau', 'pengen', 'sedih', 'senang', 'marah', 'lapar', 'sakit', 'hari ini', 'besok', 'kemarin', 'rencana', 'janji'];
     if (!triggers.some(w => text.toLowerCase().includes(w))) return;
 
     try {
@@ -23,33 +24,48 @@ const observe = async (client, msg, namaPengirim) => {
         const history = await ChatLog.getHistory(5);
 
         const prompt = `
-        Tugas: Ekstrak FAKTA PERSONAL USER (${namaPengirim}).
-        Konteks Chat: 
+        Analisa pesan ini dari pengguna bernama "${namaPengirim}".
+        Konteks Chat Terakhir:
         ${history}
         
-        Chat Baru: "${text}"
+        Pesan Baru: "${text}"
         
-        Aturan:
-        1. Cari fakta baru tentang user atau pacarnya (Dini).
-        2. Format Output: [[SAVEMEMORY: Fakta Singkat]].
-        3. Jika tidak ada fakta penting, kosongkan output.
+        Tugasmu:
+        1. Tentukan apakah pesan ini mengandung FAKTA PENTING tentang pengguna (seperti hobi, rencana, tanggal penting, kesukaan, kondisi fisik/mental).
+        2. JANGAN catat sapaan, basa-basi, atau pertanyaan umum.
+        3. Jika PENTING, tulis ulang faktanya dalam 1 kalimat singkat padat (Sudut pandang orang ketiga). HINDARI penggunaan kurung siku [].
+        4. Jika TIDAK PENTING, jawab dengan kata "SKIP".
+        
+        Contoh Output Positif:
+        Menyukai kopi hitam tanpa gula.
+        
+        Contoh Output Negatif:
+        SKIP
         `;
 
         const result = await model.generateContent(prompt);
-        const responseText = result.response.text();
-        const match = responseText.match(/\[\[SAVEMEMORY:\s*(.*?)\]\]/);
+        const response = result.response.text().trim();
 
-        if (match && match[1]) {
-            const fakta = `[${namaPengirim}] ${match[1].trim()}`;
+        // Kalau AI bilang SKIP, ya udah biarin aja
+        if (response.toUpperCase() === "SKIP") return;
 
-            // Simpan ke Database lewat Model
-            const success = await Memory.add(fakta);
+        // Simpan ke Database lewat Model (Sekarang support User ID)
+        // Kita kirim namaPengirim biar masuk ke kolom 'user'
+        const success = await Memory.add(namaPengirim, response);
 
-            // 🔥 LAPOR BOS (Log Number)
-            if (success && config.system?.logNumber) {
-                client.sendMessage(config.system.logNumber, `📝 *Ingatan Baru Tercipta:*\n"${fakta}"`).catch(() => { });
+        if (success) {
+            // 🔥 FORMAT LOG GANTENG (Sesuai Request)
+            console.log(`\n🧠  Ingatan Baru`);
+            console.log(`👤: *_${namaPengirim}_*`);
+            console.log(`📝: ${response}`);
+            console.log(`------------------------------------------------`);
+
+            // Notif ke Owner (Opsional)
+            if (config.system?.logNumber) {
+                // client.sendMessage(config.system.logNumber, `📝 *Ingatan Baru:*\n👤 ${namaPengirim}\n📝 ${response}`).catch(() => { });
             }
         }
+
     } catch (e) {
         // Silent error biar log bersih
     }
@@ -58,7 +74,6 @@ const observe = async (client, msg, namaPengirim) => {
 // --- 2. INTERACT (HANDLE COMMAND !ai, !ingat, !setpersona) ---
 const interact = async (client, msg, args, senderId, namaPengirim, text) => {
     const command = args[0].toLowerCase();
-    // Ambil isi pesan setelah command
     const content = text.replace(command, '').trim();
 
     // --- A. COMMAND !setpersona ---
@@ -71,7 +86,8 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
     // --- B. COMMAND !ingat ---
     if (command === '!ingat') {
         if (!content) return msg.reply("Apa yang harus diingat? Contoh: !ingat Dini ulang tahun tanggal 6 Januari.");
-        await Memory.add(`[Manual] ${content}`);
+        // Masukin manual, user-nya kita set "Manual" atau nama pengirim
+        await Memory.add(namaPengirim, `[Manual] ${content}`);
         return msg.reply("✅ Ingatan disimpan ke otak.");
     }
 
@@ -81,9 +97,13 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
 
         await msg.react('👀');
         try {
-            // Ambil semua bekal buat AI (Persona + Memori + Chat History)
+            // Ambil semua bekal buat AI (Persona + Memori User Ini + Chat History)
             const persona = await Memory.getPersona();
-            const memories = await Memory.getAll(15);
+
+            // Ambil memori KHUSUS user ini (Biar lebih personal)
+            const memories = await Memory.getByUser(namaPengirim, 10);
+            // Kalau mau memori global juga bisa dipanggil Memory.getAll(5)
+
             const history = await ChatLog.getHistory(10);
 
             const memText = memories.map(m => `- ${m.fakta}`).join('\n');
@@ -91,15 +111,15 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
             const finalPrompt = `
             [SYSTEM]: ${persona}
             
-            [INGATAN JANGKA PANJANG]:
+            [INGATAN TENTANG ${namaPengirim}]:
             ${memText}
             
             [RIWAYAT CHAT TERAKHIR]:
             ${history}
             
-            [PERTANYAAN USER]: "${content}"
+            [PERTANYAAN USER (${namaPengirim})]: "${content}"
             
-            Jawab secara natural sesuai persona di atas.
+            Jawab secara natural, santai, dan personal sesuai data ingatan di atas.
             `;
 
             let payload = [finalPrompt];
