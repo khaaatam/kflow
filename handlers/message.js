@@ -57,9 +57,10 @@ const messageHandler = async (client, msg) => {
             cleanBody.startsWith('📢') ||
             cleanBody.startsWith('✨') ||
             cleanBody.startsWith('☢️') ||
-            cleanBody.startsWith('♻️') ||
             cleanBody.startsWith('🔄') ||
-            cleanBody.includes('Ingatan Baru'),
+            cleanBody.startsWith('♻') ||
+            cleanBody.includes('Ingatan Baru') ||
+            cleanBody.includes('SYSTEM ONLINE') ||
             cleanBody.includes('[DEBUG]')
         );
 
