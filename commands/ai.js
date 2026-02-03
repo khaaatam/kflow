@@ -7,67 +7,66 @@ const config = require('../config');
 const observe = async (client, msg, namaPengirim) => {
     const text = msg.body;
 
-    // Filter: Jangan proses command atau chat pendek
-    if (text.startsWith('!') || text.length < 5) return;
+    console.log(`\n🔍 [DEBUG] Memulai Observasi...`);
+    console.log(`   - Pengirim: ${namaPengirim}`);
+    console.log(`   - Pesan: "${text}"`);
 
-    // Blacklist kata-kata teknis biar gak pusing
+    // 1. Cek Panjang
+    if (text.startsWith('!') || text.length < 5) {
+        console.log(`❌ [DEBUG] Gagal: Pesan terlalu pendek atau command.`);
+        return;
+    }
+
+    // 2. Cek Blacklist
     const blacklist = ['bot', 'fitur', 'command', 'reset', 'menu', 'error'];
-    if (blacklist.some(w => text.toLowerCase().includes(w))) return;
+    if (blacklist.some(w => text.toLowerCase().includes(w))) {
+        console.log(`❌ [DEBUG] Gagal: Mengandung kata blacklist.`);
+        return;
+    }
 
-    // Trigger Words: Cuma proses kalau ada kata emosional/penting
-    // (Bisa lu tambahin lagi kata kuncinya)
-    const triggers = ['suka', 'benci', 'mau', 'pengen', 'sedih', 'senang', 'marah', 'lapar', 'sakit', 'hari ini', 'besok', 'kemarin', 'rencana', 'janji'];
-    if (!triggers.some(w => text.toLowerCase().includes(w))) return;
+    // 3. Cek Trigger Words
+    const triggers = ['suka', 'benci', 'mau', 'pengen', 'sedih', 'senang', 'marah', 'lapar', 'sakit', 'hari ini', 'besok', 'kemarin', 'rencana', 'janji', 'pergi', 'beli'];
+    const kenaTrigger = triggers.some(w => text.toLowerCase().includes(w));
+
+    if (!kenaTrigger) {
+        console.log(`❌ [DEBUG] Gagal: Tidak ada kata kunci penting (Trigger).`);
+        return;
+    }
+    console.log(`✅ [DEBUG] Lolos Filter! Mengirim ke AI...`);
 
     try {
-        // Ambil 5 chat terakhir buat konteks
         const history = await ChatLog.getHistory(5);
-
         const prompt = `
         Analisa pesan ini dari pengguna bernama "${namaPengirim}".
-        Konteks Chat Terakhir:
-        ${history}
-        
         Pesan Baru: "${text}"
-        
-        Tugasmu:
-        1. Tentukan apakah pesan ini mengandung FAKTA PENTING tentang pengguna (seperti hobi, rencana, tanggal penting, kesukaan, kondisi fisik/mental).
-        2. JANGAN catat sapaan, basa-basi, atau pertanyaan umum.
-        3. Jika PENTING, tulis ulang faktanya dalam 1 kalimat singkat padat (Sudut pandang orang ketiga). HINDARI penggunaan kurung siku [].
-        4. Jika TIDAK PENTING, jawab dengan kata "SKIP".
-        
-        Contoh Output Positif:
-        Menyukai kopi hitam tanpa gula.
-        
-        Contoh Output Negatif:
-        SKIP
+        Tugas: Ekstrak FAKTA PENTING (Hobi/Rencana/Kondisi) dalam 1 kalimat singkat.
+        Jika tidak penting, jawab "SKIP".
         `;
 
         const result = await model.generateContent(prompt);
         const response = result.response.text().trim();
 
-        // Kalau AI bilang SKIP, ya udah biarin aja
-        if (response.toUpperCase() === "SKIP") return;
+        console.log(`🤖 [DEBUG] Respon AI: "${response}"`);
 
-        // Simpan ke Database lewat Model (Sekarang support User ID)
-        // Kita kirim namaPengirim biar masuk ke kolom 'user'
+        if (response.toUpperCase() === "SKIP") {
+            console.log(`❌ [DEBUG] AI bilang SKIP (Gak penting).`);
+            return;
+        }
+
+        // Simpan ke Database
         const success = await Memory.add(namaPengirim, response);
 
         if (success) {
-            // 🔥 FORMAT LOG GANTENG (Sesuai Request)
-            console.log(`\n🧠  Ingatan Baru`);
+            console.log(`\n🧠  Ingatan Baru Tercipta!`);
             console.log(`👤: *_${namaPengirim}_*`);
             console.log(`📝: ${response}`);
             console.log(`------------------------------------------------`);
-
-            // Notif ke Owner (Opsional)
-            if (config.system?.logNumber) {
-                // client.sendMessage(config.system.logNumber, `📝 *Ingatan Baru:*\n👤 ${namaPengirim}\n📝 ${response}`).catch(() => { });
-            }
+        } else {
+            console.log(`⚠️ [DEBUG] Gagal Simpan DB (Mungkin Duplikat/Error).`);
         }
 
     } catch (e) {
-        // Silent error biar log bersih
+        console.error(`💥 [DEBUG] ERROR FATAL:`, e); // JANGAN DI SILENT DULU
     }
 };
 
