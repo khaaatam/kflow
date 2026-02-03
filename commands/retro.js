@@ -11,7 +11,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         return msg.reply("❌ Kirim/Reply foto pake caption `!retro`");
     }
 
-    await msg.react('📸'); // React Kamera
+    await msg.react('📸');
 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
@@ -29,20 +29,16 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         const inputPath = path.join(tempDir, `in_${timestamp}.jpg`);
         const outputPath = path.join(tempDir, `out_${timestamp}.jpg`);
 
-        // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
 
-        // 2. PROSES FFMPEG (IMAGE CRUNCHER)
+        // 2. PROSES FFMPEG (WARNA BUTEK NOKIA JADUL)
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
                 .outputOptions([
-                    // LOGIKA BURIK:
-                    // 1. scale=176:-1 -> Kecilin paksa ke lebar 176px (Resolusi QCIF Nokia)
-                    // 2. scale=1080:-1:flags=neighbor -> Gedein lagi biar tajem kotak-kotaknya
-                    '-vf scale=320:-1,scale=1080:-1',
 
-                    // EFEK TAMBAHAN:
-                    '-q:v 15' // Kualitas JPG diturunin (Range 2-31, makin gede makin burik). 15 udah pas "buluk"nya.
+                    '-vf scale=176:-1,eq=saturation=0.5:contrast=1.2:gamma_g=1.1:gamma_b=0.9,scale=1080:-1:flags=neighbor',
+
+                    '-q:v 15' // Kualitas JPG diturunin
                 ])
                 .save(outputPath)
                 .on('end', resolve)
@@ -72,5 +68,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!retro', desc: 'Efek Foto Nokia Jadul' }]
+    commands: [{ command: '!retro', desc: 'Efek Foto Nokia Jadul (Warna Butek)' }]
 };
