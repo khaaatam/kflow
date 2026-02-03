@@ -3,6 +3,7 @@ const config = require('../config');
 const db = require('../lib/database');
 
 module.exports = async (client, msg, args, senderId) => {
+    // 🛡️ SECURITY CHECK
     const cleanSender = String(senderId).replace(/[^0-9]/g, '');
     const cleanOwners = config.ownerNumber.map(id => String(id).replace(/[^0-9]/g, ''));
 
@@ -13,23 +14,36 @@ module.exports = async (client, msg, args, senderId) => {
 
     const command = args[0].toLowerCase();
 
+    // 🔥 DEFINISI FUNGSI RESTART DI SINI (BIAR BISA DIPAKE SEMUA) 🔥
     const restartBot = async (pesanTambahan = "") => {
+        // 1. Bersihkan Log Lama (PM2 Flush)
         exec('pm2 flush', async (err) => {
             if (err) console.error("Gagal flush logs:", err);
 
-            await msg.reply(`✨ *Logs Bersih.* Bot Restarting... `);
+            // 2. Tentukan Pesan: Kalau ada tambahan, baru kasih Enter (\n). Kalau gak, langsung aja.
+            const finalText = pesanTambahan
+                ? `${pesanTambahan}\n✨ *Logs Bersih.* Bot Restarting... ♻️`
+                : `✨ *Logs Bersih.* Bot Restarting... ♻️`;
 
+            // 3. Kirim ke WA
+            await msg.reply(finalText);
+
+            // 4. MATIIN BOT
             setTimeout(() => process.exit(0), 2000);
         });
     };
 
+    // --- FITUR UPDATE ---
     if (command === '!update' || command === '!forceupdate') {
         const isForce = command === '!forceupdate';
         const gitCmd = isForce
             ? 'git fetch --all && git reset --hard origin/main && git pull'
             : 'git pull';
 
+        await msg.reply(isForce ? "☢️ *FORCE UPDATING...*" : "⏳ *Mengecek Update...*");
+
         exec(gitCmd, async (err, stdout, stderr) => {
+            // 1. HANDLE ERROR
             if (err) {
                 let errorMsg = `❌ Gagal: ${err.message}`;
                 if (stderr && stderr.includes('Please commit')) {
@@ -38,11 +52,13 @@ module.exports = async (client, msg, args, senderId) => {
                 return msg.reply(errorMsg);
             }
 
+            // 2. CEK STATUS
             const output = stdout || stderr || "Done.";
             if (output.includes('Already up to date') && !isForce) {
                 return msg.reply("✅ Bot sudah versi terbaru.");
             }
 
+            // 3. PROSES UPDATE
             let report = `✅ *UPDATE SUKSES*\n\`\`\`${output}\`\`\`\n`;
 
             if (output.includes('package.json')) {
@@ -64,7 +80,9 @@ module.exports = async (client, msg, args, senderId) => {
         return true;
     }
 
+    // --- SYSTEM UTILS ---
     if (command === '!restart') {
+        // SEKARANG DIA UDAH KENAL SAMA FUNGSI INI ✅
         await restartBot("🔄 Perintah Manual.");
         return true;
     }
