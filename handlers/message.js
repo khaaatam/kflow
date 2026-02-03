@@ -43,6 +43,7 @@ const messageHandler = async (client, msg) => {
         if (!namaPengirim) {
             return;
         }
+        console.log(`💬 [${namaPengirim}]: ${body}`);
 
         const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
 
