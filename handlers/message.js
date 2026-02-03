@@ -34,14 +34,10 @@ const messageHandler = async (client, msg) => {
         const senderId = msg.author || msg.from;
         const isGroup = msg.from.includes('@g.us');
 
-        console.log(`🕵️ ID MASUK: '${senderId}'`);
 
         // ============================================================
         // 🛑 1. THE GATEKEEPER (STRICT FILTER USER)
         // ============================================================
-        // Disini kita cek: Apakah ID pengirim ada di daftar 'config.users'?
-        // Format config.users harus: [{ id: '628xxx@c.us', name: 'Tami' }, ...]
-
         const namaPengirim = config.users[senderId];
 
         if (!namaPengirim) {
