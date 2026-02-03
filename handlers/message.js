@@ -119,7 +119,6 @@ const messageHandler = async (client, msg) => {
             }
         }
 
-        if (msg.fromMe) return;
 
         // ============================================================
         // 🧠 5. AI OBSERVER
