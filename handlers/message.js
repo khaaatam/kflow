@@ -43,9 +43,18 @@ const messageHandler = async (client, msg) => {
         if (!namaPengirim) {
             return;
         }
-        console.log(`💬 [${namaPengirim}]: ${body}`);
+        const isBotResponse = msg.fromMe && (
+            body.startsWith('✅') ||
+            body.startsWith('❌') ||
+            body.startsWith('📸') ||
+            body.startsWith('⏳') ||
+            body.startsWith('📝') ||
+            body.includes('Ingatan Baru') // Filter log manual kalau bocor
+        );
 
-        const cleanId = String(senderId).replace('@c.us', '').replace('@g.us', '');
+        if (isBotResponse) return;
+
+        console.log(`💬 [${namaPengirim}]: ${body}`);
 
         // ============================================================
         // 💾 2. DATABASE LOGGING (Khusus User Valid)
