@@ -25,7 +25,23 @@ const observe = async (client, msg, namaPengirim) => {
     }
 
     // 3. Cek Trigger Words
-    const triggers = ['suka', 'benci', 'mau', 'pengen', 'sedih', 'senang', 'marah', 'lapar', 'sakit', 'hari ini', 'besok', 'kemarin', 'rencana', 'janji', 'pergi', 'beli'];
+    const triggers = [
+        // A. KEINGINAN & RENCANA
+        'mau', 'pengen', 'ingin', 'akan', 'rencana', 'niat', 'bakal',
+        'besok', 'lusa', 'minggu depan', 'bulan depan', 'tahun depan',
+
+        // B. PERASAAN & PREFERENSI
+        'suka', 'cinta', 'sayang', 'benci', 'takut', 'gasuka', 'gemar',
+        'hobi', 'favorit', 'terbaik', 'terburuk', 'paling',
+
+        // C. 🔥 BUCIN & RELATIONSHIP (INI YANG DITAMBAHIN) 🔥
+        'jadian', 'pacar', 'pasangan', 'nikah', 'kawin', 'tunangan', 'lamaran',
+        'putus', 'balikan', 'gebetan', 'mantan', 'crush',
+
+        // D. 📅 TANGGAL & EVENT PENTING
+        'tanggal', 'hari', 'ulang tahun', 'ultah', 'hbd', 'anniv', 'anniversary',
+        'ingetin', 'ingat', 'catet', 'catat'
+    ];
     const kenaTrigger = triggers.some(w => text.toLowerCase().includes(w));
 
     if (!kenaTrigger) {
