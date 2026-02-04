@@ -3,7 +3,7 @@ const db = require('../lib/database');
 class Transaction {
     // 1. Tambah Transaksi (Tetep butuh userId buat history)
     static async add(userId, jenis, nominal, keterangan, source = 'WhatsApp') {
-        const sql = "INSERT INTO transaksi (user_id, jenis, nominal, keterangan, source) VALUES (?, ?, ?, ?, ?)";
+        const sql = "INSERT INTO transaksi (user_id, jenis, nominal, keterangan, sumber) VALUES (?, ?, ?, ?, ?)";
         await db.query(sql, [userId, jenis, nominal, keterangan, source]);
         return true;
     }
