@@ -9,85 +9,85 @@ const config = require('../config');
 const observe = async (client, msg, namaPengirim) => {
     const text = msg.body;
 
-    // A. Filter Awal (Biar gak boros kuota AI)
-    if (text.startsWith('!') || text.length < 5) return; // Skip command/chat pendek
-
-    // B. Blacklist Kata
-    const blacklist = ['bot', 'fitur', 'command', 'reset', 'menu', 'error', 'system'];
+    // --- LAYER 0: PRE-CHECK ---
+    if (text.startsWith('!') || text.length < 5) return;
+    const blacklist = ['bot', 'menu', 'error', 'system', 'reset', 'admin'];
     if (blacklist.some(w => text.toLowerCase().includes(w))) return;
 
-    // C. Cek Trigger Words (Kamus Peka)
+    // --- LAYER 1: TRIGGER WORDS (SELEKSI KASAR) ---
     const triggers = [
-        // Keinginan
-        'mau', 'pengen', 'ingin', 'akan', 'rencana', 'niat', 'bakal',
-        'besok', 'lusa', 'minggu depan', 'bulan depan', 'tahun depan',
-        // Perasaan
-        'suka', 'cinta', 'sayang', 'benci', 'takut', 'gasuka', 'gemar', 'hobi',
-        // 🔥 Bucin & Relationship
-        'jadian', 'pacar', 'pasangan', 'nikah', 'kawin', 'tunangan', 'lamaran',
-        'putus', 'balikan', 'gebetan', 'mantan', 'crush',
-        // 📅 Tanggal Penting
-        'tanggal', 'hari', 'ulang tahun', 'ultah', 'hbd', 'anniv', 'anniversary',
-        'ingetin', 'ingat', 'catet', 'catat'
+        // Identitas & Relasi
+        'nama', 'panggil', 'tinggal', 'kerja', 'sekolah', 'kuliah',
+        'pacar', 'pasangan', 'istri', 'suami', 'nikah', 'jadian', 'mantan', 'tunangan',
+        // Tanggal & Waktu
+        'tanggal', 'hari', 'lahir', 'ultah', 'ulang tahun', 'anniv', 'anniversary', 'kapan',
+        // Preferensi (Suka/Gak Suka)
+        'suka', 'cinta', 'benci', 'gasuka', 'hobi', 'favorit', 'gemar', 'takut', 'alergi',
+        // Rencana Masa Depan
+        'rencana', 'niat', 'mau', 'pengen', 'akan', 'bakal', 'besok', 'lusa'
     ];
 
-    if (!triggers.some(w => text.toLowerCase().includes(w))) return; // Skip kalau gak ada trigger
+    // Kalau gak ada kata kunci di atas, langsung buang.
+    if (!triggers.some(w => text.toLowerCase().includes(w))) return;
 
-    console.log(`🔍 [OBSERVER] Watching: "${msg.body.slice(0, 30)}..."`);
+    console.log(`🔍 [OBSERVER] Kandidat Memori: "${text.slice(0, 30)}..."`);
 
+    // --- LAYER 2: AI VALIDATION (SELEKSI HALUS) ---
     try {
-        // 👇 JAM TANGAN BUAT AI (Biar tau konteks waktu)
         const today = new Date().toLocaleDateString('id-ID', {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
-        // (History chat sebelumnya gak perlu dipake buat observer biar fokus ke chat ini aja)
-        // Jadi kita hapus baris `const history` yang gak kepake di sini.
-
+        // 🔥 PROMPT INI JANTUNGNYA. KITA BIKIN LEBIH STRICT.
         const prompt = `
-        [KONTEKS WAKTU]
-        Hari ini: ${today}
+        Bertindaklah sebagai 'Memory Keeper' yang sangat selektif.
+        Tugasmu menyaring percakapan User (${namaPengirim}) dan hanya mencatat FAKTA PERMANEN.
 
-        [TUGAS]
-        Ekstrak FAKTA PENTING tentang user dari chat ini.
-        User: "${namaPengirim}"
-        Chat: "${text}"
+        [KONTEKS]
+        Waktu Sekarang: ${today}
+        Pesan User: "${text}"
 
-        [ATURAN PENTING]
-        1. Bandingkan tanggal di chat dengan "Hari ini".
-           - Jika tanggal chat < Hari ini -> FAKTA MASA LALU (Sudah terjadi).
-           - Jika tanggal chat > Hari ini -> RENCANA (Akan terjadi).
-        2. Gunakan sudut pandang ketiga (Contoh: "User jadian tanggal...").
-        3. Jika tidak penting/sampah, jawab "SKIP".
+        [KRITERIA PENILAIAN]
+        ✅ SIMPAN JIKA:
+        1. Fakta Biografis (Nama, Umur, Pekerjaan, Lokasi).
+        2. Hubungan Personal (Nama Pasangan, Tanggal Jadian, Status Nikah).
+        3. Tanggal Penting (Ulang Tahun, Anniversary).
+        4. Preferensi Kuat (Makanan Favorit, Hobi Utama, Phobia).
+        5. Rencana Konkret (Jadwal penerbangan, Janji temu).
+
+        ❌ BUANG (SKIP) JIKA:
+        1. Basa-basi/Sapaan ("Halo", "Lagi apa", "Wkwk").
+        2. Perasaan Sesaat ("Lagi sedih nih", "Ngantuk", "Lapar").
+        3. Komentar Umum ("Cuaca panas ya", "Filmnya bagus").
+        4. Pertanyaan ke Bot ("Kamu siapa?", "Jam berapa?").
+
+        [INSTRUKSI OUTPUT]
+        - Jika masuk kategori SIMPAN: Tulis faktanya dalam 1 kalimat (Sudut pandang ke-3).
+        - Jika masuk kategori BUANG: Tulis persis kata "SKIP".
         `;
 
         const result = await model.generateContent(prompt);
         const fact = result.response.text().trim();
 
-        if (fact.toUpperCase().includes("SKIP") || fact.length < 5) {
-            // console.log(`❌ [DEBUG] AI bilang SKIP.`);
+        // Cek Respon AI
+        if (fact.toUpperCase() === 'SKIP' || fact.includes('SKIP')) {
+            // console.log("🗑️ [OBSERVER] Dibuang (Dianggap Sampah).");
             return;
         }
 
         // Simpan ke Database
         await Memory.add(namaPengirim, fact);
 
-        // LOGGING KEREN
-        console.log(`\n🧠 INGATAN BARU TERCIPTA!`);
+        console.log(`\n💾 [MEMORY SAVED]`);
         console.log(`👤 User: ${namaPengirim}`);
         console.log(`📝 Fakta: ${fact}`);
         console.log(`-----------------------------------`);
 
-        // Lapor Owner (Opsional)
-        if (config.system && config.system.logNumber) {
-            try {
-                await client.sendMessage(config.system.logNumber,
-                    `📝 *New Memory Unlocked!*\n👤 ${namaPengirim}\n🧠 ${fact}`
-                );
-            } catch (e) { }
-        }
+        // React tanda sukses nyatet
+        await msg.react('🧠');
+
     } catch (err) {
-        console.error("Observe Error:", err.message);
+        console.error("Observer Error:", err.message);
     }
 };
 
