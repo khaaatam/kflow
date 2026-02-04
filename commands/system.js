@@ -18,6 +18,35 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         return msg.reply(`🆔 ID: \`${senderId}\`\n👤 Nama: ${namaPengirim}`);
     }
 
+    // owner
+    if (command === '!owner') {
+        // 1. Ambil Nomor Owner dari Config
+        let ownerId = config.ownerNumber[0]; // Ambil yang pertama
+
+        // Jaga-jaga kalau di config cuma angka doang (misal: "628123")
+        // Kita tambahin buntut '@c.us' biar valid
+        if (!ownerId.includes('@c.us')) ownerId += '@c.us';
+
+        try {
+            // 2. Comot Data Kontak Asli dari WhatsApp
+            const contact = await client.getContactById(ownerId);
+
+            // 3. Kirim Kartu Nama
+            // Bot bakal ngirim Contact Card beneran, bukan teks.
+            await client.sendMessage(msg.from, contact);
+
+            // (Opsional) Tambahin teks di bawahnya biar sopan
+            // await msg.reply("Itu kontak bos saya. Jangan dispam ya! 🤖");
+
+        } catch (e) {
+            // Fallback: Kalau gagal ambil kontak, kirim teks biasa aja
+            console.error("Gagal kirim kontak:", e);
+            msg.reply(`👤 Owner: ${config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
+        }
+        return true;
+    }
+
+
     // --- MENU OTOMATIS ---
     if (command === '!menu' || command === '!help') {
         let menu = `🤖 *${config.botName} MENU* 🤖\n_Halo ${namaPengirim}!_\n\n`;
