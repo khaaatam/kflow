@@ -1,81 +1,91 @@
 const Transaction = require('../models/Transaction');
 const { formatRupiah } = require('../utils/formatter');
-const model = require('../lib/ai'); // 👈 Kita pinjem otak AI bentar
+const model = require('../lib/ai');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
-    const command = args[0];
+    const command = args[0].toLowerCase();
 
-    // --- 1. FITUR CATAT (DUAL MODE: MANUAL & AI) ---
+    // --- 1. FITUR CATAT ---
     if (command === '!catat') {
         let jenis, nominal, ket;
-        const rawText = text.replace(command, '').trim();
+        const rawText = text.replace(args[0], '').trim();
 
         if (!rawText) return msg.reply("Mana catatannya? Contoh: `!catat abis beli bakso 15rb`");
 
-        // A. CEK FORMAT MANUAL (Kaku tapi Cepat)
-        // Pola: !catat [pemasukan/pengeluaran] [angka] [ket]
-        if (['pemasukan', 'pengeluaran'].includes(args[1]) && !isNaN(parseInt(args[2]))) {
-            jenis = args[1];
+        // A. FORMAT MANUAL
+        if (args[1] && ['pemasukan', 'pengeluaran'].includes(args[1].toLowerCase()) && !isNaN(parseInt(args[2]))) {
+            jenis = args[1].toLowerCase();
             nominal = parseInt(args[2]);
             ket = args.slice(3).join(' ') || 'Tanpa Keterangan';
         }
-
-        // B. CEK FORMAT KALIMAT (Pake AI)
-        // Pola: !catat abis beli bensin ceban
+        // B. FORMAT AI
         else {
-            await msg.react('🧠'); // Kasih tanda lagi mikir
-
+            await msg.react('🧠');
             try {
                 const prompt = `
+                Role: Finance Assistant.
                 Tugas: Ekstrak data keuangan dari teks: "${rawText}"
-                
-                Aturan Ekstraksi:
-                1. "jenis": Tentukan "pemasukan" (uang masuk/gaji/nemu) atau "pengeluaran" (belanja/bayar/hilang).
-                2. "nominal": Ubah ke angka integer (contoh: "15rb"->15000, "2jt"->2000000, "ceban"->10000, "goceng"->5000, "20k"->20000).
-                3. "keterangan": Ringkasan transaksi (kapital awal).
-
-                Output WAJIB JSON (Tanpa Markdown):
-                {"jenis": "...", "nominal": 0, "keterangan": "..."}
+                Aturan:
+                1. "jenis": "pemasukan" atau "pengeluaran".
+                2. "nominal": Integer murni (contoh: "15rb"->15000, "2jt"->2000000).
+                3. "keterangan": Ringkasan singkat.
+                Output JSON: {"jenis": "...", "nominal": 0, "keterangan": "..."}
                 `;
 
                 const result = await model.generateContent(prompt);
-                const cleanJson = result.response.text().replace(/```json|```/g, '').trim();
-                const data = JSON.parse(cleanJson);
+                const responseText = result.response.text();
 
+                // Ambil JSON murni (cegah error teks tambahan)
+                const jsonStart = responseText.indexOf('{');
+                const jsonEnd = responseText.lastIndexOf('}');
+                if (jsonStart === -1) throw new Error("No JSON");
+
+                const data = JSON.parse(responseText.substring(jsonStart, jsonEnd + 1));
                 jenis = data.jenis;
                 nominal = data.nominal;
                 ket = data.keterangan;
 
             } catch (e) {
                 console.error("AI Finance Error:", e);
-                return msg.reply("❌ Gagal paham kalimat lu. Coba manual: `!catat pengeluaran 50000 bakso`");
+                return msg.reply("❌ Gagal paham. Pake manual aja: `!catat pengeluaran 15000 bakso`");
             }
         }
 
-        // C. VALIDASI AKHIR
+        // C. VALIDASI
         if (!['pemasukan', 'pengeluaran'].includes(jenis) || isNaN(nominal)) {
-            return msg.reply("❌ Gagal deteksi nominal/jenis transaksi.");
+            return msg.reply("❌ Nominal/Jenis tidak valid.");
         }
 
-        // D. SIMPAN KE DB
+        // D. SIMPAN (Tetap catat SIAPA yang input, tapi saldo nanti nyatu)
         await Transaction.add(senderId, jenis, nominal, ket, 'WhatsApp');
 
-        // E. REPLY KEREN
         const icon = jenis === 'pemasukan' ? '📈' : '📉';
-        return msg.reply(`✅ *TRANSAKSI BERHASIL*\n${icon} Jenis: ${jenis.toUpperCase()}\n💰 Nominal: ${formatRupiah(nominal)}\n📝 Ket: ${ket}`);
+        // Infoin saldo akhir sekalian biar enak
+        const saldoAkhir = await Transaction.getBalance();
+
+        return msg.reply(
+            `✅ *TRANSAKSI BERHASIL*\n` +
+            `${icon} Jenis: ${jenis.toUpperCase()}\n` +
+            `💰 Nominal: ${formatRupiah(nominal)}\n` +
+            `📝 Ket: ${ket}\n` +
+            `👤 Oleh: ${namaPengirim}\n` +
+            `-------------------------\n` +
+            `💵 *Saldo Bersama: ${formatRupiah(saldoAkhir)}*`
+        );
     }
 
-    // --- 2. FITUR SALDO ---
+    // --- 2. FITUR SALDO (JOINT ACCOUNT) ---
     if (command === '!saldo') {
+        // Panggil TANPA senderId -> Hitung Global
         const saldo = await Transaction.getBalance();
-        return msg.reply(`💰 Saldo Saat Ini: *${formatRupiah(saldo)}*`);
+        return msg.reply(`💰 *Saldo Rekening Bersama*\nJumlah: *${formatRupiah(saldo)}*`);
     }
 };
 
 module.exports.metadata = {
     category: "KEUANGAN",
     commands: [
-        { command: '!catat', desc: 'Catat duit (Bisa kalimat bebas!)' },
-        { command: '!saldo', desc: 'Cek sisa saldo' }
+        { command: '!catat', desc: 'Catat duit (AI/Manual)' },
+        { command: '!saldo', desc: 'Cek saldo bersama' }
     ]
 };
