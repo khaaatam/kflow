@@ -54,13 +54,27 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         const commandFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('.js'));
         const categories = {};
 
+        // 1. CEK SIAPA YANG MINTA MENU?
+        // Kalau di Gatekeeper tadi dia dilabeli "Guest", berarti dia orang asing.
+        const isGuest = namaPengirim === 'Guest';
+
         for (const file of commandFiles) {
             try {
                 const cmdModule = require(path.join(__dirname, file));
                 if (cmdModule.metadata) {
                     const { category, commands } = cmdModule.metadata;
                     if (!categories[category]) categories[category] = [];
-                    commands.forEach(c => categories[category].push(`• *${c.command}*: ${c.desc}`));
+
+                    commands.forEach(c => {
+                        // 🔥 FILTER SAKTI DI SINI 🔥
+                        // Masukin ke list JIKA:
+                        // 1. Commandnya Public (Boleh buat umum)
+                        // 2. ATAU Yang minta BUKAN Guest (Berarti Owner/Teman)
+
+                        if (c.isPublic || !isGuest) {
+                            categories[category].push(`• *${c.command}*: ${c.desc}`);
+                        }
+                    });
                 }
             } catch (e) { }
         }
@@ -68,14 +82,19 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         const icons = { 'KEUANGAN': '💰', 'AI': '🧠', 'DOWNLOADER': '📥', 'MEDIA': '🎬', 'SYSTEM': '⚙️', 'LAINNYA': '📂' };
 
         for (const [cat, cmds] of Object.entries(categories)) {
-            const icon = icons[cat] || '📦';
-            menu += `${icon} *${cat}*\n${cmds.join('\n')}\n\n`;
+            // 🔥 HANYA TAMPILKAN KATEGORI KALAU ADA ISINYA
+            // Jadi kalau Guest buka menu, kategori "KEUANGAN" bakal ilang total (karena isinya kosong semua buat dia)
+            if (cmds.length > 0) {
+                const icon = icons[cat] || '📦';
+                menu += `${icon} *${cat}*\n${cmds.join('\n')}\n\n`;
+            }
         }
 
         const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         menu += ` _Waktu saat ini:_ 🕒 *${time}*`;
 
         msg.reply(menu);
+        return true;
     }
 };
 
