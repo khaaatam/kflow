@@ -27,7 +27,6 @@ const cooldowns = new Map();
 // FUNGSI UTAMA HANDLER
 const messageHandler = async (client, msg) => {
     try {
-        // Filter System Messages
         if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
@@ -36,40 +35,53 @@ const messageHandler = async (client, msg) => {
 
 
         // ============================================================
-        // 🛑 1. THE GATEKEEPER (STRICT FILTER USER)
+        // 🛑 1. THE GATEKEEPER (SMART FILTER - PUBLIC FRIENDLY)
         // ============================================================
-        const namaPengirim = config.users[senderId];
 
-        if (!namaPengirim) {
-            return;
-        }
+        let namaPengirim = config.users[senderId];
 
-        const cleanBody = body.trim();
+        // A. COMMAND PUBLIK (Boleh dipake siapa aja)
+        const publicCommands = ['!cekid', '!ping', '!owner', '!menu', '!retro'];
+        const isPublicCommand = publicCommands.some(cmd => body.toLowerCase().startsWith(cmd));
 
-        const isBotResponse = msg.fromMe && (
-            cleanBody.startsWith('✅') ||
-            cleanBody.startsWith('❌') ||
-            cleanBody.startsWith('📸') ||
-            cleanBody.startsWith('⏳') ||
-            cleanBody.startsWith('📝') ||
-            cleanBody.startsWith('♻️') ||
-            cleanBody.startsWith('🤖') ||
-            cleanBody.startsWith('📢') ||
-            cleanBody.startsWith('✨') ||
-            cleanBody.startsWith('☢️') ||
-            cleanBody.startsWith('🔄') ||
-            cleanBody.startsWith('♻') ||
-            cleanBody.includes('Ingatan Baru') ||
-            cleanBody.includes('SYSTEM ONLINE') ||
-            cleanBody.includes('[DEBUG]')
+        // B. LINK DOWNLOADER (TikTok/FB/IG boleh dipake siapa aja)
+        const isLink = body.match(/(https?:\/\/[^\s]+)/g);
+        const isDownloaderLink = isLink && (
+            body.toLowerCase().includes('tiktok.com') ||
+            body.toLowerCase().includes('facebook.com') ||
+            body.toLowerCase().includes('instagram.com')
         );
 
-        if (isBotResponse) return;
+        // 🔥 LOGIKA NASIB USER 🔥
+        // Kalau User GAK Dikenal...
+        if (!namaPengirim) {
+            // ...DAN dia BUKAN mau pake fitur bot (Bukan Command Publik & Bukan Link Download)
+            if (!isPublicCommand && !isDownloaderLink) {
+                return; // ⛔ USIR! (Gak dicatet, gak masuk DB)
+            }
+            // Kalau mau pake fitur, kasih nama "Guest"
+            namaPengirim = "Guest";
+        }
+
+        // ============================================================
+        // 🧹 2. CLEANER LOG (FILTER SAMPAH BOT)
+        // ============================================================
+        const cleanBody = body.trim();
+
+        // Pake Regex Sakti: "Apakah diawali Emoji?" ATAU Kata Kunci Debug
+        const isBotResponse = msg.fromMe && (
+            /^\p{Extended_Pictographic}/u.test(cleanBody) ||
+            cleanBody.includes('[DEBUG]') ||
+            cleanBody.includes('SYSTEM ONLINE') ||
+            cleanBody.includes('Ingatan Baru')
+        );
+
+        if (isBotResponse) return; // Stop log sampah
 
         console.log(`💬 [${namaPengirim}]: ${body}`);
 
         // ============================================================
-        // 💾 2. DATABASE LOGGING (Khusus User Valid)
+        // 💾 3. DATABASE LOGGING
         // ============================================================
         try {
             await db.query(
@@ -79,7 +91,7 @@ const messageHandler = async (client, msg) => {
         } catch (err) { }
 
         // ============================================================
-        // 🎮 3. HANDLE COMMANDS (!command)
+        // 🎮 4. HANDLE COMMANDS (!command)
         // ============================================================
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
@@ -89,13 +101,10 @@ const messageHandler = async (client, msg) => {
                 if (cooldowns.has(senderId)) {
                     if (Date.now() < cooldowns.get(senderId) + 1500) return;
                 }
-
                 const handler = commands.get(commandName);
                 try {
-                    // Panggil handler dengan namaPengirim yang SUDAH VALID (Tami/Dini)
                     await handler(client, msg, args, senderId, namaPengirim, body);
                 } catch (e) { console.error(`Cmd Error: ${e.message}`); }
-
                 cooldowns.set(senderId, Date.now());
                 setTimeout(() => cooldowns.delete(senderId), 1500);
                 return;
@@ -103,37 +112,38 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // 📥 4. AUTO DOWNLOADER (LINK DETECTOR)
+        // 📥 5. AUTO DOWNLOADER (LINK DETECTOR)
         // ============================================================
         if (body.match(/(https?:\/\/[^\s]+)/g)) {
-            // Anti-Loop Protection
-            if (msg.fromMe && (body.includes('Facebook Downloader') || body.includes('TikTok') || body.includes('Download Sukses'))) return;
+
+            // 🔥 UPDATE ANTI-LOOP V2 🔥
+            // Kita HAPUS blokir 'fromMe' (biar lu bisa download).
+            // Kita GANTI dengan blokir 'hasMedia'.
+            // Karena "Looping" itu terjadi pas Bot ngirim Video Hasil Download (yang ada caption link).
+            if (msg.hasMedia) return;
+
             if (isGroup) return;
 
             const textLower = body.toLowerCase();
-
-            if (textLower.includes('tiktok.com') ||
-                textLower.includes('facebook.com') ||
-                textLower.includes('fb.watch') ||
-                textLower.includes('fb.com') ||
-                textLower.includes('instagram.com')) {
-
+            if (textLower.includes('tiktok.com') || textLower.includes('facebook.com') || textLower.includes('instagram.com')) {
                 const autoHandler = commands.get('(auto detect)') || commands.get('(Auto Detect)');
-
                 if (autoHandler) {
-                    console.log(`🔗 Link Detected: ${body.substring(0, 30)}... Executing Downloader.`);
+                    console.log(`🔗 Link Detected. Executing Downloader.`);
                     await autoHandler(client, msg, [], senderId, namaPengirim, body);
                     return;
                 }
             }
         }
 
-
         // ============================================================
-        // 🧠 5. AI OBSERVER
+        // 🧠 6. AI OBSERVER (MATA-MATA)
         // ============================================================
-        if (!body.startsWith('!') && !isGroup) {
-            observe(client, msg, namaPengirim).catch(() => { });
+        // Observer cuma jalan buat USER ASLI (Bukan Guest)
+        // Biar database ingatan lu gak penuh sama curhatan orang asing
+        if (!body.startsWith('!') && !isGroup && namaPengirim !== 'Guest') {
+            observe(client, msg, namaPengirim).catch((e) => {
+                console.error("Observer Fail:", e.message);
+            });
         }
 
     } catch (error) {
@@ -142,6 +152,4 @@ const messageHandler = async (client, msg) => {
 };
 
 module.exports = messageHandler;
-
-// 👇 INI PENTING BUAT APP.JS
 module.exports.commands = commands;
