@@ -51,6 +51,8 @@ const messageHandler = async (client, msg) => {
 
         let namaPengirim = config.users[senderId];
 
+        const isRegisteredUser = !!namaPengirim;
+
         // A. COMMAND PUBLIK (Pake Array Otomatis yang tadi di-scan)
         // Gak perlu ngetik manual lagi disini!
         const isPublicCommand = publicCommands.some(cmd => body.toLowerCase().startsWith(cmd));
@@ -69,7 +71,7 @@ const messageHandler = async (client, msg) => {
             if (!isPublicCommand && !isDownloaderLink) {
                 return;
             }
-            namaPengirim = "Guest";
+            namaPengirim = msg.pushName || "Guest";
         }
 
         // ============================================================
@@ -141,7 +143,7 @@ const messageHandler = async (client, msg) => {
         // 🧠 6. AI OBSERVER
         // ============================================================
         // Hanya jalan buat User Asli (Tami/Dini), Guest jangan diobservasi
-        if (!body.startsWith('!') && !isGroup && namaPengirim !== 'Guest') {
+        if (!body.startsWith('!') && !isGroup && isRegisteredUser) {
             observe(client, msg, namaPengirim).catch((e) => {
                 console.error("Observer Fail:", e.message);
             });
