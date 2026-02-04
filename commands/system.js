@@ -82,9 +82,9 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 module.exports.metadata = {
     category: "SYSTEM",
     commands: [
-        { command: '!owner', desc: 'Kartu Nama Owner' },
-        { command: '!menu', desc: 'Daftar Menu' },
-        { command: '!ping', desc: 'Cek Sinyal' },
-        { command: '!cekid', desc: 'Cek ID User' }
+        { command: '!owner', desc: 'Kartu Nama Owner', isPublic: true },
+        { command: '!menu', desc: 'Daftar Menu', isPublic: true },
+        { command: '!ping', desc: 'Cek Sinyal', isPublic: true },
+        { command: '!cekid', desc: 'Cek ID User', isPublic: true }
     ]
 };

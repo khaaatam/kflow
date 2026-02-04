@@ -90,5 +90,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!retro', desc: 'Efek Foto Nokia (Auto Crop)' }]
+    commands: [{ command: '!retro', desc: 'Efek Foto Nokia (Auto Crop)', isPublic: true }]
 };

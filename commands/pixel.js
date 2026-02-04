@@ -77,5 +77,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!pixel', desc: 'Efek Video Nokia Jadul' }]
+    commands: [{ command: '!pixel', desc: 'Efek Video Nokia Jadul', isPublic: true }]
 };

@@ -10,4 +10,4 @@ module.exports = async (client, msg, args) => {
         } catch (e) { msg.reply('❌ Gagal bikin stiker.'); }
     } else { msg.reply('Kirim gambar pake caption !sticker'); }
 };
-module.exports.metadata = { category: "MEDIA", commands: [{ command: '!sticker', desc: 'Bikin Stiker' }] };
+module.exports.metadata = { category: "MEDIA", commands: [{ command: '!sticker', desc: 'Bikin Stiker', isPublic: true }] };

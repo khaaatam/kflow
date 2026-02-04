@@ -4,8 +4,12 @@ const { observe } = require('../commands/ai');
 const config = require('../config');
 const db = require('../lib/database');
 
-// PRE-LOAD COMMANDS
+// ============================================================
+// 🔄 PRE-LOAD COMMANDS (SEKALIGUS SCAN PUBLIC COMMAND)
+// ============================================================
 const commands = new Map();
+const publicCommands = []; // 🔥 ARRAY OTOMATIS
+
 const commandFiles = fs.readdirSync(path.join(__dirname, '../commands')).filter(file => file.endsWith('.js'));
 
 console.log('🔄 Loading Commands...');
@@ -16,11 +20,18 @@ for (const file of commandFiles) {
             module.metadata.commands.forEach(cmd => {
                 const handler = module.interact || module;
                 commands.set(cmd.command, handler);
+
+                // 🔥 LOGIKA BARU: CEK TANDA 'isPublic'
+                // Kalau di file command-nya ada isPublic: true, masukin ke daftar!
+                if (cmd.isPublic) {
+                    publicCommands.push(cmd.command.toLowerCase());
+                }
             });
         }
     } catch (e) { console.error(`Skip ${file}: ${e.message}`); }
 }
 console.log(`✅ ${commands.size} Commands Loaded!`);
+console.log(`🌍 Public Commands: ${publicCommands.join(', ')}`); // Cek di terminal command apa aja yang publik
 
 const cooldowns = new Map();
 
@@ -35,13 +46,13 @@ const messageHandler = async (client, msg) => {
 
 
         // ============================================================
-        // 🛑 1. THE GATEKEEPER (SMART FILTER - PUBLIC FRIENDLY)
+        // 🛑 1. THE GATEKEEPER (SMART FILTER - AUTO PUBLIC)
         // ============================================================
 
         let namaPengirim = config.users[senderId];
 
-        // A. COMMAND PUBLIK (Boleh dipake siapa aja)
-        const publicCommands = ['!cekid', '!ping', '!owner', '!menu', '!retro'];
+        // A. COMMAND PUBLIK (Pake Array Otomatis yang tadi di-scan)
+        // Gak perlu ngetik manual lagi disini!
         const isPublicCommand = publicCommands.some(cmd => body.toLowerCase().startsWith(cmd));
 
         // B. LINK DOWNLOADER (TikTok/FB/IG boleh dipake siapa aja)
@@ -53,13 +64,11 @@ const messageHandler = async (client, msg) => {
         );
 
         // 🔥 LOGIKA NASIB USER 🔥
-        // Kalau User GAK Dikenal...
         if (!namaPengirim) {
-            // ...DAN dia BUKAN mau pake fitur bot (Bukan Command Publik & Bukan Link Download)
+            // Kalau bukan command publik & bukan link download -> USIR
             if (!isPublicCommand && !isDownloaderLink) {
-                return; // ⛔ USIR! (Gak dicatet, gak masuk DB)
+                return;
             }
-            // Kalau mau pake fitur, kasih nama "Guest"
             namaPengirim = "Guest";
         }
 
@@ -68,7 +77,6 @@ const messageHandler = async (client, msg) => {
         // ============================================================
         const cleanBody = body.trim();
 
-        // Pake Regex Sakti: "Apakah diawali Emoji?" ATAU Kata Kunci Debug
         const isBotResponse = msg.fromMe && (
             /^\p{Extended_Pictographic}/u.test(cleanBody) ||
             cleanBody.includes('[DEBUG]') ||
@@ -76,7 +84,7 @@ const messageHandler = async (client, msg) => {
             cleanBody.includes('Ingatan Baru')
         );
 
-        if (isBotResponse) return; // Stop log sampah
+        if (isBotResponse) return;
 
         console.log(`💬 [${namaPengirim}]: ${body}`);
 
@@ -91,7 +99,7 @@ const messageHandler = async (client, msg) => {
         } catch (err) { }
 
         // ============================================================
-        // 🎮 4. HANDLE COMMANDS (!command)
+        // 🎮 4. HANDLE COMMANDS
         // ============================================================
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
@@ -112,16 +120,10 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // 📥 5. AUTO DOWNLOADER (LINK DETECTOR)
+        // 📥 5. AUTO DOWNLOADER
         // ============================================================
         if (body.match(/(https?:\/\/[^\s]+)/g)) {
-
-            // 🔥 UPDATE ANTI-LOOP V2 🔥
-            // Kita HAPUS blokir 'fromMe' (biar lu bisa download).
-            // Kita GANTI dengan blokir 'hasMedia'.
-            // Karena "Looping" itu terjadi pas Bot ngirim Video Hasil Download (yang ada caption link).
             if (msg.hasMedia) return;
-
             if (isGroup) return;
 
             const textLower = body.toLowerCase();
@@ -136,10 +138,9 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // 🧠 6. AI OBSERVER (MATA-MATA)
+        // 🧠 6. AI OBSERVER
         // ============================================================
-        // Observer cuma jalan buat USER ASLI (Bukan Guest)
-        // Biar database ingatan lu gak penuh sama curhatan orang asing
+        // Hanya jalan buat User Asli (Tami/Dini), Guest jangan diobservasi
         if (!body.startsWith('!') && !isGroup && namaPengirim !== 'Guest') {
             observe(client, msg, namaPengirim).catch((e) => {
                 console.error("Observer Fail:", e.message);

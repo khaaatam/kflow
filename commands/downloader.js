@@ -112,7 +112,7 @@ module.exports.metadata = {
         { command: '!dl', desc: 'Download media' },
         { command: '!tiktok', desc: 'Tiktok Downloader' },
         { command: '!fb', desc: 'Facebook Downloader' },
-        { command: '!ig', desc: 'Instagram Downloader' }, // IG bakal skip di logic atas, tapi gpp
+        { command: '!ig', desc: 'Instagram Downloader' },
         { command: '(auto detect)', desc: 'Auto Downloader Link' }
     ]
 };

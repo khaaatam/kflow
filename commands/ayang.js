@@ -91,6 +91,6 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 module.exports.metadata = {
     category: "LAINNYA",
     commands: [
-        { command: '!ayang', desc: 'Cek status pasangan (Otomatis)' }
+        { command: '!ayang', desc: 'Cek kondisi ayang' }
     ]
 };
