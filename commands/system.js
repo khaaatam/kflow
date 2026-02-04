@@ -82,6 +82,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 module.exports.metadata = {
     category: "SYSTEM",
     commands: [
+        { command: '!owner', desc: 'Kartu Nama Owner' },
         { command: '!menu', desc: 'Daftar Menu' },
         { command: '!ping', desc: 'Cek Sinyal' },
         { command: '!cekid', desc: 'Cek ID User' }
