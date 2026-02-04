@@ -184,7 +184,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // FORMAT LIST TRANSAKSI
         const recentList = history.slice(0, 15).map(t => {
             const icon = t.jenis === 'pemasukan' ? '🟢' : '🔴';
-            const date = new Date(t.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' });
+            const date = new Date(t.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' });
             return `${icon} ${t.keterangan} (*${formatRupiah(t.nominal)}*) - _[${date}]_`;
         }).join('\n');
 
