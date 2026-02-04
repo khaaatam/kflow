@@ -15,63 +15,42 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
         if (!rawText) return msg.reply("Mana catatannya? Contoh: `!catat abis beli bakso 15rb`");
 
-        // A. FORMAT MANUAL (Cek pola baku)
-        // Contoh: !catat pengeluaran 15000 bakso
+        // A. FORMAT MANUAL
         if (args[1] && ['pemasukan', 'pengeluaran'].includes(args[1].toLowerCase()) && !isNaN(parseInt(args[2]))) {
             jenis = args[1].toLowerCase();
             nominal = parseInt(args[2]);
             ket = args.slice(3).join(' ') || 'Tanpa Keterangan';
         }
-
-        // B. FORMAT AI (Cek pola kalimat bebas)
-        // Contoh: !catat tadi abis beli bensin 20k
+        // B. FORMAT AI
         else {
-            await msg.react('🧠');
+            await msg.react('🧠'); 
             try {
-                // Prompt AI yang lebih ketat ("Pawang")
                 const prompt = `
                 Role: Finance Assistant.
                 Tugas: Analisa teks transaksi: "${rawText}"
-                
                 Aturan Wajib:
-                1. "jenis": HANYA BOLEH "pemasukan" ATAU "pengeluaran". (Jangan "pembelian", "expense", dll).
-                2. "nominal": Ubah ke ANGKA INTEGER. (Contoh: "10k"->10000, "2.5jt"->2500000). Hapus "Rp" atau titik.
+                1. "jenis": HANYA BOLEH "pemasukan" ATAU "pengeluaran".
+                2. "nominal": Ubah ke ANGKA INTEGER.
                 3. "keterangan": Ringkasan transaksi (Kapital awal).
-
-                Output JSON Murni:
-                {"jenis": "...", "nominal": 0, "keterangan": "..."}
-                `;
+                Output JSON Murni: {"jenis": "...", "nominal": 0, "keterangan": "..."}`;
 
                 const result = await model.generateContent(prompt);
                 const responseText = result.response.text();
-
-                // Debugging
-                console.log(`🧠 AI Response: ${responseText}`);
-
+                
                 const jsonStart = responseText.indexOf('{');
                 const jsonEnd = responseText.lastIndexOf('}');
                 if (jsonStart === -1) throw new Error("No JSON");
-
+                
                 const data = JSON.parse(responseText.substring(jsonStart, jsonEnd + 1));
-
-                // 🛡️ PAWANG JENIS (MAPPING MANUAL ANTI-ERROR)
+                
+                // MAPPING JENIS
                 let rawJenis = data.jenis ? data.jenis.toLowerCase() : '';
+                if (['beli', 'bayar', 'jajan', 'belanja', 'keluar', 'expense'].some(x => rawJenis.includes(x))) jenis = 'pengeluaran';
+                else if (['dapet', 'terima', 'gaji', 'masuk', 'income'].some(x => rawJenis.includes(x))) jenis = 'pemasukan';
+                else jenis = ['pemasukan', 'pengeluaran'].includes(rawJenis) ? rawJenis : 'pengeluaran';
 
-                if (['beli', 'bayar', 'jajan', 'belanja', 'keluar', 'expense', 'cost'].some(x => rawJenis.includes(x))) {
-                    jenis = 'pengeluaran';
-                } else if (['dapet', 'terima', 'gaji', 'masuk', 'income', 'nemu'].some(x => rawJenis.includes(x))) {
-                    jenis = 'pemasukan';
-                } else {
-                    jenis = ['pemasukan', 'pengeluaran'].includes(rawJenis) ? rawJenis : 'pengeluaran';
-                }
-
-                // 🛡️ PEMBERSIH NOMINAL
-                if (typeof data.nominal === 'string') {
-                    nominal = parseInt(data.nominal.replace(/[^0-9]/g, ''));
-                } else {
-                    nominal = data.nominal;
-                }
-
+                // CLEAN NOMINAL
+                nominal = typeof data.nominal === 'string' ? parseInt(data.nominal.replace(/[^0-9]/g, '')) : data.nominal;
                 ket = data.keterangan;
 
             } catch (e) {
@@ -80,20 +59,17 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             }
         }
 
-        // C. VALIDASI AKHIR
         if (!['pemasukan', 'pengeluaran'].includes(jenis) || isNaN(nominal)) {
-            return msg.reply("❌ Gagal deteksi. Pastikan nominal jelas (contoh: 15rb, 20k, 50000).");
+            return msg.reply("❌ Gagal deteksi nominal/jenis.");
         }
 
-        // D. SIMPAN KE DB
         try {
             await Transaction.add(senderId, jenis, nominal, ket, 'WhatsApp');
         } catch (dbError) {
             console.error("DB Insert Error:", dbError);
-            return msg.reply("❌ Error Database: Gagal menyimpan transaksi.");
+            return msg.reply("❌ Error Database: " + dbError.message);
         }
 
-        // E. REPLY SUKSES
         const icon = jenis === 'pemasukan' ? '📈' : '📉';
         const saldoAkhir = await Transaction.getBalance();
 
@@ -117,73 +93,70 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     }
 
     // ============================================================
-    // 📊 3. FITUR LAPORAN (CUSTOM RANGE) - NEW!
+    // 📊 3. FITUR LAPORAN (FIX TIMEZONE) 🕒
     // ============================================================
     if (command === '!laporan' || command === '!rekap') {
         let startDate, endDate, labelPeriode;
-        const arg1 = args[1] ? args[1].toLowerCase() : '7'; // Default 7 hari
+        const arg1 = args[1] ? args[1].toLowerCase() : '7';
 
         const months = ['januari', 'februari', 'maret', 'april', 'mei', 'juni', 'juli', 'agustus', 'september', 'oktober', 'november', 'desember'];
         const currentYear = new Date().getFullYear();
 
-        // MODE A: BULANAN (Contoh: !laporan januari)
+        // 👇 FUNGSI PENTING: KONVERSI TANGGAL LOKAL (BUKAN UTC)
+        // Biar query database '2026-02-05' cocok sama jam komputer lu
+        const toLocalSQL = (d) => {
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        };
+
+        // A. MODE BULANAN
         if (months.includes(arg1)) {
             const monthIndex = months.indexOf(arg1);
             startDate = new Date(currentYear, monthIndex, 1);
             endDate = new Date(currentYear, monthIndex + 1, 0, 23, 59, 59);
             labelPeriode = `Bulan ${arg1.toUpperCase()} ${currentYear}`;
         }
-
-        // MODE B: RANGE TANGGAL (Contoh: !laporan 01/01/2025 - 10/01/2025)
+        // B. MODE RANGE (dd/mm/yyyy - dd/mm/yyyy)
         else if (text.includes('-') && text.match(/\d/)) {
-            const rangeText = text.replace(command, '').trim();
-            const parts = rangeText.split('-').map(s => s.trim());
-
+            const parts = text.replace(command, '').trim().split('-').map(s => s.trim());
             if (parts.length === 2) {
-                const parseDate = (str) => {
-                    const [d, m, y] = str.split('/');
-                    return new Date(`${y}-${m}-${d}`);
-                };
                 try {
+                    const parseDate = (s) => { const [d,m,y] = s.split('/'); return new Date(`${y}-${m}-${d}`); };
                     startDate = parseDate(parts[0]);
                     endDate = parseDate(parts[1]);
                     endDate.setHours(23, 59, 59);
                     labelPeriode = `Periode ${parts[0]} s/d ${parts[1]}`;
-                } catch (e) {
-                    return msg.reply("❌ Format tanggal salah. Gunakan: `DD/MM/YYYY - DD/MM/YYYY`");
-                }
-            } else {
-                return msg.reply("❌ Format range salah. Gunakan pemisah strip (-).");
+                } catch { return msg.reply("❌ Format salah. Contoh: `!laporan 01/01/2026 - 10/01/2026`"); }
             }
         }
-
-        // MODE C: HARIAN (Contoh: !laporan 7)
+        // C. MODE HARIAN (Default)
         else {
             const days = parseInt(arg1) || 7;
-            endDate = new Date();
+            endDate = new Date(); // Sekarang (Jam Lokal)
             startDate = new Date();
             startDate.setDate(endDate.getDate() - days);
             labelPeriode = `${days} Hari Terakhir`;
         }
 
-        // Format ke SQL (YYYY-MM-DD HH:mm:ss)
-        const toSQL = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
-        const sqlStart = toSQL(startDate);
-        const sqlEnd = toSQL(endDate);
-
         await msg.react('📊');
 
-        // AMBIL DATA DARI MODEL
+        // Pake fungsi konversi lokal yang baru
+        const sqlStart = toLocalSQL(startDate);
+        const sqlEnd = toLocalSQL(endDate);
+
+        console.log(`🔍 Debug Query: ${sqlStart} s/d ${sqlEnd}`); // Cek terminal kalo masih kosong
+
         const stats = await Transaction.getStatsCustom(sqlStart, sqlEnd);
         const history = await Transaction.getListCustom(sqlStart, sqlEnd);
-
+        
         const masuk = stats.total_masuk || 0;
         const keluar = stats.total_keluar || 0;
         const selisih = masuk - keluar;
 
-        // FORMAT LIST TRANSAKSI
+        // FORMAT LIST
         const recentList = history.slice(0, 15).map(t => {
             const icon = t.jenis === 'pemasukan' ? '🟢' : '🔴';
+            // Pakai t.tanggal karena kita udah sepakat pake kolom itu
             const date = new Date(t.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' });
             return `${icon} ${t.keterangan} (*${formatRupiah(t.nominal)}*) - _[${date}]_`;
         }).join('\n');
@@ -195,57 +168,45 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         msgReply += `📉 Keluar: ${formatRupiah(keluar)}\n`;
         msgReply += `💵 *Flow: ${formatRupiah(selisih)}* ${selisih >= 0 ? '🤑' : '🔻'}\n`;
         msgReply += `----------------------------------\n`;
-        msgReply += `📝 *Rincian Transaksi:*\n${recentList || '_Tidak ada data._'}\n`;
+        msgReply += `📝 *Rincian Transaksi:*\n${recentList || '_Tidak ada data di rentang waktu ini._'}\n`;
 
         return msg.reply(msgReply);
     }
 
     // ============================================================
-    // 📈 4. FITUR GRAFIK (PIE CHART)
+    // 📈 4. FITUR GRAFIK
     // ============================================================
     if (command === '!grafik') {
         await msg.react('🎨');
-
-        const stats = await Transaction.getStats(); // Ambil total seumur hidup
+        const stats = await Transaction.getStats(); 
         const masuk = stats.total_masuk || 0;
         const keluar = stats.total_keluar || 0;
         const saldo = masuk - keluar;
 
-        if (masuk === 0 && keluar === 0) return msg.reply("❌ Belum ada data transaksi.");
+        if (masuk === 0 && keluar === 0) return msg.reply("❌ Belum ada data.");
 
         const chartConfig = {
             type: 'doughnut',
             data: {
                 labels: ['Pemasukan', 'Pengeluaran'],
-                datasets: [{
-                    data: [masuk, keluar],
-                    backgroundColor: ['rgb(46, 204, 113)', 'rgb(231, 76, 60)'],
-                    borderWidth: 0
-                }]
+                datasets: [{ data: [masuk, keluar], backgroundColor: ['#2ecc71', '#e74c3c'], borderWidth: 0 }]
             },
             options: {
                 plugins: {
                     doughnutlabel: {
-                        labels: [
-                            { text: formatRupiah(saldo), font: { size: 20, weight: 'bold' } },
-                            { text: 'Sisa Saldo', font: { size: 10 } }
-                        ]
+                        labels: [{ text: formatRupiah(saldo), font: { size: 20, weight: 'bold' } }, { text: 'Sisa Saldo', font: { size: 10 } }]
                     },
                     legend: { position: 'bottom' },
-                    title: { display: true, text: 'Statistik Keuangan Kita' }
+                    title: { display: true, text: 'Statistik Keuangan' }
                 }
             }
         };
 
         const url = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=500&h=500`;
-
         try {
             const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
             await client.sendMessage(msg.from, media, { caption: `📊 *Visualisasi Keuangan*\n\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 Saldo: ${formatRupiah(saldo)}` });
-        } catch (e) {
-            console.error(e);
-            msg.reply("❌ Gagal bikin grafik.");
-        }
+        } catch (e) { msg.reply("❌ Gagal bikin grafik."); }
     }
 };
 
@@ -254,7 +215,7 @@ module.exports.metadata = {
     commands: [
         { command: '!catat', desc: 'Catat duit (AI/Manual)' },
         { command: '!saldo', desc: 'Cek saldo bersama' },
-        { command: '!laporan', desc: 'Laporan (Hari/Bulan/Range)' },
-        { command: '!grafik', desc: 'Lihat grafik keuangan' }
+        { command: '!laporan', desc: 'Laporan (Hari/Bulan)' },
+        { command: '!grafik', desc: 'Grafik Visual' }
     ]
 };
