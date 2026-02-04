@@ -31,7 +31,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
                 
                 Aturan Ekstraksi:
                 1. "jenis": Tentukan "pemasukan" (uang masuk/gaji/nemu) atau "pengeluaran" (belanja/bayar/hilang).
-                2. "nominal": Ubah ke angka integer (contoh: "15rb"->15000, "2jt"->2000000, "ceban"->10000, "goceng"->5000).
+                2. "nominal": Ubah ke angka integer (contoh: "15rb"->15000, "2jt"->2000000, "ceban"->10000, "goceng"->5000, "20k"->20000).
                 3. "keterangan": Ringkasan transaksi (kapital awal).
 
                 Output WAJIB JSON (Tanpa Markdown):
