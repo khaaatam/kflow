@@ -109,10 +109,12 @@ async function expandFbUrl(shortUrl) {
 module.exports.metadata = {
     category: "DOWNLOADER",
     commands: [
-        { command: '!dl', desc: 'Download media' },
-        { command: '!tiktok', desc: 'Tiktok Downloader' },
-        { command: '!fb', desc: 'Facebook Downloader' },
-        { command: '!ig', desc: 'Instagram Downloader' },
-        { command: '(auto detect)', desc: 'Auto Downloader Link' }
+        { command: '!dl', desc: 'Download media', isPublic: true },
+        { command: '!tiktok', desc: 'Tiktok Downloader', isPublic: true },
+        { command: '!fb', desc: 'Facebook Downloader', isPublic: true },
+        { command: '!yt', desc: 'YouTube Downloader', isPublic: true },
+        { command: '!ig', desc: 'Instagram Downloader', isPublic: true },
+        { command: '!twitter', desc: 'Twitter Downloader', isPublic: true },
+        { command: '(Auto Detect)', desc: 'Auto Downloader Link', isPublic: true }
     ]
 };
