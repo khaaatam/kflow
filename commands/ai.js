@@ -85,13 +85,12 @@ const observe = async (client, msg, namaPengirim) => {
 
         if (config.system && config.system.logNumber) {
             try {
-                // Pastikan logNumber formatnya bener (contoh: 628xxx@c.us)
                 await client.sendMessage(config.system.logNumber,
                     `📝 *INGATAN BARU TERCIPTA*\n\n` +
                     `👤 *User:* ${namaPengirim}\n` +
                     `💬 *Chat:* "${text}"\n` +
                     `🧠 *Fakta:* ${fact}` +
-                    `\n🕒 *Waktu:* ${new Date().toLocaleTimeString('id-ID', { day, month, year, hour: '2-digit', minute: '2-digit' })}`
+                    `\n🕒 *Waktu:* ${new Date().toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
                 );
                 console.log("✅ Laporan terkirim ke Owner.");
             } catch (err) {
