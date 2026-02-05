@@ -91,7 +91,7 @@ const observe = async (client, msg, namaPengirim) => {
                     `👤 *User:* ${namaPengirim}\n` +
                     `💬 *Chat:* "${text}"\n` +
                     `🧠 *Fakta:* ${fact}` +
-                    `\n🕒 *Waktu:* ${new Date().toLocaleTimeString('id-ID', { day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+                    `\n🕒 *Waktu:* ${new Date().toLocaleTimeString('id-ID', { day, month, year, hour: '2-digit', minute: '2-digit' })}`
                 );
                 console.log("✅ Laporan terkirim ke Owner.");
             } catch (err) {
