@@ -83,8 +83,20 @@ const observe = async (client, msg, namaPengirim) => {
         console.log(`📝 Fakta: ${fact}`);
         console.log(`-----------------------------------`);
 
-        // React tanda sukses nyatet
-        await msg.react('🧠');
+        if (config.system && config.system.logNumber) {
+            try {
+                // Pastikan logNumber formatnya bener (contoh: 628xxx@c.us)
+                await client.sendMessage(config.system.logNumber,
+                    `📝 *INGATAN BARU TERCIPTA*\n\n` +
+                    `👤 *User:* ${namaPengirim}\n` +
+                    `💬 *Chat:* "${text}"\n` +
+                    `🧠 *Fakta:* ${fact}`
+                );
+                console.log("✅ Laporan terkirim ke Owner.");
+            } catch (err) {
+                console.error("❌ Gagal lapor ke Owner:", err.message);
+            }
+        }
 
     } catch (err) {
         console.error("Observer Error:", err.message);
