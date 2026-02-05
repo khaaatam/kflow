@@ -90,7 +90,8 @@ const observe = async (client, msg, namaPengirim) => {
                     `📝 *INGATAN BARU TERCIPTA*\n\n` +
                     `👤 *User:* ${namaPengirim}\n` +
                     `💬 *Chat:* "${text}"\n` +
-                    `🧠 *Fakta:* ${fact}`
+                    `🧠 *Fakta:* ${fact}` +
+                    `\n🕒 *Waktu:* ${new Date().toLocaleTimeString('id-ID', { day: 'numeric', hour: '2-digit', minute: '2-digit' })}`
                 );
                 console.log("✅ Laporan terkirim ke Owner.");
             } catch (err) {
@@ -106,7 +107,7 @@ const observe = async (client, msg, namaPengirim) => {
 // ============================================================
 // 🤖 2. INTERACT (HANDLING COMMAND)
 // ============================================================
-const interact = async (client, msg, args, senderId, namaPengirim, text) => {
+const interact = async (msg, args, namaPengirim, text) => {
     const command = args[0].toLowerCase();
     const content = text.replace(command, '').trim();
 
@@ -132,10 +133,10 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
         try {
             // Context Loading...
             const persona = await Memory.getPersona();
-            const memories = await Memory.getByUser(namaPengirim, 10);
+            const memories = await Memory.getByUser(namaPengirim, 20);
 
             // 👇 History Chat (Di sini BARU KEPAKE buat konteks ngobrol)
-            const chatHistory = await ChatLog.getHistory(10);
+            const chatHistory = await ChatLog.getHistory(20);
 
             const memText = memories.map(m => `- ${m.fakta}`).join('\n');
 

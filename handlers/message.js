@@ -12,7 +12,6 @@ const publicCommands = []; // 🔥 ARRAY OTOMATIS
 
 const commandFiles = fs.readdirSync(path.join(__dirname, '../commands')).filter(file => file.endsWith('.js'));
 
-console.log('🔄 Loading Commands...');
 for (const file of commandFiles) {
     try {
         const module = require(`../commands/${file}`);
@@ -31,7 +30,6 @@ for (const file of commandFiles) {
     } catch (e) { console.error(`Skip ${file}: ${e.message}`); }
 }
 console.log(`✅ ${commands.size} Commands Loaded!`);
-console.log(`🌍 Public Commands: ${publicCommands.join(', ')}`); // Cek di terminal command apa aja yang publik
 
 const cooldowns = new Map();
 
