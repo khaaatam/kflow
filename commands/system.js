@@ -33,7 +33,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 
             // 3. Kirim Kartu Nama
             // Bot bakal ngirim Contact Card beneran, bukan teks.
-            await client.sendMessage(msg.from, contact);
+            await msg.reply(msg.from, contact);
 
             // (Opsional) Tambahin teks di bawahnya biar sopan
             // await msg.reply("Itu kontak bos saya. Jangan dispam ya! 🤖");

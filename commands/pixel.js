@@ -56,7 +56,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
         // 3. KIRIM HASIL
         const processedMedia = MessageMedia.fromFilePath(outputPath);
-        await client.sendMessage(msg.from, processedMedia, {
+        await msg.reply(processedMedia, undefined, {
             caption: '📼 Nokia X2-01 Mode (176p @ 12fps)',
             sendMediaAsDocument: false
         });

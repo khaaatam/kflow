@@ -68,17 +68,13 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
             // 4. KIRIM HASIL
             const processedMedia = MessageMedia.fromFilePath(outputPath);
-            await client.sendMessage(msg.from, processedMedia, {
-                caption: `📸 Nokia X2-01 Mode\n📟 ${isPortrait ? 'Portrait (240x320)' : 'Landscape (320x240)'}`,
+            await msg.reply(processedMedia, undefined, {
+                caption: `📸 Retrorized\n📟 ${isPortrait ? 'Portrait (240x320)' : 'Landscape (320x240)'}`,
                 sendMediaAsDocument: false
             });
 
             // 5. BERSIH-BERSIH
-            try {
-                fs.unlinkSync(inputPath);
-                fs.unlinkSync(outputPath);
-            } catch (e) { }
-
+            try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch (e) { }
             await msg.react('✅');
         });
 
@@ -90,5 +86,5 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
 module.exports.metadata = {
     category: "MEDIA",
-    commands: [{ command: '!retro', desc: 'Efek Foto Nokia (Auto Crop)', isPublic: true }]
+    commands: [{ command: '!retro', desc: 'Efek Foto Jadul', isPublic: true }]
 };
