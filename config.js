@@ -9,7 +9,7 @@ const botName = "JikaeLBot"
 const users = {
     '6289608506367@c.us': 'Tami',
     '193836185837720@lid': 'Tami',
-    '193836185837720:16@lid': 'Tami',
+    '6289608506367:19@lid': 'Tami',
     '62881081132332@c.us': "Tami",
     '6283806618448@c.us': 'Dini'
 };
