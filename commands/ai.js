@@ -63,7 +63,6 @@ const observe = async (client, msg, namaPengirim) => {
 
         // Simpan ke Database
         await Memory.add(namaPengirim, fact);
-        await msg.react('🧠');
 
         // 👇 LOG SUKSES DISIMPAN
         console.log(`\n💾 [MEMORY SAVED]`);
@@ -72,7 +71,7 @@ const observe = async (client, msg, namaPengirim) => {
         console.log(`-----------------------------------`);
 
         // Lapor ke Owner (Jika bukan dari owner sendiri)
-        if (!msg.fromMe && config.system && config.system.logNumber) {
+        if (config.system && config.system.logNumber) {
             client.sendMessage(config.system.logNumber,
                 `📝 *INGATAN BARU TERCIPTA*\n👤 ${namaPengirim}\n🧠 ${fact}`
             ).catch(() => { });
