@@ -27,7 +27,7 @@ npm run start
 - `LOG_NUMBER` - nomor WhatsApp tujuan notifikasi sistem (`@c.us` / `@lid`).
 - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` - konfigurasi MySQL.
 - `GEMINI_API_KEY` - aktifkan fitur AI.
-- `PUPPETEER_EXECUTABLE_PATH` - opsional. Default kode akan fallback ke path Termux (`/data/data/com.termux/files/usr/bin/chromium-browser`), isi ini jika path chromium kamu berbeda.
+- `PUPPETEER_EXECUTABLE_PATH` - opsional, isi kalau Chromium tidak terdeteksi otomatis.
 
 Lihat contoh lengkap di `.env.example`.
 
@@ -35,8 +35,7 @@ Lihat contoh lengkap di `.env.example`.
 
 ### QR tidak muncul / Chromium gagal jalan
 - Pastikan dependency browser tersedia.
-- Untuk Termux, default path chromium sudah disiapkan otomatis.
-- Jika path chromium kamu custom, isi `PUPPETEER_EXECUTABLE_PATH` di `.env`.
+- Jika auto-detect gagal, isi `PUPPETEER_EXECUTABLE_PATH` di `.env`.
 
 ### Error koneksi database
 - Pastikan MySQL aktif.

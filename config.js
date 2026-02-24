@@ -10,16 +10,7 @@ const parseUsersMap = (value, fallback = {}) => {
 
     const result = {};
     value.split(',').forEach(pair => {
-        const item = pair.trim();
-        if (!item) return;
-
-        // Pakai separator '=' supaya whatsapp ID yang mengandung ':' tetap aman.
-        const separatorIndex = item.indexOf('=');
-        if (separatorIndex < 1) return;
-
-        const id = item.slice(0, separatorIndex).trim();
-        const name = item.slice(separatorIndex + 1).trim();
-
+        const [id, name] = pair.split(':').map(v => v && v.trim());
         if (id && name) result[id] = name;
     });
 
@@ -62,9 +53,7 @@ const ai = {
     modelName: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
 };
 
-const termuxChromiumPath = '/data/data/com.termux/files/usr/bin/chromium-browser';
-const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH || termuxChromiumPath;
-
+const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 const defaultPuppeteerArgs = [
     '--no-sandbox',
     '--disable-setuid-sandbox',
@@ -78,7 +67,7 @@ const system = {
     port: Number(process.env.PORT || 3000),
     logNumber: process.env.LOG_NUMBER || '62881081132332@c.us',
     puppeteer: {
-        executablePath: puppeteerExecutablePath,
+        ...(puppeteerExecutablePath ? { executablePath: puppeteerExecutablePath } : {}),
         headless: process.env.PUPPETEER_HEADLESS ? process.env.PUPPETEER_HEADLESS === 'true' : true,
         args: parseList(process.env.PUPPETEER_ARGS, defaultPuppeteerArgs)
     }
