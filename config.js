@@ -1,4 +1,6 @@
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 
 const parseList = (value, fallback = []) => {
     if (!value) return fallback;
