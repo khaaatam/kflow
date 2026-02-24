@@ -116,6 +116,17 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
         await msg.react('👀');
 
         try {
+            let quotedText = "";
+            if (msg.hasQuotedMsg) {
+                // Ambil pesan asli yang lagi di-reply
+                const quotedMsg = await msg.getQuotedMessage(); 
+                
+                // Kalau pesan yang di-reply ada teksnya, simpan buat dikasih ke AI
+                if (quotedMsg.body) {
+                    quotedText = `\n[KONTEKS TAMBAHAN - User me-reply pesan ini]:\n"${quotedMsg.body}"\n`;
+                }
+            }
+
             let userPrompt = content;
             if (!userPrompt && (hasMedia || hasQuotedMedia)) {
                 userPrompt = "Deskripsikan gambar ini secara detail. Apa yang kamu lihat?";
