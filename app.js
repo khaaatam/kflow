@@ -31,7 +31,20 @@ app.use('/', require('./routes/web'));
 // --- 3. SETUP BOT WA ---
 const client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: config.system.puppeteer
+    puppeteer: {
+        headless: true, // Wajib true di Termux
+        executablePath: '/data/data/com.termux/files/usr/bin/chromium-browser', // 👈 INI KUNCI UTAMANYA
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', // Penting buat ngurangin RAM di Android
+            '--disable-gpu'
+        ]
+    }
 });
 
 client.on('qr', (qr) => {
