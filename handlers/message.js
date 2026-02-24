@@ -39,15 +39,22 @@ const messageHandler = async (client, msg) => {
         if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
-        const senderId = msg.author || msg.from;
+        let rawSenderId = msg.author || msg.from;
+
+        // Bersihin ID Multi-Device (Ubah 6289xxx:5@c.us jadi 6289xxx@c.us)
+        const senderId = rawSenderId.includes(':') && rawSenderId.includes('@c.us')
+            ? rawSenderId.split(':')[0] + '@c.us'
+            : rawSenderId;
+
         const isGroup = msg.from.includes('@g.us');
+
+        let namaPengirim = config.users[senderId];
 
 
         // ============================================================
         // 🛑 1. THE GATEKEEPER (SMART FILTER - AUTO PUBLIC)
         // ============================================================
 
-        let namaPengirim = config.users[senderId];
 
         const isRegisteredUser = !!namaPengirim;
 
