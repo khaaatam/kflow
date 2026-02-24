@@ -44,6 +44,7 @@ const messageHandler = async (client, msg) => {
         const rawSenderId = msg.author || msg.from;
         const isGroup = msg.from.includes('@g.us');
         const cleanBody = body.trim();
+        console.log(`\n🚨 [DEBUG ID MASUK] -> ${rawSenderId}`);
 
         // ==========================================
         // 🕵️‍♂️ 1. RADAR ID BRUTAL (ANTI-GUEST)
