@@ -41,15 +41,21 @@ const messageHandler = async (client, msg) => {
         if (msg.isStatus || msg.type === 'e2e_notification' || msg.type === 'call_log') return;
 
         const body = msg.body || "";
-        const rawSenderId = msg.author || msg.from;
-        const isGroup = msg.from.includes('@g.us');
-        const cleanBody = body.trim();
-        console.log(`\n🚨 [DEBUG ID MASUK] -> ${rawSenderId}`);
+        let senderId = msg.author || msg.from;
 
-        // ==========================================
-        // 🕵️‍♂️ 1. RADAR ID BRUTAL (ANTI-GUEST)
-        // ==========================================
-        let namaPengirim = null;
+        // 🔥 PEMBERSIH ID SAKTI (Babat Habis Multi-Device @c.us / @lid)
+        if (senderId.includes(':')) {
+            // Motong bagian ":20" dan nyambungin balik sama "@lid" atau "@c.us"
+            senderId = senderId.substring(0, senderId.indexOf(':')) + senderId.substring(senderId.indexOf('@'));
+        }
+
+        const isGroup = msg.from.includes('@g.us');
+
+        // ============================================================
+        // 🛑 1. THE GATEKEEPER (SMART FILTER - AUTO PUBLIC)
+        // ============================================================
+
+        let namaPengirim = config.users[senderId];
         let isRegisteredUser = false;
         const daftarUser = Object.keys(config.users);
 
