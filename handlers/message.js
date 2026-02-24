@@ -51,13 +51,6 @@ const messageHandler = async (client, msg) => {
             senderId = senderId.substring(0, senderId.indexOf(':')) + senderId.substring(senderId.indexOf('@'));
         }
 
-        console.log(`\n================================`);
-        console.log(`[CCTV 1] Mentah  : ${rawSenderId}`);
-        console.log(`[CCTV 2] Bersih  : ${senderId}`);
-        console.log(`[CCTV 3] Config  :`, config.users); // Liat isi data users di config lu!
-        console.log(`[CCTV 4] Ketemu? : ${config.users[senderId] || "TIDAK (JADI GUEST)"}`);
-        console.log(`================================\n`);
-
         const isGroup = msg.from.includes('@g.us');
 
         // ==========================================
