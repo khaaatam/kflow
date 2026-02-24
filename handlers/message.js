@@ -41,7 +41,7 @@ const messageHandler = async (client, msg) => {
         const body = msg.body || "";
         
         // TETAP SIMPAN rawSenderId BUAT DI-PASSING KE COMMAND NANTI
-        const rawSenderId = msg.author || msg.from;
+        let rawSenderId = msg.author || msg.from;
 
         // 🔥 FIX SELF-BOT: Kalau pesan dari kita sendiri, paksa pake ID kita!
         if (msg.fromMe && client.info && client.info.wid) {
