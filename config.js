@@ -24,8 +24,9 @@ const creator = parseList(process.env.BOT_CREATORS, ['JikaeL']);
 const botName = process.env.BOT_NAME || 'JikaeLBot';
 
 const users = parseUsersMap(process.env.BOT_USERS, {
-    '193836185837720:20@lid': 'Tami',
     '193836185837720@lid': 'Tami',
+    '193836185837720:20@lid': 'Tami',
+    '6289608506367@c.us': 'Tami',
     '6289608506367:2@c.us': 'Tami',
     '62881081132332@c.us': 'Tami',
     '6283806618448@c.us': 'Dini'
