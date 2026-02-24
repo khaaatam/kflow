@@ -43,12 +43,20 @@ const messageHandler = async (client, msg) => {
         // TETAP SIMPAN rawSenderId BUAT DI-PASSING KE COMMAND NANTI
         const rawSenderId = msg.author || msg.from;
 
+
         // 🔥 PEMBERSIH ID SAKTI (Babat Habis Multi-Device @c.us / @lid)
         let senderId = rawSenderId;
         if (senderId.includes(':')) {
             // Motong bagian ":20" dan nyambungin balik sama "@lid" atau "@c.us"
             senderId = senderId.substring(0, senderId.indexOf(':')) + senderId.substring(senderId.indexOf('@'));
         }
+
+        console.log(`\n================================`);
+        console.log(`[CCTV 1] Mentah  : ${rawSenderId}`);
+        console.log(`[CCTV 2] Bersih  : ${senderId}`);
+        console.log(`[CCTV 3] Config  :`, config.users); // Liat isi data users di config lu!
+        console.log(`[CCTV 4] Ketemu? : ${config.users[senderId] || "TIDAK (JADI GUEST)"}`);
+        console.log(`================================\n`);
 
         const isGroup = msg.from.includes('@g.us');
 
