@@ -83,9 +83,21 @@ client.on('ready', async () => {
 });
 
 // --- 4. TANGKAP PESAN ---
-client.on('message_create', (msg) => {
-    // Serahkan semua ke Manajer (Handler)
-    messageHandler(client, msg);
+client.on('message_create', async (msg) => {
+    try {
+        // Cek wujud messageHandler-nya apa, biar gak crash
+        if (typeof messageHandler === 'function') {
+            await messageHandler(client, msg);
+        } else if (typeof messageHandler.default === 'function') {
+            await messageHandler.default(client, msg);
+        } else if (typeof messageHandler.messageHandler === 'function') {
+            await messageHandler.messageHandler(client, msg);
+        } else {
+            console.error("❌ ERROR FATAL: messageHandler gagal di-load. Pastikan module.exports bener di message.js!");
+        }
+    } catch (error) {
+        console.error("❌ CRASH SAAT TERIMA PESAN:", error.message);
+    }
 });
 
 // ============================================================
