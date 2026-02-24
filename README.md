@@ -19,6 +19,7 @@ npm run start
 
 - Bot WhatsApp akan minta scan QR.
 - Dashboard web jalan di `http://localhost:<PORT>`.
+- Saat startup, app akan menyiapkan schema dasar dan menjalankan migration SQL di folder `migrations/` secara berurutan.
 
 ## 3) Environment variables utama
 
