@@ -71,8 +71,9 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         await msg.react('✅');
 
     } catch (error) {
-        logger.error("Pixel Error:", error);
-        msg.reply(`❌ Gagal render: ${error.message}`);
+        logger.error("Pixel Error:", error.message || error);
+        logger.error("Pixel Stack:", error.stack);
+        msg.reply(`❌ Gagal render: ${error.message || 'Unknown error'}`);
     }
 };
 

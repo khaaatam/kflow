@@ -80,8 +80,9 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         });
 
     } catch (error) {
-        logger.error("Retro Error:", error);
-        msg.reply(`❌ Gagal render: ${error.message}`);
+        logger.error("Retro Error:", error.message || error);
+        logger.error("Retro Stack:", error.stack);
+        msg.reply(`❌ Gagal render: ${error.message || 'Unknown error'}`);
     }
 };
 
