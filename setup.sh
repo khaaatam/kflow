@@ -35,6 +35,7 @@ echo ""
 # ============================================
 info "Step 1/7: Install packages..."
 pkg update -y && pkg upgrade -y
+pkg install x11-repo -y
 pkg install nodejs-lts mariadb chromium git nano tmux openssh -y
 npm install -g pm2
 ok "Packages terinstall"
