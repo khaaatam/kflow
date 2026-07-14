@@ -14,7 +14,7 @@ REM
 
 REM Ganti IP ini dengan IP Termux kamu
 REM Cek IP di Termux: ifconfig
-set TERMUX_IP=192.168.1.100
+set TERMUX_IP=192.168.1.35
 set TERMUX_PORT=8022
 
 echo Connecting to Termux (%TERMUX_IP%:%TERMUX_PORT%)...

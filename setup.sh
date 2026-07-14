@@ -151,15 +151,21 @@ TMUX_MARKER="# === K-FLOW AUTO TMUX ==="
 if ! grep -q "$TMUX_MARKER" "$BASHRC" 2>/dev/null; then
     cat >> "$BASHRC" << 'BASHRC_EOF'
 
-# === K-FLOW AUTO TMUX ===
+# === K-FLOW AUTO TMUX + SSHD ===
 if command -v tmux &>/dev/null; then
+    # Auto-start SSH server
+    if ! pgrep -x sshd > /dev/null 2>&1 && ! pgrep -x mariadbd > /dev/null 2>&1; then
+        sshd 2>/dev/null
+    fi
+
+    # Auto-attach tmux session
     if [ -z "$TMUX" ]; then
         tmux attach -t bot 2>/dev/null || tmux new -s bot
     fi
 fi
-# === END K-FLOW AUTO TMUX ===
+# === END K-FLOW AUTO TMUX + SSHD ===
 BASHRC_EOF
-    ok ".bashrc updated — auto-attach tmux on start"
+    ok ".bashrc updated — auto-start sshd + auto-attach tmux"
 else
     warn "tmux auto-attach sudah ada di .bashrc"
 fi
