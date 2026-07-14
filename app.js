@@ -48,13 +48,8 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--disable-gpu',
             '--disable-extensions',
-            '--disable-background-networking',
-            '--disable-default-apps',
-            '--disable-sync',
-            '--no-default-browser-check',
-            '--js-flags=--max-old-space-size=128'
+            '--no-default-browser-check'
         ]
     }
 });
