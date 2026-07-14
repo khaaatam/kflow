@@ -33,27 +33,53 @@ echo ""
 # ============================================
 # STEP 1: UPDATE & INSTALL PACKAGES
 # ============================================
-info "Step 1/6: Install packages..."
+info "Step 1/7: Install packages..."
 pkg update -y && pkg upgrade -y
-pkg install nodejs-lts mysql chromium git nano -y
+pkg install nodejs-lts mariadb chromium git nano tmux openssh -y
+npm install -g pm2
 ok "Packages terinstall"
 
 # ============================================
-# STEP 2: SETUP & START MYSQL
+# STEP 2: SETUP SSH SERVER
 # ============================================
-info "Step 2/6: Setup MySQL..."
+info "Step 2/7: Setup SSH server..."
+
+# Generate host keys kalau belum ada
+if [ ! -f "$PREFIX/etc/ssh/ssh_host_rsa_key" ]; then
+    ssh-keygen -A
+    ok "SSH host keys generated"
+fi
+
+# Set SSH port ke 8022 (default Termux)
+if ! grep -q "Port 8022" "$PREFIX/etc/ssh/sshd_config" 2>/dev/null; then
+    echo "Port 8022" >> "$PREFIX/etc/ssh/sshd_config"
+    ok "SSH port set to 8022"
+fi
+
+# Set password SSH kalau belum ada
+if [ ! -f "$HOME/.ssh/authorized_keys" ] && ! ssh-keygen -l -f "$PREFIX/etc/ssh/ssh_host_rsa_key" &>/dev/null; then
+    warn "Set password SSH untuk remote access:"
+    warn "Jalankan: ${CYAN}passwd${NC}"
+fi
+
+ok "SSH server siap"
+
+# ============================================
+# STEP 3: SETUP & START MARIADB
+# ============================================
+info "Step 3/7: Setup MariaDB..."
 
 # Init database kalau belum ada
 if [ ! -d "/data/data/com.termux/files/usr/var/lib/mysql/mysql" ]; then
     mysql_install_db
-    ok "MySQL database initialized"
+    ok "MariaDB database initialized"
 fi
 
-# Start MySQL kalau belum jalan
-if ! pgrep -x mysqld > /dev/null 2>&1; then
+# Start MariaDB kalau belum jalan
+if ! pgrep -x mysqld > /dev/null 2>&1 && ! pgrep -x mariadbd > /dev/null 2>&1; then
     mysqld_safe &
     sleep 3
-    # Tunggu MySQL ready
+    # Tunggu MariaDB ready
     for i in {1..15}; do
         if mysqladmin ping -u root --silent 2>/dev/null; then
             break
@@ -63,23 +89,23 @@ if ! pgrep -x mysqld > /dev/null 2>&1; then
 fi
 
 if mysqladmin ping -u root --silent 2>/dev/null; then
-    ok "MySQL running"
+    ok "MariaDB running"
 else
-    err "MySQL gagal start. Coba manual: mysqld_safe &"
+    err "MariaDB gagal start. Coba manual: mysqld_safe &"
     exit 1
 fi
 
 # ============================================
-# STEP 3: BUAT DATABASE
+# STEP 4: BUAT DATABASE
 # ============================================
-info "Step 3/6: Buat database kflow_db..."
+info "Step 4/7: Buat database kflow_db..."
 mysql -u root -e "CREATE DATABASE IF NOT EXISTS kflow_db;"
 ok "Database kflow_db siap"
 
 # ============================================
-# STEP 4: SETUP .ENV
+# STEP 5: SETUP .ENV
 # ============================================
-info "Step 4/6: Setup .env..."
+info "Step 5/7: Setup .env..."
 
 if [ ! -f ".env" ]; then
     cp .env.example .env
@@ -103,22 +129,51 @@ if [ -n "$CHROMIUM_PATH" ]; then
 fi
 
 # ============================================
-# STEP 5: INSTALL NPM DEPENDENCIES
+# STEP 6: INSTALL NPM DEPENDENCIES
 # ============================================
-info "Step 5/6: npm install..."
+info "Step 6/7: npm install..."
 npm install
 ok "Dependencies terinstall"
 
 # ============================================
-# STEP 6: FINAL SETUP
+# STEP 7: FINAL SETUP (TMUX + BASHRC)
 # ============================================
-info "Step 6/6: Final setup..."
+info "Step 7/7: Final setup..."
 
 # Pastikan folder temp ada
 mkdir -p temp
 
-# Set executable
+# Setup .bashrc untuk auto-attach tmux
+BASHRC="$HOME/.bashrc"
+TMUX_MARKER="# === K-FLOW AUTO TMUX ==="
+
+if ! grep -q "$TMUX_MARKER" "$BASHRC" 2>/dev/null; then
+    cat >> "$BASHRC" << 'BASHRC_EOF'
+
+# === K-FLOW AUTO TMUX ===
+if command -v tmux &>/dev/null; then
+    if [ -z "$TMUX" ]; then
+        tmux attach -t bot 2>/dev/null || tmux new -s bot
+    fi
+fi
+# === END K-FLOW AUTO TMUX ===
+BASHRC_EOF
+    ok ".bashrc updated — auto-attach tmux on start"
+else
+    warn "tmux auto-attach sudah ada di .bashrc"
+fi
+
 chmod +x setup.sh 2>/dev/null || true
+chmod +x start.sh 2>/dev/null || true
+
+# ============================================
+# SELESAI — TAMPILKAN INFO
+# ============================================
+# Ambil IP address
+LOCAL_IP=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
+if [ -z "$LOCAL_IP" ]; then
+    LOCAL_IP="(gagal detect — jalankan 'ifconfig' manual)"
+fi
 
 ok "Setup selesai!"
 echo ""
@@ -126,26 +181,28 @@ echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}     SETUP SELESAI!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
-echo -e "${YELLOW}Yang perlu kamu lakukan:${NC}"
+echo -e "${YELLOW}1. Set password SSH:${NC}"
+echo -e "   ${CYAN}passwd${NC}"
 echo ""
-echo -e "  1. Edit .env sesuai nomor kamu:"
-echo -e "     ${CYAN}nano .env${NC}"
+echo -e "${YELLOW}2. Edit .env:${NC}"
+echo -e "   ${CYAN}nano .env${NC}"
 echo ""
-echo -e "  2. Isi minimal:"
-echo -e "     - BOT_NAME"
-echo -e "     - BOT_OWNER_NUMBERS"
-echo -e "     - BOT_USERS"
-echo -e "     - LOG_NUMBER"
-echo -e "     - GEMINI_API_KEY (optional)"
+echo -e "${YELLOW}3. Jalankan bot:${NC}"
+echo -e "   ${CYAN}./start.sh${NC}"
 echo ""
-echo -e "  3. Jalankan bot:"
-echo -e "     ${CYAN}npm run start${NC}"
+echo -e "${YELLOW}========================================${NC}"
+echo -e "${YELLOW}     REMOTE ACCESS DARI PC${NC}"
+echo -e "${YELLOW}========================================${NC}"
 echo ""
-echo -e "  4. Scan QR code dari WhatsApp"
+echo -e "IP Termux: ${CYAN}$LOCAL_IP${NC}"
+echo -e "SSH Port:  ${CYAN}8022${NC}"
 echo ""
-echo -e "${YELLOW}Setiap buka Termux baru:${NC}"
-echo -e "  ${CYAN}mysqld_safe &${NC}  (start MySQL dulu)"
-echo -e "  ${CYAN}cd ~/k-flow && npm run start${NC}"
+echo -e "Di PC, ketik:"
+echo -e "  ${CYAN}ssh ${LOCAL_IP} -p 8022${NC}"
 echo ""
-echo -e "${YELLOW}Dashboard:${NC} http://localhost:3000"
+echo -e "Setelah login, bot langsung jalan di tmux."
+echo -e "Kalau mau sambung ke session yang sama:"
+echo -e "  ${CYAN}tmux attach -t bot${NC}"
+echo ""
+echo -e "Atau buat script shortcut di PC (lihat README)."
 echo ""
