@@ -70,6 +70,7 @@ const defaultPuppeteerArgs = [
 const system = {
     port: Number(process.env.PORT || 3000),
     logNumber: process.env.LOG_NUMBER || '62881081132332@c.us',
+    dashboardPassword: process.env.DASHBOARD_PASSWORD || '',
     puppeteer: {
         ...(puppeteerExecutablePath ? { executablePath: puppeteerExecutablePath } : {}),
         headless: process.env.PUPPETEER_HEADLESS ? process.env.PUPPETEER_HEADLESS === 'true' : true,

@@ -1,6 +1,7 @@
 const db = require('../lib/database');
 const ai = require('../lib/ai');
 const config = require('../config');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId, namaPengirim) => {
     try {
@@ -83,7 +84,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         msg.reply(result.response.text());
 
     } catch (error) {
-        console.error("Error Ayang:", error);
+        logger.error("Error Ayang:", error);
         msg.reply("❌ Error, detektif cinta lagi pusing.");
     }
 };

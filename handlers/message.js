@@ -3,6 +3,7 @@ const path = require('path');
 const { observe } = require('../commands/ai');
 const config = require('../config');
 const db = require('../lib/database');
+const logger = require('../lib/logger');
 
 // ============================================================
 // 🔄 PRE-LOAD COMMANDS (SEKALIGUS SCAN PUBLIC COMMAND)
@@ -25,9 +26,9 @@ for (const file of commandFiles) {
                 }
             });
         }
-    } catch (e) { console.error(`Skip ${file}: ${e.message}`); }
+    } catch (e) { logger.error(`Skip ${file}: ${e.message}`); }
 }
-console.log(`✅ ${commands.size} Commands Loaded!`);
+logger.info(`${commands.size} Commands Loaded!`);
 
 const cooldowns = new Map();
 
@@ -98,7 +99,7 @@ const messageHandler = async (client, msg) => {
 
         if (isBotResponse) return;
 
-        console.log(`💬 [${namaPengirim}]: ${body}`);
+        logger.info(`[${namaPengirim}]: ${body}`);
 
         // ============================================================
         // 💾 3. DATABASE LOGGING
@@ -108,7 +109,7 @@ const messageHandler = async (client, msg) => {
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
                 [namaPengirim, body, msg.isForwarded ? 1 : 0]
             );
-        } catch (err) { }
+        } catch (err) { console.error('Chat log insert failed:', err.message); }
 
         // ============================================================
         // 🎮 4. HANDLE COMMANDS
@@ -126,9 +127,9 @@ const messageHandler = async (client, msg) => {
                 try {
                     // SEKARANG rawSenderId AMAN DIPAKE DISINI
                     await handler(client, msg, args, rawSenderId, namaPengirim, body);
-                } catch (e) { 
-                    console.error(`Cmd Error [${commandName}]: ${e.message}`); 
-                }
+            } catch (e) { 
+                logger.error(`Cmd Error [${commandName}]: ${e.message}`); 
+            }
                 
                 cooldowns.set(rawSenderId, Date.now());
                 setTimeout(() => cooldowns.delete(rawSenderId), 1500);
@@ -144,7 +145,7 @@ const messageHandler = async (client, msg) => {
 
             const autoHandler = commands.get('(auto detect)') || commands.get('(Auto Detect)');
             if (autoHandler) {
-                console.log(`🔗 Link Download Terdeteksi!`);
+                logger.info(`Link Download Terdeteksi!`);
                 await autoHandler(client, msg, [], rawSenderId, namaPengirim, body);
                 return;
             }
@@ -156,12 +157,12 @@ const messageHandler = async (client, msg) => {
         // Hanya diobserve kalau user TERDAFTAR (Tami/Khaidar/Dini)
         if (!body.startsWith('!') && !body.startsWith('/') && !isGroup && isRegisteredUser) {
             observe(client, msg, namaPengirim).catch((e) => {
-                console.error("Observer Fail:", e.message);
+                logger.error("Observer Fail:", e.message);
             });
         }
 
     } catch (error) {
-        console.error("Handler Fatal Error:", error.message);
+        logger.error("Handler Fatal Error:", error.message);
     }
 };
 

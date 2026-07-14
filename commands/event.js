@@ -1,5 +1,6 @@
 const moment = require('moment');
-const db = require('../lib/database'); // Import DB manual karena handler baru gak ngirim db
+const db = require('../lib/database');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
@@ -52,7 +53,7 @@ module.exports = async (client, msg, args, senderId) => {
         }
 
     } catch (err) {
-        console.error(err);
+        logger.error(err);
         msg.reply("❌ Database Error.");
     }
 };
@@ -76,7 +77,7 @@ module.exports.cekEventHarian = async (client, dbParam, logNumber) => {
                 if (logNumber) await client.sendMessage(logNumber, msg);
             }
         }
-    } catch (e) { console.error("Event Check Error:", e); }
+    } catch (e) { logger.error("Event Check Error:", e); }
 };
 
 module.exports.metadata = {

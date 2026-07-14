@@ -2,9 +2,20 @@ const config = require('../config');
 const axios = require('axios');
 const { getFbVideoInfo } = require('fb-downloader-scrapper');
 const { MessageMedia } = require('whatsapp-web.js');
+const logger = require('../lib/logger');
+const RateLimiter = require('../lib/rateLimiter');
+
+// Rate limit: 3 downloads per minute per user
+const downloadLimiter = new RateLimiter(60000, 3);
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     try {
+        // Rate limit check
+        if (!downloadLimiter.check(senderId)) {
+            await msg.reply("⏳ Terlalu banyak download. Tunggu sebentar.");
+            return false;
+        }
+
         // 👇 INI KUNCINYA: Langsung ambil link dari body pesan asli!
         // Gak peduli argumen text/args error, yang penting ada link di chat.
         const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -35,7 +46,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
                 });
                 await msg.react('✅');
             } catch (e) {
-                console.error(e);
+                logger.error("TikTok Error:", e);
                 await msg.reply("❌ Error TikTok.");
             }
             return true;
@@ -50,15 +61,15 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             try {
                 // Expand Link Share (Penting buat fb.watch)
                 if (url.includes('share') || url.includes('/r/') || url.includes('fb.watch') || url.includes('fb.com')) {
-                    console.log(`🔗 Link Share Terdeteksi (RAW): ${url}`);
+                    logger.info(`Link Share Terdeteksi (RAW): ${url}`);
                     try {
                         const originalUrl = await expandFbUrl(url);
                         if (originalUrl && originalUrl !== url) {
                             url = originalUrl;
-                            console.log(`✅ Link Asli Ditemukan: ${url}`);
+                            logger.info(`Link Asli Ditemukan: ${url}`);
                         }
                     } catch (err) {
-                        console.log("⚠️ Gagal expand, lanjut pake link mentah.");
+                        logger.warn("Gagal expand, lanjut pake link mentah.");
                     }
                 }
 
@@ -76,7 +87,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
                 await msg.react('✅');
 
             } catch (e) {
-                console.error("FB Error:", e);
+                logger.error("FB Error:", e);
                 await msg.reply("❌ Gagal FB. Pastikan link publik & valid.");
             }
             return true;
@@ -86,7 +97,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         return false;
 
     } catch (error) {
-        console.error("Downloader System Error:", error);
+        logger.error("Downloader System Error:", error);
         return false;
     }
 };

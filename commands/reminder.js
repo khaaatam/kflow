@@ -1,4 +1,5 @@
 const db = require('../lib/database');
+const logger = require('../lib/logger');
 
 // --- HELPER: PENJADWAL TUGAS ---
 // Fungsi ini dipake dua kali: pas bikin reminder baru & pas restore dari DB
@@ -28,11 +29,11 @@ const scheduleJob = (client, id, userId, pesan, waktuEksekusi) => {
                 await db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
             }
         } catch (e) {
-            console.error("Gagal kirim reminder:", e);
+            logger.error("Gagal kirim reminder:", e);
         }
     }, delay);
 
-    console.log(`✅ Reminder ID ${id} dijadwalkan dalam ${Math.ceil(delay / 1000 / 60)} menit.`);
+    logger.info(`Reminder ID ${id} dijadwalkan dalam ${Math.ceil(delay / 1000 / 60)} menit.`);
 };
 
 // --- COMMAND UTAMA (!ingetin) ---
@@ -59,32 +60,32 @@ module.exports = async (client, msg, args, senderId) => {
 
         msg.reply(`✅ Siap! Gw ingetin *${pesan}* dalam ${menit} menit lagi.`);
     } catch (e) {
-        console.error(e);
+        logger.error(e);
         msg.reply("❌ Gagal simpan reminder.");
     }
 };
 
 // --- FUNGSI RESTORE (DIPANGGIL DI APP.JS) ---
 module.exports.restoreReminders = async (client) => {
-    console.log("🔄 Cek Pending Reminders...");
+    logger.info("Cek Pending Reminders...");
     try {
         // Ambil semua yang statusnya masih 'pending'
         const sql = "SELECT * FROM reminders WHERE status = 'pending'";
         const [rows] = await db.query(sql);
 
         if (rows.length === 0) {
-            console.log("✅ Tidak ada reminder pending.");
+            logger.info("Tidak ada reminder pending.");
             return;
         }
 
-        console.log(`📥 Merestore ${rows.length} reminder...`);
+        logger.info(`Merestore ${rows.length} reminder...`);
 
         // Loop dan pasang ulang timer-nya
         for (const row of rows) {
             scheduleJob(client, row.id, row.user_id, row.pesan, row.waktu_eksekusi);
         }
     } catch (e) {
-        console.error("❌ Gagal restore reminder:", e);
+        logger.error("Gagal restore reminder:", e);
     }
 };
 

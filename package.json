@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest --passWithNoTests",
     "start": "node app.js",
-    "check": "node --check app.js && node --check config.js && node --check handlers/message.js && node --check lib/database.js"
+    "check": "node --check app.js && node --check config.js && node --check handlers/message.js && node --check lib/database.js",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
@@ -28,5 +29,10 @@
     "puppeteer": "^24.36.1",
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "^1.34.6"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "jest": "^30.4.2"
   }
 }

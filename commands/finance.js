@@ -2,6 +2,7 @@ const { MessageMedia } = require('whatsapp-web.js');
 const Transaction = require('../models/Transaction');
 const { formatRupiah } = require('../utils/formatter');
 const model = require('../lib/ai');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     const command = args[0].toLowerCase();
@@ -54,7 +55,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
                 ket = data.keterangan;
 
             } catch (e) {
-                console.error("AI Error:", e);
+                logger.error("AI Error:", e);
                 return msg.reply("❌ AI Pusing. Pake manual aja: `!catat pengeluaran 15000 bakso`");
             }
         }
@@ -66,7 +67,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         try {
             await Transaction.add(senderId, jenis, nominal, ket, 'WhatsApp');
         } catch (dbError) {
-            console.error("DB Insert Error:", dbError);
+            logger.error("DB Insert Error:", dbError);
             return msg.reply("❌ Error Database: " + dbError.message);
         }
 
@@ -144,7 +145,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         const sqlStart = toLocalSQL(startDate);
         const sqlEnd = toLocalSQL(endDate);
 
-        console.log(`🔍 Debug Query: ${sqlStart} s/d ${sqlEnd}`); // Cek terminal kalo masih kosong
+        logger.debug(`Debug Query: ${sqlStart} s/d ${sqlEnd}`);
 
         const stats = await Transaction.getStatsCustom(sqlStart, sqlEnd);
         const history = await Transaction.getListCustom(sqlStart, sqlEnd);

@@ -2,9 +2,10 @@ const express = require('express');
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const path = require('path');
-const fs = require('fs'); // 👈 SAYA CUMA NAMBAH INI (BUAT HAPUS FILE SAMPAH)
+const fs = require('fs');
 const config = require('./config');
 const db = require('./lib/database');
+const logger = require('./lib/logger');
 const messageHandler = require('./handlers/message');
 const os = require('os');
 const isWindows = os.platform() === 'win32';
@@ -13,13 +14,15 @@ const isWindows = os.platform() === 'win32';
 // --- LOAD FITUR BACKGROUND (Cuma ini yang perlu di-require manual) ---
 const reminderCommand = require('./commands/reminder');
 const eventCommand = require('./commands/event');
+const Memory = require('./models/Memory');
 
 // --- 1. INISIALISASI DATABASE (WAJIB ADA) ---
 (async () => {
     try {
         await db.init();
+        await Memory.cleanup(); // Clean old memories on startup
     } catch (e) {
-        console.error("⚠️ Skip DB Init:", e.message);
+        logger.error("Skip DB Init:", e.message);
     }
 })();
 
@@ -57,15 +60,15 @@ client.on('qr', (qr) => {
 client.on('ready', async () => {
     const cmdCount = messageHandler.commands ? messageHandler.commands.size : 0;
 
-    console.log(`✅${config.botName} Siap Melayani!`);
-    console.log('------------------------------------------------');
-    console.log(`🌐 Web Dashboard: http://localhost:${config.system.port}`);
-    console.log(`🧠 Handler: Siap memproses ${cmdCount} Command Otomatis`);
-    console.log('⏰ Cron Job: Event & Reminder Aktif');
-    console.log('------------------------------------------------');
+    logger.info(`${config.botName} Siap Melayani!`);
+    logger.info('------------------------------------------------');
+    logger.info(`Web Dashboard: http://localhost:${config.system.port}`);
+    logger.info(`Handler: Siap memproses ${cmdCount} Command Otomatis`);
+    logger.info('Cron Job: Event & Reminder Aktif');
+    logger.info('------------------------------------------------');
 
     // Fix Bug "Send Seen"
-    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { }
+    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { /* sendSeen fix is best-effort */ }
 
     // Notif ke Owner
     if (config.system.logNumber) {
@@ -95,10 +98,10 @@ client.on('message_create', async (msg) => {
         } else if (typeof messageHandler.messageHandler === 'function') {
             await messageHandler.messageHandler(client, msg);
         } else {
-            console.error("❌ ERROR FATAL: messageHandler gagal di-load. Pastikan module.exports bener di message.js!");
+            logger.error("ERROR FATAL: messageHandler gagal di-load. Pastikan module.exports bener di message.js!");
         }
     } catch (error) {
-        console.error("❌ CRASH SAAT TERIMA PESAN:", error.message);
+        logger.error("CRASH SAAT TERIMA PESAN:", error.message);
     }
 });
 
@@ -115,11 +118,11 @@ const cleanTempFolder = () => {
             if (file.endsWith('.mp4') || file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.webp')) {
                 try {
                     fs.unlinkSync(path.join(tempDir, file));
-                } catch (e) { }
+                } catch (e) { /* temp file already removed */ }
             }
         });
     } else {
-        try { fs.mkdirSync(tempDir); } catch (e) { }
+        try { fs.mkdirSync(tempDir); } catch (e) { /* dir exists */ }
     }
 };
 // Jalankan pembersihan
@@ -128,4 +131,22 @@ cleanTempFolder();
 
 // Start Client & Web
 client.initialize();
-app.listen(config.system.port, () => console.log(`🌍 Server Web jalan di Port ${config.system.port}`));
+const server = app.listen(config.system.port, () => logger.info(`Server Web jalan di Port ${config.system.port}`));
+
+// Graceful shutdown
+const shutdown = async (signal) => {
+    logger.info(`${signal} received. Shutting down gracefully...`);
+    server.close(() => {
+        logger.info('HTTP server closed.');
+    });
+    try {
+        await client.destroy();
+        logger.info('WhatsApp client destroyed.');
+    } catch (e) {
+        logger.error('Error destroying client:', e.message);
+    }
+    process.exit(0);
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));

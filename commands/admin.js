@@ -1,6 +1,7 @@
 const { exec } = require('child_process');
 const config = require('../config');
 const db = require('../lib/database');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId) => {
     // 🛡️ SECURITY CHECK
@@ -8,7 +9,7 @@ module.exports = async (client, msg, args, senderId) => {
     const cleanOwners = config.ownerNumber.map(id => String(id).replace(/[^0-9]/g, ''));
 
     if (!cleanOwners.includes(cleanSender)) {
-        console.log(`⛔ Access Denied: ${cleanSender} bukan Owner.`);
+        logger.warn(`Access Denied: ${cleanSender} bukan Owner.`);
         return false;
     }
 
@@ -18,7 +19,7 @@ module.exports = async (client, msg, args, senderId) => {
     const restartBot = async (pesanTambahan = "") => {
         // 1. Bersihkan Log Lama (PM2 Flush)
         exec('pm2 flush', async (err) => {
-            if (err) console.error("Gagal flush logs:", err);
+            if (err) logger.error("Gagal flush logs:", err);
 
             // 2. Tentukan Pesan: Kalau ada tambahan, baru kasih Enter (\n). Kalau gak, langsung aja.
             const finalText = pesanTambahan

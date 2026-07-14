@@ -1,4 +1,5 @@
 const ChatLog = require('../models/ChatLog');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args) => {
     try {
@@ -31,7 +32,7 @@ module.exports = async (client, msg, args) => {
         await client.sendMessage(msg.from, reply);
 
     } catch (err) {
-        console.error("Stats Error:", err);
+        logger.error("Stats Error:", err);
         msg.reply("❌ Gagal tarik data.");
     }
 };

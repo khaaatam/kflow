@@ -1,5 +1,6 @@
 const model = require('../lib/ai');
 const db = require('../lib/database');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args) => {
     await msg.react('🤔');
@@ -17,7 +18,7 @@ module.exports = async (client, msg, args) => {
         const result = await model.generateContent(prompt);
         msg.reply(result.response.text());
     } catch (e) {
-        console.error(e);
+        logger.error(e);
         msg.reply('Gagal mikir.');
     }
 };

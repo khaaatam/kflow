@@ -2,6 +2,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     const isMedia = msg.hasMedia;
@@ -35,7 +36,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // 2. CEK DIMENSI FOTO DULU (SMART DETECT)
         ffmpeg.ffprobe(inputPath, async (err, metadata) => {
             if (err) {
-                console.error("Probe Error:", err);
+                logger.error("Probe Error:", err);
                 return msg.reply("❌ Gagal baca dimensi gambar.");
             }
 
@@ -49,7 +50,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             const targetW = isPortrait ? 240 : 320;
             const targetH = isPortrait ? 320 : 240;
 
-            console.log(`🔍 Input: ${width}x${height} | Mode: ${isPortrait ? 'Portrait' : 'Landscape'} | Target: ${targetW}x${targetH}`);
+            logger.debug(`Input: ${width}x${height} | Mode: ${isPortrait ? 'Portrait' : 'Landscape'} | Target: ${targetW}x${targetH}`);
 
             // 3. PROSES FFMPEG (AUTO CROP + RETRO)
             await new Promise((resolve, reject) => {
@@ -74,12 +75,12 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             });
 
             // 5. BERSIH-BERSIH
-            try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch (e) { }
+            try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch (e) { /* cleanup best-effort */ }
             await msg.react('✅');
         });
 
     } catch (error) {
-        console.error("Retro Error:", error);
+        logger.error("Retro Error:", error);
         msg.reply(`❌ Gagal render: ${error.message}`);
     }
 };

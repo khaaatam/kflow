@@ -2,6 +2,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
 const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     const isMedia = msg.hasMedia;
@@ -65,12 +66,12 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         try {
             fs.unlinkSync(inputPath);
             fs.unlinkSync(outputPath);
-        } catch (e) { }
+        } catch (e) { /* cleanup best-effort */ }
 
         await msg.react('✅');
 
     } catch (error) {
-        console.error("Pixel Error:", error);
+        logger.error("Pixel Error:", error);
         msg.reply(`❌ Gagal render: ${error.message}`);
     }
 };

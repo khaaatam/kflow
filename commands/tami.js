@@ -1,6 +1,7 @@
 const db = require('../lib/database');
 const ai = require('../lib/ai');
 const config = require('../config');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     // 🔥 SECURITY CHECK: CUMA NOMOR TERDAFTAR DI CONFIG.JS
@@ -61,7 +62,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         msg.reply(replyText.toLowerCase());
 
     } catch (error) {
-        console.error("Error Tami Mimicry:", error);
+        logger.error("Error Tami Mimicry:", error);
         msg.reply("otak gw lagi nge-bug bentar.");
     }
 };

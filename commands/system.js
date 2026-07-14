@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('../config');
+const logger = require('../lib/logger');
 
 module.exports = async (client, msg, args, senderId, namaPengirim) => {
     const command = args[0];
@@ -40,7 +41,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 
         } catch (e) {
             // Fallback: Kalau gagal ambil kontak, kirim teks biasa aja
-            console.error("Gagal kirim kontak:", e);
+            logger.error("Gagal kirim kontak:", e);
             msg.reply(`👤 Owner: ${config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
         }
         return true;
@@ -76,7 +77,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
                         }
                     });
                 }
-            } catch (e) { }
+            } catch (e) { /* skip unreadable command file */ }
         }
 
         const icons = { 'KEUANGAN': '💰', 'AI': '🧠', 'DOWNLOADER': '📥', 'MEDIA': '🎬', 'SYSTEM': '⚙️', 'LAINNYA': '📂' };
