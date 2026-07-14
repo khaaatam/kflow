@@ -34,7 +34,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         // 3. AMBIL CHAT SI TARGET DARI DATABASE
         // Pake LIKE biar fleksibel (misal: "Tami (Ganteng)", "Dini (Sayang)")
         const [rows] = await db.query(
-            `SELECT nama_pengirim, pesan, waktu FROM full_chat_logs 
+            `SELECT nama_pengirim, pesan, created_at FROM full_chat_logs 
              WHERE nama_pengirim LIKE ? 
              ORDER BY id DESC LIMIT 20`,
             [`%${targetName}%`]
@@ -47,7 +47,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         // 4. FORMAT DATA
         const chatHistory = rows.reverse()
             .map(r => {
-                const jam = new Date(r.waktu).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                const jam = new Date(r.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
                 return `[${jam}] ${r.nama_pengirim}: ${r.pesan}`;
             })
             .join('\n');
