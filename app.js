@@ -47,9 +47,7 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
-            '--no-zygote',
-            '--disable-extensions',
-            '--no-default-browser-check'
+            '--no-zygote'
         ]
     }
 });
