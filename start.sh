@@ -49,7 +49,7 @@ if [ -n "$TMUX" ]; then
     if pm2 list 2>/dev/null | grep -q "k-flow"; then
         pm2 restart k-flow
     else
-        pm2 start app.js --name "k-flow"
+        pm2 start app.js --name "k-flow" --max-memory-restart 300M --node-args="--max-old-space-size=256"
         pm2 save
     fi
     echo ""
@@ -100,7 +100,7 @@ else
     if pm2 list 2>/dev/null | grep -q "k-flow"; then
         pm2 restart k-flow
     else
-        pm2 start app.js --name "k-flow"
+        pm2 start app.js --name "k-flow" --max-memory-restart 300M --node-args="--max-old-space-size=256"
         pm2 save
     fi
     echo ""

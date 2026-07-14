@@ -46,7 +46,7 @@ const database = {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'kflow_db',
     waitForConnections: true,
-    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 10),
+    connectionLimit: Number(process.env.DB_CONNECTION_LIMIT || 3),
     queueLimit: 0,
     enableKeepAlive: true,
     keepAliveInitialDelay: 0

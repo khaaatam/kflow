@@ -37,7 +37,7 @@ app.use('/', require('./routes/web'));
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        headless: true, // Wajib true di Termux
+        headless: true,
         executablePath: isWindows
             ? 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
             : '/data/data/com.termux/files/usr/bin/chromium-browser',
@@ -47,7 +47,14 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
-            '--no-zygote'
+            '--no-zygote',
+            '--disable-gpu',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--no-default-browser-check',
+            '--js-flags=--max-old-space-size=128'
         ]
     }
 });
@@ -78,13 +85,13 @@ client.on('ready', async () => {
     // Restore Reminder yang tertunda (Background Task)
     reminderCommand.restoreReminders(client, db);
 
-    // Cek Event Harian tiap jam 7 pagi (Background Task)
+    // Cek Event Harian tiap jam 7 pagi (cek tiap 60 detik)
     setInterval(() => {
         const now = new Date();
-        if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() === 0) {
+        if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() < 60) {
             eventCommand.cekEventHarian(client, db, config.system.logNumber);
         }
-    }, 1000);
+    }, 60000);
 });
 
 // --- 4. TANGKAP PESAN ---

@@ -31,6 +31,7 @@ for (const file of commandFiles) {
 logger.info(`${commands.size} Commands Loaded!`);
 
 const cooldowns = new Map();
+const observerCooldowns = new Map(); // debounce observer: 10 detik per user
 
 // ============================================================
 // 🤖 FUNGSI UTAMA HANDLER
@@ -102,14 +103,12 @@ const messageHandler = async (client, msg) => {
         logger.info(`[${namaPengirim}]: ${body}`);
 
         // ============================================================
-        // 💾 3. DATABASE LOGGING
+        // 💾 3. DATABASE LOGGING (async — gak nunggu)
         // ============================================================
-        try {
-            await db.query(
-                "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
-                [namaPengirim, body, msg.isForwarded ? 1 : 0]
-            );
-        } catch (err) { console.error('Chat log insert failed:', err.message); }
+        db.query(
+            "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
+            [namaPengirim, body, msg.isForwarded ? 1 : 0]
+        ).catch(() => {});
 
         // ============================================================
         // 🎮 4. HANDLE COMMANDS
@@ -152,13 +151,17 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // 🧠 6. AI OBSERVER
+        // 🧠 6. AI OBSERVER (debounce: 10 detik per user)
         // ============================================================
-        // Hanya diobserve kalau user TERDAFTAR (Tami/Khaidar/Dini)
         if (!body.startsWith('!') && !body.startsWith('/') && !isGroup && isRegisteredUser) {
-            observe(client, msg, namaPengirim).catch((e) => {
-                logger.error("Observer Fail:", e.message);
-            });
+            const lastObserve = observerCooldowns.get(rawSenderId) || 0;
+            if (Date.now() - lastObserve > 10000) {
+                observerCooldowns.set(rawSenderId, Date.now());
+                setTimeout(() => observerCooldowns.delete(rawSenderId), 10000);
+                observe(client, msg, namaPengirim).catch((e) => {
+                    logger.error("Observer Fail:", e.message);
+                });
+            }
         }
 
     } catch (error) {
