@@ -1,9 +1,2 @@
-CREATE TABLE IF NOT EXISTS reminders (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id VARCHAR(50),
-    pesan TEXT,
-    waktu_eksekusi TIMESTAMP,
-    status ENUM('pending', 'done') DEFAULT 'pending',
-    recurrence VARCHAR(20) DEFAULT NULL,
-    next_time TIMESTAMP DEFAULT NULL
-);
+ALTER TABLE reminders ADD COLUMN recurrence VARCHAR(20) DEFAULT NULL AFTER status;
+ALTER TABLE reminders ADD COLUMN next_time TIMESTAMP DEFAULT NULL AFTER waktu_eksekusi;
