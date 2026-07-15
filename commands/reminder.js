@@ -3,29 +3,43 @@ const logger = require('../lib/logger');
 
 // --- HELPER: PENJADWAL TUGAS ---
 // Fungsi ini dipake dua kali: pas bikin reminder baru & pas restore dari DB
+let overdueCounter = 0;
+
 const scheduleJob = (client, id, userId, pesan, waktuEksekusi) => {
     const now = new Date().getTime();
     const target = new Date(waktuEksekusi).getTime();
     const delay = target - now;
 
     // A. Kalau waktunya udah lewat (misal bot mati pas harusnya ngirim)
-    // Langsung kirim sekarang juga!
     if (delay <= 0) {
-        client.sendMessage(userId, `⏰ *REMINDER (TELAT)*: ${pesan}\n_(Maaf tadi bot sempat mati/restart)_`);
-        db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
+        const overdueMinutes = Math.abs(Math.ceil(delay / 1000 / 60));
+
+        // Skip reminder yang terlalu tua (> 1 jam) — anggap sudah tidak relevan
+        if (overdueMinutes > 60) {
+            logger.info(`Reminder ID ${id} skipped (${overdueMinutes} menit telat — dianggap expired)`);
+            db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
+            return;
+        }
+
+        // Stagger: kasih jeda antar overdue biar gak spam
+        const staggerDelay = overdueCounter * 2000; // 2 detik per reminder
+        overdueCounter++;
+
+        setTimeout(() => {
+            client.sendMessage(userId, `⏰ *REMINDER (TELAT ${overdueMinutes} menit)*: ${pesan}\n_(Maaf tadi bot sempat mati/restart)_`);
+            db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
+        }, staggerDelay);
+
+        logger.info(`Reminder ID ${id} overdue ${overdueMinutes}m, fires in ${staggerDelay}ms`);
         return;
     }
 
     // B. Kalau waktunya belum lewat, pasang timer
     setTimeout(async () => {
         try {
-            // Cek dulu di DB, siapa tau user udah hapus manual (Next update)
             const [rows] = await db.query("SELECT status FROM reminders WHERE id = ?", [id]);
             if (rows.length > 0 && rows[0].status === 'pending') {
-
                 await client.sendMessage(userId, `⏰ *REMINDER*: ${pesan}`);
-
-                // Tandai selesai di database
                 await db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
             }
         } catch (e) {

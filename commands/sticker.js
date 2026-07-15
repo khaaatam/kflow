@@ -1,8 +1,8 @@
-module.exports = async (client, msg, args) => {
+module.exports = async (client, msg) => {
     if (msg.hasMedia) {
         try {
             const media = await msg.downloadMedia();
-            await msg.reply(msg.from, media, {
+            await msg.reply(media, {
                 sendMediaAsSticker: true,
                 stickerAuthor: 'ig: @khataaam_',
                 stickerName: 'JikaeL the Creator'

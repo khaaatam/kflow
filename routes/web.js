@@ -32,7 +32,18 @@ const requireAuth = (req, res, next) => {
 router.get('/', async (req, res) => {
     const password = config.system.dashboardPassword;
     if (password && !checkAuth(req)) {
-        return res.redirect(`/?password=${encodeURIComponent(password)}`);
+        // Show login form instead of leaking password in redirect
+        return res.status(401).send(`<!DOCTYPE html>
+<html><head><title>Login</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head><body class="bg-light d-flex align-items-center justify-content-center" style="min-height:100vh">
+<div class="card shadow-sm p-4" style="max-width:400px;width:100%">
+    <h5 class="text-center mb-3">🔒 Dashboard Login</h5>
+    <form method="GET">
+        <input type="password" name="password" class="form-control mb-2" placeholder="Password" autofocus required>
+        <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+</div></body></html>`);
     }
 
     try {
@@ -95,8 +106,8 @@ router.post('/update', requireAuth, async (req, res) => {
     if (!id || !jenis || !nominal || !keterangan) {
         return res.status(400).send("Semua field wajib diisi.");
     }
-    if (!['masuk', 'keluar'].includes(jenis)) {
-        return res.status(400).send("Jenis harus 'masuk' atau 'keluar'.");
+    if (!['pemasukan', 'pengeluaran'].includes(jenis)) {
+        return res.status(400).send("Jenis harus 'pemasukan' atau 'pengeluaran'.");
     }
     if (isNaN(parseInt(nominal)) || parseInt(nominal) < 0) {
         return res.status(400).send("Nominal harus angka positif.");

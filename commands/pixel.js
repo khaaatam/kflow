@@ -4,7 +4,7 @@ const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 
-module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
+module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => {
     const isMedia = msg.hasMedia;
     const isQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
 
@@ -66,7 +66,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         try {
             fs.unlinkSync(inputPath);
             fs.unlinkSync(outputPath);
-        } catch (e) { /* cleanup best-effort */ }
+        } catch (_e) { /* cleanup best-effort */ }
 
         await msg.react('✅');
 

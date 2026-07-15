@@ -17,12 +17,12 @@ const eventCommand = require('./commands/event');
 const Memory = require('./models/Memory');
 
 // --- 1. INISIALISASI DATABASE (WAJIB ADA) ---
-(async () => {
+const dbReady = (async () => {
     try {
         await db.init();
-        await Memory.cleanup(); // Clean old memories on startup
+        await Memory.cleanup();
     } catch (e) {
-        logger.error("Skip DB Init:", e.message);
+        logger.error("DB Init Error:", e.message);
     }
 })();
 
@@ -131,24 +131,27 @@ const cleanTempFolder = () => {
 cleanTempFolder();
 // ============================================================
 
-// Start Client & Web
-client.initialize();
-const server = app.listen(config.system.port, () => logger.info(`Server Web jalan di Port ${config.system.port}`));
+// Start Client & Web (after DB ready)
+(async () => {
+    await dbReady;
+    client.initialize();
+    const server = app.listen(config.system.port, () => logger.info(`Server Web jalan di Port ${config.system.port}`));
 
-// Graceful shutdown
-const shutdown = async (signal) => {
-    logger.info(`${signal} received. Shutting down gracefully...`);
-    server.close(() => {
-        logger.info('HTTP server closed.');
-    });
-    try {
-        await client.destroy();
-        logger.info('WhatsApp client destroyed.');
-    } catch (e) {
-        logger.error('Error destroying client:', e.message);
-    }
-    process.exit(0);
-};
+    // Graceful shutdown
+    const shutdown = async (signal) => {
+        logger.info(`${signal} received. Shutting down gracefully...`);
+        server.close(() => {
+            logger.info('HTTP server closed.');
+        });
+        try {
+            await client.destroy();
+            logger.info('WhatsApp client destroyed.');
+        } catch (e) {
+            logger.error('Error destroying client:', e.message);
+        }
+        process.exit(0);
+    };
 
-process.on('SIGINT', () => shutdown('SIGINT'));
-process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+})();
