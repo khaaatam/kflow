@@ -40,7 +40,7 @@ const database = {
 const ai = {
     apiKey: process.env.ROUTER_API_KEY,
     routerUrl: process.env.ROUTER_URL || 'http://localhost:20128/v1',
-    modelName: process.env.ROUTER_MODEL || 'mimo/mimo-v2.5-flash'
+    modelName: process.env.ROUTER_MODEL || 'mimo/mimo-v2-flash'
 };
 
 const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
