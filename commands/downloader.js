@@ -83,7 +83,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
                 if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
-                    caption: `💙 *Facebook Downloader*\nBot Created by ${config.creator}`
+                    caption: `💙 *Facebook Downloader*\nBot Created by ${config.creator[0] || config.creator}`
                 });
                 await react(msg, '✅');
 

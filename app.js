@@ -92,11 +92,12 @@ client.on('ready', async () => {
     reminderCommand.restoreReminders(client, db);
 
     // Cek Event Harian tiap jam 7 pagi (cek tiap 60 detik)
+    const { EVENT_CHECK_HOUR, EVENT_CHECK_MINUTE, EVENT_CHECK_SECOND_MAX } = require('./lib/constants');
     let lastEventDate = null;
     setInterval(() => {
         const now = new Date();
         const today = now.toDateString();
-        if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() < 2 && lastEventDate !== today) {
+        if (now.getHours() === EVENT_CHECK_HOUR && now.getMinutes() === EVENT_CHECK_MINUTE && now.getSeconds() < EVENT_CHECK_SECOND_MAX && lastEventDate !== today) {
             lastEventDate = today;
             eventCommand.cekEventHarian(client, db, config.system.logNumber);
         }
@@ -106,18 +107,9 @@ client.on('ready', async () => {
 // --- 4. TANGKAP PESAN ---
 client.on('message_create', async (msg) => {
     try {
-        // Cek wujud messageHandler-nya apa, biar gak crash
-        if (typeof messageHandler === 'function') {
-            await messageHandler(client, msg);
-        } else if (typeof messageHandler.default === 'function') {
-            await messageHandler.default(client, msg);
-        } else if (typeof messageHandler.messageHandler === 'function') {
-            await messageHandler.messageHandler(client, msg);
-        } else {
-            logger.error("ERROR FATAL: messageHandler gagal di-load. Pastikan module.exports bener di message.js!");
-        }
+        await messageHandler(client, msg);
     } catch (error) {
-        logger.error("CRASH SAAT TERIMA PESAN:", error.message);
+        logger.error('CRASH SAAT TERIMA PESAN:', error.message);
     }
 });
 

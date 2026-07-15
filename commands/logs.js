@@ -1,17 +1,18 @@
 const db = require('../lib/database');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
+const { LOG_QUERY_DEFAULT_LIMIT, LOG_QUERY_MAX_LIMIT } = require('../lib/constants');
 
 module.exports = async (client, msg, args) => {
     await react(msg, '⏳');
     try {
-        let limit = 20;
+        let limit = LOG_QUERY_DEFAULT_LIMIT;
         let where = [];
         let params = [];
 
         for (const arg of args) {
             if (/^\d+$/.test(arg)) {
-                limit = Math.min(Number(arg), 200);
+                limit = Math.min(Number(arg), LOG_QUERY_MAX_LIMIT);
             } else if (arg.toLowerCase().startsWith('nama:')) {
                 where.push('nama_pengirim LIKE ?');
                 params.push(`%${arg.slice(5)}%`);

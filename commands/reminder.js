@@ -1,6 +1,7 @@
 const db = require('../lib/database');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
+const { OVERDUE_EXPIRY_MINUTES, OVERDUE_STAGGER_MS } = require('../lib/constants');
 
 // --- HELPER: PENJADWAL TUGAS ---
 // Fungsi ini dipake dua kali: pas bikin reminder baru & pas restore dari DB
@@ -16,14 +17,14 @@ const scheduleJob = (client, id, userId, pesan, waktuEksekusi) => {
         const overdueMinutes = Math.abs(Math.ceil(delay / 1000 / 60));
 
         // Skip reminder yang terlalu tua (> 1 jam) — anggap sudah tidak relevan
-        if (overdueMinutes > 60) {
+        if (overdueMinutes > OVERDUE_EXPIRY_MINUTES) {
             logger.info(`Reminder ID ${id} skipped (${overdueMinutes} menit telat — dianggap expired)`);
             db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
             return;
         }
 
         // Stagger: kasih jeda antar overdue biar gak spam
-        const staggerDelay = overdueCounter * 2000; // 2 detik per reminder
+        const staggerDelay = overdueCounter * OVERDUE_STAGGER_MS;
         overdueCounter++;
 
         setTimeout(() => {

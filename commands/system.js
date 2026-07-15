@@ -72,7 +72,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         } catch (e) {
             // Fallback: Kalau gagal ambil kontak, kirim teks biasa aja
             logger.error("Gagal kirim kontak:", e);
-            await msg.reply(`👤 Owner: ${config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
+            await msg.reply(`👤 Owner: ${config.creator[0] || config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
         }
         return true;
     }
