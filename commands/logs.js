@@ -37,7 +37,7 @@ module.exports = async (client, msg, args) => {
         client.sendMessage(msg.from, header + lines.join('\n'));
     } catch (e) {
         logger.error('Logs Error:', e);
-        msg.reply('❌ Gagal ambil chat logs.');
+        await msg.reply('❌ Gagal ambil chat logs.');
     }
 };
 

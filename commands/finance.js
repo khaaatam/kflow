@@ -211,7 +211,7 @@ await react(msg, '✅');
             const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
             await client.sendMessage(msg.from, media, { caption: `📊 *Visualisasi Keuangan*\n\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 Saldo: ${formatRupiah(saldo)}` });
             await react(msg, '✅');
-        } catch { msg.reply("❌ Gagal bikin grafik."); }
+        } catch { await msg.reply("❌ Gagal bikin grafik."); }
     }
 };
 

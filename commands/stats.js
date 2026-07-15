@@ -36,7 +36,7 @@ module.exports = async (client, msg, _args) => {
 
     } catch (err) {
         logger.error("Stats Error:", err);
-        msg.reply("❌ Gagal tarik data.");
+        await msg.reply("❌ Gagal tarik data.");
     }
 };
 module.exports.metadata = { category: "LAINNYA", commands: [{ command: '!stats', desc: 'Statistik Chat Harian' }] };

@@ -72,7 +72,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         } catch (e) {
             // Fallback: Kalau gagal ambil kontak, kirim teks biasa aja
             logger.error("Gagal kirim kontak:", e);
-            msg.reply(`👤 Owner: ${config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
+            await msg.reply(`👤 Owner: ${config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
         }
         return true;
     }
@@ -124,7 +124,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
         menu += ` _Waktu saat ini:_ 🕒 *${time}*`;
 
-        msg.reply(menu);
+        await msg.reply(menu);
         return true;
     }
 };

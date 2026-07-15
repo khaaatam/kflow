@@ -54,7 +54,7 @@ const client = new Client({
 
 client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
-    console.log('📱 Scan QR Code Diatas!');
+    logger.info('📱 Scan QR Code Diatas!');
 });
 
 client.on('ready', async () => {
@@ -84,9 +84,12 @@ client.on('ready', async () => {
     reminderCommand.restoreReminders(client, db);
 
     // Cek Event Harian tiap jam 7 pagi (cek tiap 60 detik)
+    let lastEventDate = null;
     setInterval(() => {
         const now = new Date();
-        if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() < 60) {
+        const today = now.toDateString();
+        if (now.getHours() === 7 && now.getMinutes() === 0 && now.getSeconds() < 2 && lastEventDate !== today) {
+            lastEventDate = today;
             eventCommand.cekEventHarian(client, db, config.system.logNumber);
         }
     }, 60000);

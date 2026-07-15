@@ -61,11 +61,11 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
 
         await react(msg, '✅');
         // Paksa huruf kecil biar otentik
-        msg.reply(replyText.toLowerCase());
+        await msg.reply(replyText.toLowerCase());
 
     } catch (error) {
         logger.error("Error Tami Mimicry:", error);
-        msg.reply("otak gw lagi nge-bug bentar.");
+        await msg.reply("otak gw lagi nge-bug bentar.");
     }
 };
 

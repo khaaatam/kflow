@@ -204,11 +204,11 @@ User (${namaPengirim}): "${userPrompt}"`;
             reply += `\n\n${botSignature}`;
 
             await react(msg, '✅');
-            msg.reply(reply);
+            await msg.reply(reply);
 
         } catch (e) {
             logger.error("AI Interact Error:", e);
-            msg.reply("❌ Otak lagi konslet bang. Coba lagi nanti.");
+            await msg.reply("❌ Otak lagi konslet bang. Coba lagi nanti.");
         }
     }
 };

@@ -59,7 +59,7 @@ module.exports = async (client, msg, args, senderId) => {
 
     } catch (err) {
         logger.error(err);
-        msg.reply("❌ Database Error.");
+        await msg.reply("❌ Database Error.");
     }
 };
 

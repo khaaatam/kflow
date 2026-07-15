@@ -80,11 +80,11 @@ module.exports = async (client, msg, args, senderId, _namaPengirim) => {
 
         const result = await ai.generateContent(prompt);
         await react(msg, '✅');
-        msg.reply(result.response.text());
+        await msg.reply(result.response.text());
 
     } catch (error) {
         logger.error("Error Ayang:", error);
-        msg.reply("❌ Error, detektif cinta lagi pusing.");
+        await msg.reply("❌ Error, detektif cinta lagi pusing.");
     }
 };
 

@@ -76,10 +76,10 @@ module.exports = async (client, msg, args, senderId) => {
         scheduleJob(client, result.insertId, senderId, pesan, targetDate);
 
         await react(msg, '✅');
-        msg.reply(`✅ Siap! Gw ingetin *${pesan}* dalam ${menit} menit lagi.`);
+        await msg.reply(`✅ Siap! Gw ingetin *${pesan}* dalam ${menit} menit lagi.`);
     } catch (e) {
         logger.error(e);
-        msg.reply("❌ Gagal simpan reminder.");
+        await msg.reply("❌ Gagal simpan reminder.");
     }
 };
 

@@ -94,7 +94,7 @@ const messageHandler = async (client, msg) => {
             db.query(
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
                 [namaPengirim, body, msg.isForwarded ? 1 : 0]
-            ).catch(() => {});
+            ).catch((e) => logger.error("Chat log insert failed:", e.message));
 
             logger.info(`[${namaPengirim}]: ${body}`);
         }

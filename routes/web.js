@@ -4,24 +4,25 @@ const db = require('../lib/database');
 const config = require('../config');
 const logger = require('../lib/logger');
 
-// Simple auth check - no session needed
+// Simple auth check - supports query, header, and body
 const checkAuth = (req) => {
     const password = config.system.dashboardPassword;
     if (!password) return true; // No password = open access
-    return req.query.password === password || req.headers['x-dashboard-password'] === password;
+    return req.query.password === password || req.headers['x-dashboard-password'] === password || req.body?.password === password;
 };
 
 const requireAuth = (req, res, next) => {
     if (checkAuth(req)) return next();
 
+    const safeUrl = req.originalUrl.replace(/"/g, '&quot;');
     res.status(401).send(`<!DOCTYPE html>
 <html><head><title>Login</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head><body class="bg-light d-flex align-items-center justify-content-center" style="min-height:100vh">
 <div class="card shadow-sm p-4" style="max-width:400px;width:100%">
     <h5 class="text-center mb-3">🔒 Dashboard Login</h5>
-    <form method="GET">
-        <input type="hidden" name="redirect" value="${req.originalUrl}">
+    <form method="POST" action="/login">
+        <input type="hidden" name="redirect" value="${safeUrl}">
         <input type="password" name="password" class="form-control mb-2" placeholder="Password" autofocus required>
         <button type="submit" class="btn btn-primary w-100">Login</button>
     </form>
@@ -39,7 +40,7 @@ router.get('/', async (req, res) => {
 </head><body class="bg-light d-flex align-items-center justify-content-center" style="min-height:100vh">
 <div class="card shadow-sm p-4" style="max-width:400px;width:100%">
     <h5 class="text-center mb-3">🔒 Dashboard Login</h5>
-    <form method="GET">
+    <form method="POST" action="/login">
         <input type="password" name="password" class="form-control mb-2" placeholder="Password" autofocus required>
         <button type="submit" class="btn btn-primary w-100">Login</button>
     </form>
@@ -125,8 +126,18 @@ router.post('/update', requireAuth, async (req, res) => {
     }
 });
 
+// ROUTE LOGIN - handle POST login form
+router.post('/login', async (req, res) => {
+    const { password, redirect } = req.body;
+    if (checkAuth({ query: { password }, headers: {} })) {
+        res.redirect(redirect || '/');
+    } else {
+        res.status(401).send('Password salah.');
+    }
+});
+
 // ROUTE HAPUS EVENT - requires auth
-router.get('/delete/:id', requireAuth, async (req, res) => {
+router.post('/delete/:id', requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
         return res.status(400).send("ID tidak valid.");
@@ -141,7 +152,7 @@ router.get('/delete/:id', requireAuth, async (req, res) => {
 });
 
 // ROUTE HAPUS TRANSAKSI - requires auth
-router.get('/hapus/:id', requireAuth, async (req, res) => {
+router.post('/hapus/:id', requireAuth, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) {
         return res.status(400).send("ID tidak valid.");

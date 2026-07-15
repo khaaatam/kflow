@@ -18,10 +18,10 @@ module.exports = async (client, msg, _args) => {
 
         const result = await model.generateContent(prompt);
         await react(msg, '✅');
-        msg.reply(result.response.text());
+        await msg.reply(result.response.text());
     } catch (e) {
         logger.error(e);
-        msg.reply('Gagal mikir.');
+        await msg.reply('Gagal mikir.');
     }
 };
 module.exports.metadata = { category: "AI", commands: [{ command: '!saran', desc: 'Minta saran balasan' }] };

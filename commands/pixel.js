@@ -75,7 +75,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
     } catch (error) {
         logger.error("Pixel Error:", error.message || error);
         logger.error("Pixel Stack:", error.stack);
-        msg.reply(`❌ Gagal render: ${error.message || 'Unknown error'}`);
+        await msg.reply(`❌ Gagal render: ${error.message || 'Unknown error'}`);
     }
 };
 

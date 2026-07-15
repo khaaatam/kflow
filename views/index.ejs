@@ -91,7 +91,10 @@
                                         onclick="editData('<%= d.id %>', '<%= d.jenis %>', '<%= d.nominal %>', '<%= d.keterangan %>', '<%= d.sumber %>', '<%= isoDate %>')">
                                         ✏️
                                     </button>
-                                    <a href="/hapus/<%= d.id %>?password=<%= password %>" class="btn btn-sm btn-light text-danger border ms-1" onclick="return confirm('Hapus?')">🗑️</a>
+                                    <form method="POST" action="/hapus/<%= d.id %>" style="display:inline" onsubmit="return confirm('Hapus?')">
+                                        <input type="hidden" name="password" value="<%= password %>">
+                                        <button type="submit" class="btn btn-sm btn-light text-danger border ms-1">🗑️</button>
+                                    </form>
                                 </td>
                             </tr>
                             <% }) %>
@@ -109,7 +112,8 @@
                     <h5 class="modal-title">➕ Input Manual</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="/add?password=<%= password %>" method="POST">
+                <form action="/add" method="POST">
+                    <input type="hidden" name="password" value="<%= password %>">
                     <div class="modal-body">
                         <div class="row g-2">
                             <div class="col-6 mb-2">
@@ -144,7 +148,8 @@
                     <h5 class="modal-title">✏️ Edit Transaksi</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <form action="/update?password=<%= password %>" method="POST">
+                <form action="/update" method="POST">
+                    <input type="hidden" name="password" value="<%= password %>">
                     <div class="modal-body">
                         <input type="hidden" name="id" id="editId">
                         

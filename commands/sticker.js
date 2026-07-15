@@ -74,10 +74,10 @@ module.exports = async (client, msg) => {
         } catch (e) {
             logger.error("Sticker Error:", e.message || e);
             await react(msg, '❌');
-            msg.reply('❌ Gagal bikin stiker.');
+            await msg.reply('❌ Gagal bikin stiker.');
         }
     } else {
-        msg.reply('Kirim gambar pake caption !sticker');
+        await msg.reply('Kirim gambar pake caption !sticker');
     }
 };
 module.exports.metadata = { category: "MEDIA", commands: [{ command: '!sticker', desc: 'Bikin Stiker', isPublic: true }] };

@@ -90,22 +90,22 @@ module.exports = async (client, msg, args, senderId) => {
 
     if (command === '!resetlogs') {
         await db.query("TRUNCATE TABLE full_chat_logs");
-        msg.reply("✅ Chat logs bersih.");
+        await msg.reply("✅ Chat logs bersih.");
         return true;
     }
 
     if (command === '!resetmemori') {
         await db.query("TRUNCATE TABLE memori");
-        msg.reply("🧠 Memori AI bersih.");
+        await msg.reply("🧠 Memori AI bersih.");
         return true;
     }
 
     if (command === '!resetfinance') {
         try {
             await db.query("TRUNCATE TABLE transaksi");
-            msg.reply("💸 Data keuangan berhasil di-reset (0 Rupiah).");
+            await msg.reply("💸 Data keuangan berhasil di-reset (0 Rupiah).");
         } catch (e) {
-            msg.reply("❌ Gagal reset finance: " + e.message);
+            await msg.reply("❌ Gagal reset finance: " + e.message);
         }
         return true;
     }
