@@ -57,6 +57,8 @@ module.exports = async (client, msg, args, senderId) => {
 
     if (isNaN(menit) || !pesan) return msg.reply('Format: `!ingetin [menit] [pesan]`\nContoh: `!ingetin 10 angkat jemuran`');
 
+    await msg.react('⏳');
+
     // 1. Hitung Waktu Target (Waktu Sekarang + X Menit)
     const targetDate = new Date(Date.now() + menit * 60 * 1000);
 
@@ -72,6 +74,7 @@ module.exports = async (client, msg, args, senderId) => {
         // 3. Pasang Timer (Pake ID dari database barusan)
         scheduleJob(client, result.insertId, senderId, pesan, targetDate);
 
+        await msg.react('✅');
         msg.reply(`✅ Siap! Gw ingetin *${pesan}* dalam ${menit} menit lagi.`);
     } catch (e) {
         logger.error(e);

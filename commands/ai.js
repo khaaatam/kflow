@@ -184,6 +184,7 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
 
             reply += `\n\n${botSignature}`;
 
+            await msg.react('✅');
             msg.reply(reply);
 
         } catch (e) {

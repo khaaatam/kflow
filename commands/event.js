@@ -16,15 +16,19 @@ module.exports = async (client, msg, args, senderId) => {
                 return msg.reply("❌ Format: `!event tambah YYYY-MM-DD Nama Event`");
             }
 
+            await msg.react('⏳');
             await db.query("INSERT INTO events (nama_event, tanggal, dibuat_oleh) VALUES (?, ?, ?)",
                 [eventName, dateStr, senderId]);
+            await msg.react('✅');
 
             return msg.reply(`✅ Event *"${eventName}"* (${dateStr}) disimpan.`);
         }
 
         // 2. LIST EVENT
         if (subCommand === 'list' || !subCommand) {
+            await msg.react('⏳');
             const [rows] = await db.query("SELECT * FROM events ORDER BY tanggal ASC");
+            await msg.react('✅');
             if (rows.length === 0) return msg.reply("Belum ada event. `!event tambah` dulu.");
 
             let pesan = "🗓️ *AGENDA MENDATANG* 🗓️\n\n";

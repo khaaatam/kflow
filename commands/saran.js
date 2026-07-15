@@ -16,6 +16,7 @@ module.exports = async (client, msg, args) => {
         const prompt = `Role: Teman curhat yang solutif.\nContext Chat:\n${history}\n${context}\nUser butuh saran balasan/solusi. Berikan 3 opsi balasan (Sopan, Santai, Lucu).`;
 
         const result = await model.generateContent(prompt);
+        await msg.react('✅');
         msg.reply(result.response.text());
     } catch (e) {
         logger.error(e);

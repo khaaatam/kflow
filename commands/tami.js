@@ -58,6 +58,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         const result = await ai.generateContent(prompt);
         let replyText = result.response.text();
 
+        await msg.react('✅');
         // Paksa huruf kecil biar otentik
         msg.reply(replyText.toLowerCase());
 

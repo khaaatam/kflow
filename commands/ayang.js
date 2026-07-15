@@ -81,6 +81,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         `;
 
         const result = await ai.generateContent(prompt);
+        await msg.react('✅');
         msg.reply(result.response.text());
 
     } catch (error) {
