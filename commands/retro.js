@@ -4,6 +4,7 @@ const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
+const downloadMedia = require('../lib/downloadMedia');
 
 module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => {
     const isMedia = msg.hasMedia;
@@ -17,7 +18,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
-        const media = await targetMsg.downloadMedia();
+        const media = await downloadMedia(targetMsg);
 
         if (!media.mimetype.includes('image')) return msg.reply("❌ Khusus Foto Bang! Kalau video pake !pixel");
 

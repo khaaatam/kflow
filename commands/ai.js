@@ -5,6 +5,7 @@ const config = require('../config');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const RateLimiter = require('../lib/rateLimiter');
+const downloadMedia = require('../lib/downloadMedia');
 
 // Rate limit: 5 AI requests per minute per user
 const aiLimiter = new RateLimiter(60000, 5);
@@ -165,10 +166,10 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
 
             let mediaData = null;
             if (hasMedia) {
-                mediaData = await msg.downloadMedia();
+                mediaData = await downloadMedia(msg);
             } else if (hasQuotedMedia) {
                 const quotedMsg = await msg.getQuotedMessage();
-                mediaData = await quotedMsg.downloadMedia();
+                mediaData = await downloadMedia(quotedMsg);
             }
 
             if (mediaData) {

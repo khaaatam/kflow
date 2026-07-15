@@ -4,6 +4,7 @@ const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
+const downloadMedia = require('../lib/downloadMedia');
 const ffmpeg = require('fluent-ffmpeg');
 
 const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
@@ -29,7 +30,7 @@ module.exports = async (client, msg) => {
         try {
             await react(msg, '⏳');
 
-            const media = await msg.downloadMedia();
+            const media = await downloadMedia(msg);
             if (!media) {
                 await react(msg, '❌');
                 return msg.reply('❌ Gagal download media.');
