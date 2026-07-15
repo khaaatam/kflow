@@ -59,6 +59,9 @@ const messageHandler = async (client, msg) => {
 
         const isGroup = msg.from.includes('@g.us');
 
+        // Debug: log semua senderId
+        logger.info(`[ID DEBUG] raw: ${rawSenderId} | clean: ${senderId} | inConfig: ${!!config.users[senderId]}`);
+
         // ============================================================
         // 🛑 1. THE GATEKEEPER (SMART FILTER)
         // ==========================================================
@@ -109,7 +112,7 @@ const messageHandler = async (client, msg) => {
         );
 
         if (!isRegisteredUser && !isPublicCommand && !isDownloaderLink) {
-            logger.debug(`[GUEST DROP] ID: ${senderId} | Nama: ${namaPengirim}`);
+            logger.info(`[GUEST DROP] ID: ${senderId} | Raw: ${rawSenderId} | Nama: ${namaPengirim}`);
             return;
         }
 
