@@ -53,8 +53,9 @@ const database = {
 };
 
 const ai = {
-    apiKey: process.env.GEMINI_API_KEY,
-    modelName: process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+    apiKey: process.env.ROUTER_API_KEY,
+    routerUrl: process.env.ROUTER_URL || 'http://localhost:20128/v1',
+    modelName: process.env.ROUTER_MODEL || 'gemini-2.5-flash'
 };
 
 const puppeteerExecutablePath = process.env.PUPPETEER_EXECUTABLE_PATH;

@@ -1,41 +1,40 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+require('dotenv').config();
+const OpenAI = require('openai');
 
-// MASUKIN API KEY LU DISINI (YANG DARI GOOGLE AI STUDIO)
-const genAI = new GoogleGenerativeAI("AIzaSyCAxtpRMP5F6ZZMaYq547vKVls2PUTQ_z4");
+const client = new OpenAI({
+    apiKey: process.env.ROUTER_API_KEY || 'sk-placeholder',
+    baseURL: process.env.ROUTER_URL || 'http://localhost:20128/v1'
+});
 
-async function listModels() {
-  try {
-    console.log("🔍 Sedang mengecek daftar model...");
-    const response = await genAI.getGenerativeModel({ model: "gemini-1.5-flash" }); 
-    // Kita tembak dummy request dulu atau cek list-nya lewat method khusus
-    // Note: Library Node.js gak punya method listModels langsung yg simpel, 
-    // jadi kita tes satu-satu model yang umum.
+const modelsToTry = [
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gpt-4o-mini',
+    'gpt-4o',
+    'claude-3-5-sonnet-20241022',
+    'deepseek-chat'
+];
 
-    const modelsToTry = [
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro",
-        "gemini-1.0-pro",
-        "gemini-pro"
-    ];
+async function checkModels() {
+    console.log('🔍 Checking models via 9router...\n');
 
-    for (const modelName of modelsToTry) {
+    for (const model of modelsToTry) {
         try {
-            const model = genAI.getGenerativeModel({ model: modelName });
-            // Kita coba generate satu kata "Halo" buat ngetes modelnya idup apa nggak
-            const result = await model.generateContent("Tes");
-            console.log(`✅ Model DITEMUKAN & AKTIF: ${modelName}`);
+            const result = await client.chat.completions.create({
+                model,
+                messages: [{ role: 'user', content: 'Hi' }],
+                max_tokens: 5
+            });
+            console.log(`✅ ${model} — ACTIVE`);
         } catch (error) {
-            if (error.message.includes("404")) {
-                console.log(`❌ Model TIDAK DITEMUKAN: ${modelName}`);
-            } else {
-                console.log(`⚠️ Model ${modelName} Error Lain: ${error.message}`);
-            }
+            const msg = error.status
+                ? `HTTP ${error.status}: ${error.message}`
+                : error.message;
+            console.log(`❌ ${model} — ${msg}`);
         }
     }
-  } catch (error) {
-    console.error("Error Fatal:", error);
-  }
 }
 
-listModels();
+checkModels();
