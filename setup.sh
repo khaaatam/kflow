@@ -37,7 +37,7 @@ info "Step 1/7: Install packages..."
 pkg update -y && pkg upgrade -y
 pkg install x11-repo -y
 pkg install nodejs-lts mariadb chromium git nano tmux openssh -y
-npm install -g pm2
+npm install -g pm2 pnpm
 ok "Packages terinstall"
 
 # ============================================
@@ -132,8 +132,8 @@ fi
 # ============================================
 # STEP 6: INSTALL NPM DEPENDENCIES
 # ============================================
-info "Step 6/7: npm install..."
-npm install
+info "Step 6/7: pnpm install..."
+pnpm install
 ok "Dependencies terinstall"
 
 # ============================================
