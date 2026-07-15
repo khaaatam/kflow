@@ -6,7 +6,15 @@ const { OVERDUE_EXPIRY_MINUTES, OVERDUE_STAGGER_MS } = require('../lib/constants
 // --- HELPER: PENJADWAL TUGAS ---
 let overdueCounter = 0;
 
-const toSQL = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
+const toSQL = (d) => {
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const da = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const mi = String(d.getMinutes()).padStart(2, '0');
+    const s = String(d.getSeconds()).padStart(2, '0');
+    return `${y}-${mo}-${da} ${h}:${mi}:${s}`;
+};
 
 // Hitung waktu berikutnya berdasarkan recurrence
 function getNextTime(recurrence, from) {

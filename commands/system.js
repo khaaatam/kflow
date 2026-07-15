@@ -66,6 +66,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         const isGuest = namaPengirim === 'Guest';
         const commandFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('.js'));
         const categories = {};
+        const filterCat = args[1]?.toUpperCase();
 
         const icons = {
             'KEUANGAN': '💰', 'AI': '🧠', 'DOWNLOADER': '📥',
@@ -96,14 +97,23 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         menu += `Halo ${namaPengirim}!\n`;
         menu += `─────────────────\n\n`;
 
-        for (const [cat, cmds] of Object.entries(categories)) {
-            if (cmds.length > 0) {
-                const icon = icons[cat] || '📦';
-                menu += `${icon} *${cat}*\n`;
-                cmds.forEach(c => {
-                    menu += `• *${c.command}* — ${c.desc}\n`;
-                });
-                menu += '\n';
+        if (filterCat && categories[filterCat]) {
+            const icon = icons[filterCat] || '📦';
+            menu += `${icon} *${filterCat}*\n`;
+            categories[filterCat].forEach(c => {
+                menu += `• *${c.command}* — ${c.desc}\n`;
+            });
+            menu += `\nGunakan \`!menu\` untuk melihat semua kategori.`;
+        } else {
+            for (const [cat, cmds] of Object.entries(categories)) {
+                if (cmds.length > 0) {
+                    const icon = icons[cat] || '📦';
+                    menu += `${icon} *${cat}*\n`;
+                    cmds.forEach(c => {
+                        menu += `• *${c.command}* — ${c.desc}\n`;
+                    });
+                    menu += '\n';
+                }
             }
         }
 
@@ -120,7 +130,7 @@ module.exports.metadata = {
     category: 'SYSTEM',
     commands: [
         { command: '!owner', desc: 'Kartu Nama Owner', isPublic: true },
-        { command: '!menu', desc: 'Daftar Menu', isPublic: true },
+        { command: '!menu', desc: 'Daftar Menu (opsi: !menu <kategori>)', isPublic: true },
         { command: '!ping', desc: 'Cek Sinyal', isPublic: true },
         { command: '!cekid', desc: 'Cek ID (sendiri/nomor)', isPublic: true }
     ]

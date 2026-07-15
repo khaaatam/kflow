@@ -60,6 +60,12 @@
                     <div class="stat-label">Events</div>
                 </div>
             </div>
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-dark"><%= stats.totalUsage %></div>
+                    <div class="stat-label">Commands</div>
+                </div>
+            </div>
         </div>
 
         <!-- CHARTS -->
@@ -98,6 +104,22 @@
             </div>
             <div class="col-md-7">
                 <div class="card shadow-sm h-100 p-3">
+                    <h6 class="text-center text-muted mb-3">Top Memory Users</h6>
+                    <div style="max-height: 200px; display: flex; justify-content: center;">
+                        <% if (stats.memPerUser.length > 0) { %>
+                            <canvas id="chartMemory"></canvas>
+                        <% } else { %>
+                            <p class="text-muted text-center mt-4">Belum ada data memori.</p>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- QUICK ACTIONS + USAGE -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-5">
+                <div class="card shadow-sm h-100 p-3">
                     <h6 class="text-center text-muted mb-3">Quick Actions</h6>
                     <div class="d-grid gap-2">
                         <button class="btn btn-primary shadow-sm fw-bold py-2" data-bs-toggle="modal" data-bs-target="#modalTambah">
@@ -107,9 +129,19 @@
                     </div>
                 </div>
             </div>
+            <div class="col-md-7">
+                <div class="card shadow-sm h-100 p-3">
+                    <h6 class="text-center text-muted mb-3">Top Commands</h6>
+                    <div style="max-height: 200px; display: flex; justify-content: center;">
+                        <% if (stats.topCommands.length > 0) { %>
+                            <canvas id="chartUsage"></canvas>
+                        <% } else { %>
+                            <p class="text-muted text-center mt-4">Belum ada data usage.</p>
+                        <% } %>
+                    </div>
+                </div>
+            </div>
         </div>
-
-        <!-- TRANSAKSI TABLE -->
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-bold py-3">📜 Riwayat Transaksi</div>
             <div class="card-body p-0">
@@ -264,6 +296,7 @@
         const dataOrang = <%- JSON.stringify(statsOrang).replace(/</g, '\\u003c') %>;
         const dataJenis = <%- JSON.stringify(statsJenis).replace(/</g, '\\u003c') %>;
         const memPerUser = <%- JSON.stringify(stats.memPerUser).replace(/</g, '\\u003c') %>;
+        const topCommands = <%- JSON.stringify(stats.topCommands).replace(/</g, '\\u003c') %>;
 
         // Pie (Orang)
         if (dataOrang.length > 0) {
@@ -296,6 +329,22 @@
                 data: {
                     labels: memPerUser.map(d => d.user),
                     datasets: [{ data: memPerUser.map(d => d.total), backgroundColor: '#0dcaf0', borderRadius: 5 }]
+                },
+                options: { 
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // Bar (Top Commands)
+        if (topCommands.length > 0) {
+            new Chart(document.getElementById('chartUsage'), {
+                type: 'bar',
+                data: {
+                    labels: topCommands.map(d => d.command),
+                    datasets: [{ data: topCommands.map(d => d.total), backgroundColor: '#6f42c1', borderRadius: 5 }]
                 },
                 options: { 
                     indexAxis: 'y',

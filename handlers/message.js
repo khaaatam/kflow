@@ -138,6 +138,12 @@ async function handleCommand(ctx, client, msg) {
                 logger.error(`Cmd Error [${commandName}]: ${e.message}`);
             }
 
+            // Track usage (fire-and-forget)
+            db.query(
+                'INSERT INTO command_usage (command, user_name, is_group) VALUES (?, ?, ?)',
+                [commandName, ctx.namaPengirim, ctx.isGroup ? 1 : 0]
+            ).catch(() => {});
+
             cooldowns.set(ctx.rawSenderId, Date.now());
             setTimeout(() => cooldowns.delete(ctx.rawSenderId), COMMAND_COOLDOWN_MS);
             return false;

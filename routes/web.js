@@ -122,6 +122,12 @@ router.get('/', async (req, res) => {
         const [reminderCount] = await db.query("SELECT COUNT(*) as total FROM reminders WHERE status = 'pending'");
         const [stickerCount] = await db.query('SELECT COUNT(*) as total FROM sticker_packs');
 
+        // Usage stats
+        const [topCommands] = await db.query(
+            'SELECT command, COUNT(*) as total FROM command_usage GROUP BY command ORDER BY total DESC LIMIT 10'
+        );
+        const [totalUsage] = await db.query('SELECT COUNT(*) as total FROM command_usage');
+
         res.render('index', {
             data: events,
             statsOrang: statsOrang || [],
@@ -134,7 +140,9 @@ router.get('/', async (req, res) => {
                 transactions: transCount[0]?.total || 0,
                 reminders: reminderCount[0]?.total || 0,
                 stickers: stickerCount[0]?.total || 0,
-                memPerUser: memPerUser || []
+                memPerUser: memPerUser || [],
+                topCommands: topCommands || [],
+                totalUsage: totalUsage[0]?.total || 0
             }
         });
     } catch (e) {
@@ -145,7 +153,7 @@ router.get('/', async (req, res) => {
             statsJenis: [],
             error: 'Gagal mengambil data dari database.',
             password: '',
-            stats: { chats: 0, memories: 0, transactions: 0, reminders: 0, stickers: 0, memPerUser: [] }
+            stats: { chats: 0, memories: 0, transactions: 0, reminders: 0, stickers: 0, memPerUser: [], topCommands: [], totalUsage: 0 }
         });
     }
 });

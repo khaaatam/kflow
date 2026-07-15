@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS command_usage (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    command VARCHAR(50) NOT NULL,
+    user_name VARCHAR(100),
+    is_group BOOLEAN DEFAULT 0,
+    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
