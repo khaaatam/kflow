@@ -5,6 +5,7 @@ const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
+const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 const ffmpeg = require('fluent-ffmpeg');
 
 const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
@@ -48,12 +49,9 @@ module.exports = async (client, msg) => {
             }
 
             // Convert ke WEBP pake ffmpeg (Node.js side, bukan Puppeteer)
-            const tempDir = path.join(__dirname, '../temp');
-            if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
-
             const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
-            const inputPath = path.join(tempDir, `stk_in_${Date.now()}.${ext}`);
-            const outputPath = path.join(tempDir, `stk_out_${Date.now()}.webp`);
+            const inputPath = tempPath('stk_in', ext);
+            const outputPath = tempPath('stk_out', 'webp');
 
             fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
             await toWebp(inputPath, outputPath);
@@ -67,8 +65,7 @@ module.exports = async (client, msg) => {
             });
 
             // Cleanup
-            try { fs.unlinkSync(inputPath); } catch { /* ignore */ }
-            try { fs.unlinkSync(outputPath); } catch { /* ignore */ }
+            cleanupFiles(inputPath, outputPath);
 
             await react(msg, '✅');
         } catch (e) {

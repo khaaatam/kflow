@@ -1,7 +1,20 @@
-const moment = require('moment');
 const db = require('../lib/database');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
+
+// Helper: hitung selisih hari dari tanggal ke today (midnight)
+const diffDaysFromToday = (dateStr) => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const target = new Date(dateStr);
+    target.setHours(0, 0, 0, 0);
+    return Math.round((target - today) / 86400000);
+};
+
+// Helper: format tanggal ke "DD MMM YYYY" (Indo)
+const fmtDate = (dateStr) => {
+    return new Date(dateStr).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
 module.exports = async (client, msg, args, senderId) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
@@ -33,16 +46,14 @@ module.exports = async (client, msg, args, senderId) => {
             if (rows.length === 0) return msg.reply("Belum ada event. `!event tambah` dulu.");
 
             let pesan = "🗓️ *AGENDA MENDATANG* 🗓️\n\n";
-            const today = moment().startOf('day');
 
             rows.forEach(row => {
-                const eventDate = moment(row.tanggal);
-                const diffDays = eventDate.diff(today, 'days');
+                const diffDays = diffDaysFromToday(row.tanggal);
 
                 let status = diffDays < 0 ? "✅ (Lewat)" : diffDays === 0 ? "🔥 *HARI INI!*" : `⏳ H-${diffDays}`;
 
                 if (diffDays >= -7) { // Tampilkan yg baru lewat seminggu atau akan datang
-                    pesan += `• *${row.nama_event}*\n   📅 ${moment(row.tanggal).format('DD MMM YYYY')} | ${status}\n`;
+                    pesan += `• *${row.nama_event}*\n   📅 ${fmtDate(row.tanggal)} | ${status}\n`;
                 }
             });
             return client.sendMessage(chatDestination, pesan);
@@ -68,18 +79,20 @@ module.exports.cekEventHarian = async (client, dbParam, logNumber) => {
     try {
         const database = dbParam || db; // Pake DB yg dikirim app.js atau yg di-require
         const [rows] = await database.query("SELECT * FROM events");
-        const today = moment().startOf('day');
 
         for (const row of rows) {
-            const eventDate = moment(row.tanggal);
-            const diffDays = eventDate.diff(today, 'days');
+            const diffDays = diffDaysFromToday(row.tanggal);
 
             if ([7, 3, 1, 0].includes(diffDays)) {
                 let msg = diffDays === 0
                     ? `🚨 *HARI INI!* "${row.nama_event}"`
                     : `⏰ *REMINDER H-${diffDays}*: "${row.nama_event}"`;
 
-                if (logNumber) await client.sendMessage(logNumber, msg);
+                if (logNumber) {
+                    const baseId = logNumber.replace(/@.*/, '');
+                    try { await client.sendMessage(`${baseId}@c.us`, msg); }
+                    catch { try { await client.sendMessage(`${baseId}@lid`, msg); } catch { /* skip */ } }
+                }
             }
         }
     } catch (e) { logger.error("Event Check Error:", e); }

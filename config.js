@@ -65,3 +65,20 @@ const system = {
 };
 
 module.exports = { creator, botName, users, ownerNumber, database, ai, system };
+
+// --- ENV VALIDATION (startup warning) ---
+const logger = require('./lib/logger');
+const missing = [];
+if (!process.env.BOT_USERS) missing.push('BOT_USERS');
+if (!process.env.BOT_OWNER_NUMBERS) missing.push('BOT_OWNER_NUMBERS');
+if (!process.env.ROUTER_API_KEY) missing.push('ROUTER_API_KEY');
+if (!process.env.DB_HOST) missing.push('DB_HOST');
+if (missing.length) {
+    logger.warn(`⚠️ Missing env vars: ${missing.join(', ')}. Check .env file!`);
+}
+if (Object.keys(users).length === 0) {
+    logger.warn('⚠️ BOT_USERS kosong! Tidak ada user terdaftar. Bot tidak akan bisa memproses pesan.');
+}
+if (ownerNumber.length === 0) {
+    logger.warn('⚠️ BOT_OWNER_NUMBERS kosong! Owner commands (!update, !restart) tidak akan bisa diakses.');
+}

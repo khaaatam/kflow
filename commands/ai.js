@@ -6,6 +6,7 @@ const logger = require('../lib/logger');
 const react = require('../lib/react');
 const RateLimiter = require('../lib/rateLimiter');
 const downloadMedia = require('../lib/downloadMedia');
+const { getMediaContext } = require('../lib/mediaUtils');
 
 // Rate limit: 5 AI requests per minute per user
 const aiLimiter = new RateLimiter(60000, 5);
@@ -128,10 +129,9 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
             return msg.reply("⏳ Terlalu banyak request AI. Tunggu sebentar.");
         }
 
-        const hasMedia = msg.hasMedia;
-        const hasQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
+        const { isMedia, isQuotedMedia, targetMsg } = await getMediaContext(msg);
 
-        if (!content && !hasMedia && !hasQuotedMedia) {
+        if (!content && !isMedia && !isQuotedMedia) {
             return msg.reply("Mau nanya apa? (Kirim teks atau gambar)");
         }
 
@@ -147,7 +147,7 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
             }
 
             let userPrompt = content;
-            if (!userPrompt && (hasMedia || hasQuotedMedia)) {
+            if (!userPrompt && (isMedia || isQuotedMedia)) {
                 userPrompt = "Deskripsikan gambar ini secara detail. Apa yang kamu lihat?";
             }
 
@@ -184,11 +184,8 @@ User (${namaPengirim}): "${userPrompt}"`;
             ];
 
             let mediaData = null;
-            if (hasMedia) {
-                mediaData = await downloadMedia(msg);
-            } else if (hasQuotedMedia) {
-                const quotedMsg = await msg.getQuotedMessage();
-                mediaData = await downloadMedia(quotedMsg);
+            if (isMedia || isQuotedMedia) {
+                mediaData = await downloadMedia(targetMsg);
             }
 
             if (mediaData) {

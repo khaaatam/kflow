@@ -1,10 +1,10 @@
 const ffmpeg = require('fluent-ffmpeg');
 const fs = require('fs');
-const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
+const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 
 module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => {
     const isMedia = msg.hasMedia;
@@ -22,15 +22,8 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
 
         if (!media.mimetype.includes('image')) return msg.reply("❌ Khusus Foto Bang! Kalau video pake !pixel");
 
-        // 1. SETUP FOLDER TEMP
-        const tempDir = path.join(__dirname, '../temp');
-        if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir, { recursive: true });
-        }
-
-        const timestamp = Date.now();
-        const inputPath = path.join(tempDir, `in_${timestamp}.jpg`);
-        const outputPath = path.join(tempDir, `out_${timestamp}.jpg`);
+        const inputPath = tempPath('retro_in', 'jpg');
+        const outputPath = tempPath('retro_out', 'jpg');
 
         // Simpan file sementara
         fs.writeFileSync(inputPath, media.data, 'base64');
@@ -77,7 +70,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
             });
 
             // 5. BERSIH-BERSIH
-            try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch { /* cleanup best-effort */ }
+            cleanupFiles(inputPath, outputPath);
             await react(msg, '✅');
         });
 
