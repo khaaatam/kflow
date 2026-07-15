@@ -65,6 +65,7 @@ fi
 # Kalau sudah ada di tmux, jalanin langsung
 if [ -n "$TMUX" ]; then
     echo -e "${CYAN}Inside tmux session — starting bot...${NC}"
+    pm2 flush k-flow 2>/dev/null
     if pm2 list 2>/dev/null | grep -q "k-flow"; then
         pm2 restart k-flow
     else
@@ -116,6 +117,7 @@ if command -v tmux &>/dev/null; then
 else
     # Fallback tanpa tmux
     echo -e "${YELLOW}tmux not found. Starting directly...${NC}"
+    pm2 flush k-flow 2>/dev/null
     if pm2 list 2>/dev/null | grep -q "k-flow"; then
         pm2 restart k-flow
     else
