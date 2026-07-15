@@ -2,17 +2,22 @@ const logger = require('../lib/logger');
 const react = require('../lib/react');
 
 // ============================================================
-// HELPER: CEK ADMIN
+// HELPER: CEK ADMIN (pake raw sender ID, bukan contact.id)
 // ============================================================
 async function isAdmin(client, msg) {
     try {
         const chat = await msg.getChat();
         if (!chat.isGroup) return false;
 
-        const contact = await msg.getContact();
-        const senderNumber = contact.id._serialized;
-        return chat.participants.some(p => p.id._serialized === senderNumber && p.isAdmin);
-    } catch {
+        // Pake msg.author atau msg.from — lebih reliable di multi-device
+        const senderId = msg.author || msg.from;
+
+        return chat.participants.some(p => {
+            const participantId = p.id._serialized || p.id;
+            return participantId === senderId && p.isAdmin;
+        });
+    } catch (e) {
+        logger.error('isAdmin check failed:', e.message);
         return false;
     }
 }
@@ -42,12 +47,13 @@ async function handleKick(client, msg, _args) {
     const targetId = mentionedIds[0];
 
     // Gak bisa kick diri sendiri
-    if (targetId === msg.author) {
+    const senderId = msg.author || msg.from;
+    if (targetId === senderId) {
         return msg.reply('❌ Gak bisa kick diri sendiri.');
     }
 
     // Cek apakah target admin
-    const targetParticipant = chat.participants.find(p => p.id._serialized === targetId);
+    const targetParticipant = chat.participants.find(p => (p.id._serialized || p.id) === targetId);
     if (targetParticipant && targetParticipant.isAdmin) {
         return msg.reply('❌ Gak bisa kick admin lain.');
     }
@@ -84,13 +90,12 @@ async function handleMute(client, msg, args) {
 
     try {
         const chat = await msg.getChat();
-        // Set announcement mode — hanya admin yang bisa kirim pesan
         await chat.setMessagesAdmin(chat.id._serialized);
 
         await react(msg, '🔇');
         await msg.reply(`🔇 *Group di-mute* selama ${menit} menit.\nHanya admin yang bisa kirim pesan.`);
 
-        // Auto-unmute setelah waktu habis
+        // Auto-unmute
         setTimeout(async () => {
             try {
                 const freshChat = await client.getChatById(msg.from);
@@ -141,7 +146,6 @@ async function handleGroupInfo(client, msg) {
         let info = `👥 *GROUP INFO*\n`;
         info += `📛 Nama: ${chat.name}\n`;
         info += `👥 Anggota: ${chat.participants.length} (${admins} admin, ${members} member)\n`;
-        info += `🔒 Anti-Edit: ${chat.groupMetadata?.restrict ? 'Ya' : 'Tidak'}\n`;
         info += `📢 Announce: ${chat.groupMetadata?.announce ? 'Ya (mute)' : 'Tidak'}`;
 
         return msg.reply(info);

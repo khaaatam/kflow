@@ -92,19 +92,16 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
             } catch { /* skip unreadable */ }
         }
 
-        // Build menu
-        let menu = `┌─────────────────────────┐\n`;
-        menu += `│  🤖 *${config.botName}*    │\n`;
-        menu += `│  Halo ${namaPengirim}!   │\n`;
-        menu += `└─────────────────────────┘\n\n`;
+        let menu = `🤖 *${config.botName}*\n`;
+        menu += `Halo ${namaPengirim}!\n`;
+        menu += `─────────────────\n\n`;
 
         for (const [cat, cmds] of Object.entries(categories)) {
             if (cmds.length > 0) {
                 const icon = icons[cat] || '📦';
                 menu += `${icon} *${cat}*\n`;
-                menu += `${'─'.repeat(20)}\n`;
                 cmds.forEach(c => {
-                    menu += `  • *${c.command}* — ${c.desc}\n`;
+                    menu += `• *${c.command}* — ${c.desc}\n`;
                 });
                 menu += '\n';
             }
