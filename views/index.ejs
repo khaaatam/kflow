@@ -1,27 +1,70 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <title>Keuangan Couple 👩‍❤️‍👨</title>
+    <title>K-Flow Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .card { border-radius: 15px; border: none; }
-        .btn-circle { border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+        .stat-card { text-align: center; padding: 15px; }
+        .stat-number { font-size: 28px; font-weight: bold; }
+        .stat-label { font-size: 12px; color: #6c757d; }
     </style>
 </head>
 <body class="bg-light p-3">
-    <div class="container" style="max-width: 800px;">
+    <div class="container" style="max-width: 900px;">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="fw-bold text-primary">💰 Dompet Couple</h3>
+            <h4 class="fw-bold text-primary">🤖 K-Flow Dashboard</h4>
             <div>
                 <span class="badge bg-success rounded-pill">Bot On</span>
                 <a href="/" class="btn btn-sm btn-outline-primary ms-1">🔄</a>
             </div>
         </div>
 
+        <!-- STATS CARDS -->
         <div class="row g-3 mb-4">
-            <div class="col-md-6">
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-primary"><%= stats.chats %></div>
+                    <div class="stat-label">Chats</div>
+                </div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-info"><%= stats.memories %></div>
+                    <div class="stat-label">Memories</div>
+                </div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-success"><%= stats.transactions %></div>
+                    <div class="stat-label">Transaksi</div>
+                </div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-warning"><%= stats.reminders %></div>
+                    <div class="stat-label">Reminders</div>
+                </div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-danger"><%= stats.stickers %></div>
+                    <div class="stat-label">Stickers</div>
+                </div>
+            </div>
+            <div class="col-4 col-md-2">
+                <div class="card shadow-sm stat-card">
+                    <div class="stat-number text-secondary"><%= data.length %></div>
+                    <div class="stat-label">Events</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-5">
                 <div class="card shadow-sm h-100 p-3">
                     <h6 class="text-center text-muted mb-3">Siapa Paling Boros?</h6>
                     <div style="max-height: 200px; display: flex; justify-content: center;">
@@ -29,22 +72,44 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-7">
                 <div class="card shadow-sm h-100 p-3">
-                    <h6 class="text-center text-muted mb-3">Cashflow</h6>
+                    <h6 class="text-center text-muted mb-3">Top Memory Users</h6>
                     <div style="max-height: 200px; display: flex; justify-content: center;">
-                        <canvas id="chartCashflow"></canvas>
+                        <% if (stats.memPerUser.length > 0) { %>
+                            <canvas id="chartMemory"></canvas>
+                        <% } else { %>
+                            <p class="text-muted text-center mt-4">Belum ada data memori.</p>
+                        <% } %>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="d-grid gap-2 mb-4">
-            <button class="btn btn-primary shadow-sm fw-bold py-2" data-bs-toggle="modal" data-bs-target="#modalTambah">
-                ➕ Tambah Transaksi Manual
-            </button>
+        <!-- CASHFLOW -->
+        <div class="row g-3 mb-4">
+            <div class="col-md-5">
+                <div class="card shadow-sm h-100 p-3">
+                    <h6 class="text-center text-muted mb-3">Cashflow</h6>
+                    <div style="max-height: 180px; display: flex; justify-content: center;">
+                        <canvas id="chartCashflow"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7">
+                <div class="card shadow-sm h-100 p-3">
+                    <h6 class="text-center text-muted mb-3">Quick Actions</h6>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-primary shadow-sm fw-bold py-2" data-bs-toggle="modal" data-bs-target="#modalTambah">
+                            ➕ Tambah Transaksi
+                        </button>
+                        <a href="/health" class="btn btn-outline-success btn-sm" target="_blank">💓 Health Check</a>
+                    </div>
+                </div>
+            </div>
         </div>
 
+        <!-- TRANSAKSI TABLE -->
         <div class="card shadow-sm">
             <div class="card-header bg-white fw-bold py-3">📜 Riwayat Transaksi</div>
             <div class="card-body p-0">
@@ -61,10 +126,7 @@
                         </thead>
                         <tbody>
                             <% data.forEach(d => { 
-                                // Format Tanggal buat HTML input (YYYY-MM-DDTHH:mm)
                                 const rawDate = new Date(d.tanggal);
-                                // Trik biar jamnya pas sama WIB (Offset +7 jam manual kalo di server UTC, atau pake toISOString kalo lokal bener)
-                                // Kita pake trik slice sederhana:
                                 const isoDate = new Date(rawDate.getTime() - (rawDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
                             %>
                             <tr>
@@ -105,6 +167,7 @@
         </div>
     </div>
 
+    <!-- MODAL TAMBAH -->
     <div class="modal fade" id="modalTambah" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -141,6 +204,7 @@
         </div>
     </div>
 
+    <!-- MODAL EDIT -->
     <div class="modal fade" id="modalEdit" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -197,45 +261,57 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Data Grafik (escaped to prevent XSS)
         const dataOrang = <%- JSON.stringify(statsOrang).replace(/</g, '\\u003c') %>;
         const dataJenis = <%- JSON.stringify(statsJenis).replace(/</g, '\\u003c') %>;
+        const memPerUser = <%- JSON.stringify(stats.memPerUser).replace(/</g, '\\u003c') %>;
 
-        // Grafik Pie (Orang)
-        new Chart(document.getElementById('chartBoros'), {
-            type: 'pie',
-            data: {
-                labels: dataOrang.map(d => d.sumber),
-                datasets: [{
-                    data: dataOrang.map(d => d.total),
-                    backgroundColor: ['#0d6efd', '#dc3545', '#ffc107'], hoverOffset: 4
-                }]
-            },
-            options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
-        });
+        // Pie (Orang)
+        if (dataOrang.length > 0) {
+            new Chart(document.getElementById('chartBoros'), {
+                type: 'pie',
+                data: {
+                    labels: dataOrang.map(d => d.sumber),
+                    datasets: [{ data: dataOrang.map(d => d.total), backgroundColor: ['#0d6efd', '#dc3545', '#ffc107'], hoverOffset: 4 }]
+                },
+                options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+            });
+        }
 
-        // Grafik Donut (Cashflow)
-        new Chart(document.getElementById('chartCashflow'), {
-            type: 'doughnut',
-            data: {
-                labels: dataJenis.map(d => d.jenis.toUpperCase()),
-                datasets: [{
-                    data: dataJenis.map(d => d.total),
-                    backgroundColor: ['#198754', '#dc3545'], hoverOffset: 4
-                }]
-            },
-            options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
-        });
+        // Donut (Cashflow)
+        if (dataJenis.length > 0) {
+            new Chart(document.getElementById('chartCashflow'), {
+                type: 'doughnut',
+                data: {
+                    labels: dataJenis.map(d => d.jenis.toUpperCase()),
+                    datasets: [{ data: dataJenis.map(d => d.total), backgroundColor: ['#198754', '#dc3545'], hoverOffset: 4 }]
+                },
+                options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 12 } } } }
+            });
+        }
 
-        // LOGIC TOMBOL EDIT (Masukin data ke modal)
+        // Bar (Memory Users)
+        if (memPerUser.length > 0) {
+            new Chart(document.getElementById('chartMemory'), {
+                type: 'bar',
+                data: {
+                    labels: memPerUser.map(d => d.user),
+                    datasets: [{ data: memPerUser.map(d => d.total), backgroundColor: '#0dcaf0', borderRadius: 5 }]
+                },
+                options: { 
+                    indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true } }
+                }
+            });
+        }
+
         function editData(id, jenis, nominal, ket, sumber, tanggal) {
             document.getElementById('editId').value = id;
             document.getElementById('editJenis').value = jenis;
             document.getElementById('editNominal').value = nominal;
             document.getElementById('editKet').value = ket;
-            document.getElementById('editSumber').value = sumber; // Set Siapa
-            document.getElementById('editTanggal').value = tanggal; // Set Kapan
-            
+            document.getElementById('editSumber').value = sumber;
+            document.getElementById('editTanggal').value = tanggal;
             new bootstrap.Modal(document.getElementById('modalEdit')).show();
         }
     </script>

@@ -10,23 +10,25 @@ const messageHandler = require('./handlers/message');
 const os = require('os');
 const isWindows = os.platform() === 'win32';
 
-
-// --- LOAD FITUR BACKGROUND (Cuma ini yang perlu di-require manual) ---
+// --- LOAD FITUR BACKGROUND ---
 const reminderCommand = require('./commands/reminder');
 const eventCommand = require('./commands/event');
 const Memory = require('./models/Memory');
 
-// --- 1. INISIALISASI DATABASE (WAJIB ADA) ---
-const dbReady = (async () => {
+// --- 1. INISIALISASI DATABASE (fire-and-forget, gak block WhatsApp init) ---
+let dbReady = false;
+(async () => {
     try {
         await db.init();
         await Memory.cleanup();
+        dbReady = true;
+        logger.info('Database Siap.');
     } catch (e) {
-        logger.error("DB Init Error:", e.message);
+        logger.error('DB Init Error:', e.message);
     }
 })();
 
-// --- 2. SETUP SERVER WEB (Opsional buat Dashboard) ---
+// --- 2. SETUP SERVER WEB ---
 const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -60,38 +62,33 @@ client.on('qr', (qr) => {
 client.on('ready', async () => {
     const cmdCount = messageHandler.commands ? messageHandler.commands.size : 0;
 
-    // Tunggu DB ready sebelum restore reminder/event
-    await dbReady;
-
     logger.info(`${config.botName} Siap Melayani!`);
     logger.info('------------------------------------------------');
     logger.info(`Web Dashboard: http://localhost:${config.system.port}`);
-    logger.info(`Handler: Siap memproses ${cmdCount} Command Otomatis`);
-    logger.info('Cron Job: Event & Reminder Aktif');
+    logger.info(`Handler: Siap memproses ${cmdCount} Command`);
     logger.info('------------------------------------------------');
 
-    // Fix Bug "Send Seen"
-    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch { /* sendSeen fix is best-effort */ }
+    // Fix "Send Seen"
+    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch { /* best-effort */ }
 
     // Notif ke Owner (try @c.us first, fallback to @lid)
     if (config.system.logNumber) {
-        const logMsg = `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart & database terhubung.`;
+        const logMsg = `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart.`;
         const baseId = config.system.logNumber.replace(/@.*/, '');
-
-        const trySend = async (id) => {
-            try { await client.sendMessage(id, logMsg); return true; }
-            catch { return false; }
-        };
-
+        const trySend = async (id) => { try { await client.sendMessage(id, logMsg); return true; } catch { return false; } };
         const sent = await trySend(`${baseId}@c.us`) || await trySend(`${baseId}@lid`);
-        if (sent) logger.info("Notif ke owner terkirim");
-        else logger.warn("Gagal kirim notif ke owner (coba @c.us & @lid)");
+        if (sent) logger.info('Notif ke owner terkirim');
+        else logger.warn('Gagal kirim notif ke owner');
     }
 
-    // Restore Reminder yang tertunda (Background Task)
-    reminderCommand.restoreReminders(client, db);
+    // Restore reminders (jalan kalau DB udah ready)
+    if (dbReady) {
+        reminderCommand.restoreReminders(client, db);
+    } else {
+        logger.warn('DB belum ready, skip restore reminders');
+    }
 
-    // Cek Event Harian tiap jam 7 pagi (cek tiap 60 detik)
+    // Event checker (tiap jam 7 pagi)
     const { EVENT_CHECK_HOUR, EVENT_CHECK_MINUTE, EVENT_CHECK_SECOND_MAX } = require('./lib/constants');
     let lastEventDate = null;
     setInterval(() => {
@@ -99,7 +96,7 @@ client.on('ready', async () => {
         const today = now.toDateString();
         if (now.getHours() === EVENT_CHECK_HOUR && now.getMinutes() === EVENT_CHECK_MINUTE && now.getSeconds() < EVENT_CHECK_SECOND_MAX && lastEventDate !== today) {
             lastEventDate = today;
-            eventCommand.cekEventHarian(client, db, config.system.logNumber);
+            if (dbReady) eventCommand.cekEventHarian(client, db, config.system.logNumber);
         }
     }, 60000);
 });
@@ -113,51 +110,32 @@ client.on('message_create', async (msg) => {
     }
 });
 
-// ============================================================
-// 🧹 FITUR TAMBAHAN: AUTO CLEAN TEMP (SAYA SELIPIN DISINI)
-// ============================================================
-// Ini gak bakal ganggu fitur lain, cuma jalan sekali pas start
+// --- 5. AUTO CLEAN TEMP ---
 const cleanTempFolder = () => {
     const tempDir = path.join(__dirname, 'temp');
     if (fs.existsSync(tempDir)) {
-        const files = fs.readdirSync(tempDir);
-        files.forEach(file => {
-            // Hapus cuma file media sisa (biar storage gak penuh)
-            if (file.endsWith('.mp4') || file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.webp')) {
-                try {
-                    fs.unlinkSync(path.join(tempDir, file));
-                } catch { /* temp file already removed */ }
+        fs.readdirSync(tempDir).forEach(file => {
+            if (/\.(mp4|png|jpg|webp)$/i.test(file)) {
+                try { fs.unlinkSync(path.join(tempDir, file)); } catch { /* ignore */ }
             }
         });
     } else {
-        try { fs.mkdirSync(tempDir); } catch { /* dir exists */ }
+        try { fs.mkdirSync(tempDir); } catch { /* exists */ }
     }
 };
-// Jalankan pembersihan
 cleanTempFolder();
-// ============================================================
 
-// Start Client & Web (parallel — DB dan WhatsApp init jalan bareng)
+// --- START ---
 (async () => {
-    // DB dan client init jalan BARENG, gak nunggu satu sama lain
     client.initialize();
     const server = app.listen(config.system.port, () => logger.info(`Server Web jalan di Port ${config.system.port}`));
 
-    // Graceful shutdown
     const shutdown = async (signal) => {
-        logger.info(`${signal} received. Shutting down gracefully...`);
-        server.close(() => {
-            logger.info('HTTP server closed.');
-        });
-        try {
-            await client.destroy();
-            logger.info('WhatsApp client destroyed.');
-        } catch (e) {
-            logger.error('Error destroying client:', e.message);
-        }
+        logger.info(`${signal} received. Shutting down...`);
+        server.close(() => logger.info('HTTP server closed.'));
+        try { await client.destroy(); } catch { /* ignore */ }
         process.exit(0);
     };
-
     process.on('SIGINT', () => shutdown('SIGINT'));
     process.on('SIGTERM', () => shutdown('SIGTERM'));
 })();

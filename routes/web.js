@@ -112,12 +112,30 @@ router.get('/', async (req, res) => {
             'SELECT jenis, SUM(nominal) as total FROM transaksi GROUP BY jenis'
         );
 
+        // Dashboard stats
+        const [chatCount] = await db.query('SELECT COUNT(*) as total FROM full_chat_logs');
+        const [memoryCount] = await db.query('SELECT COUNT(*) as total FROM memori');
+        const [memPerUser] = await db.query(
+            'SELECT user, COUNT(*) as total FROM memori GROUP BY user ORDER BY total DESC LIMIT 5'
+        );
+        const [transCount] = await db.query('SELECT COUNT(*) as total FROM transaksi');
+        const [reminderCount] = await db.query("SELECT COUNT(*) as total FROM reminders WHERE status = 'pending'");
+        const [stickerCount] = await db.query('SELECT COUNT(*) as total FROM sticker_packs');
+
         res.render('index', {
             data: events,
             statsOrang: statsOrang || [],
             statsJenis: statsJenis || [],
             title: 'K-Flow Dashboard',
-            password: ''
+            password: '',
+            stats: {
+                chats: chatCount[0]?.total || 0,
+                memories: memoryCount[0]?.total || 0,
+                transactions: transCount[0]?.total || 0,
+                reminders: reminderCount[0]?.total || 0,
+                stickers: stickerCount[0]?.total || 0,
+                memPerUser: memPerUser || []
+            }
         });
     } catch (e) {
         logger.error('Error Web Dashboard:', e);
@@ -126,7 +144,8 @@ router.get('/', async (req, res) => {
             statsOrang: [],
             statsJenis: [],
             error: 'Gagal mengambil data dari database.',
-            password: ''
+            password: '',
+            stats: { chats: 0, memories: 0, transactions: 0, reminders: 0, stickers: 0, memPerUser: [] }
         });
     }
 });
