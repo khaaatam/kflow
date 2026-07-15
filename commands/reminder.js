@@ -80,11 +80,43 @@ const scheduleJob = (client, id, userId, pesan, waktuEksekusi, recurrence) => {
 
 // --- COMMAND UTAMA (!ingetin) ---
 module.exports = async (client, msg, args, senderId) => {
-    // Format: !ingetin [menit] [pesan]
-    // Format: !ingetin daily HH.MM [pesan]
-    // Format: !ingetin weekly <day> HH.MM [pesan]
-
     const sub = args[1];
+
+    // --- LIST REMINDERS ---
+    if (sub === 'list' || sub === 'lihat') {
+        const [rows] = await db.query(
+            "SELECT id, pesan, waktu_eksekusi, recurrence, status FROM reminders WHERE user_id = ? AND status = 'pending' ORDER BY waktu_eksekusi ASC",
+            [senderId]
+        );
+
+        if (rows.length === 0) return msg.reply('📋 Gak ada reminder aktif.');
+
+        const lines = rows.map((r, i) => {
+            const tgl = new Date(r.waktu_eksekusi).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            const badge = r.recurrence ? ` 🔄${r.recurrence}` : '';
+            return `${i + 1}. [ID:${r.id}] *${r.pesan}*\n   📅 ${tgl}${badge}`;
+        });
+
+        return msg.reply(`📋 *REMINDER AKTIF* (${rows.length})\n\n${lines.join('\n\n')}\n\nKetik *!ingetin hapus <ID>* buat hapus.`);
+    }
+
+    // --- HAPUS REMINDER ---
+    if (sub === 'hapus' || sub === 'del' || sub === 'delete') {
+        const id = parseInt(args[2]);
+        if (isNaN(id)) return msg.reply('ID mana? Cek `!ingetin list` dulu.');
+
+        const [rows] = await db.query(
+            "SELECT id, pesan, status FROM reminders WHERE id = ? AND user_id = ?",
+            [id, senderId]
+        );
+
+        if (rows.length === 0) return msg.reply('❌ Reminder gak ditemukan atau bukan milik lu.');
+        if (rows[0].status !== 'pending') return msg.reply('Reminder itu udah selesai/dihapus.');
+
+        await db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
+        await react(msg, '✅');
+        return msg.reply(`🗑️ Reminder *"${rows[0].pesan}"* (ID:${id}) dihapus.`);
+    }
     let recurrence = null;
     let targetDate = null;
     let pesan = '';
@@ -204,5 +236,5 @@ module.exports.restoreReminders = async (client) => {
 
 module.exports.metadata = {
     category: 'LAINNYA',
-    commands: [{ command: '!ingetin', desc: 'Set Reminder (sekali/harian/mingguan/bulanan)' }]
+    commands: [{ command: '!ingetin', desc: 'Reminder (list/hapus/daily/weekly/monthly)' }]
 };

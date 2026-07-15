@@ -9,7 +9,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
     // --- PING ---
     if (command === '!ping') {
         const start = Date.now();
-        await client.sendMessage(msg.from, "Pong!");
+        await client.sendMessage(msg.from, 'Pong!');
         const latency = Date.now() - start;
         return client.sendMessage(msg.from, `📶 Latency: ${latency}ms`);
     }
@@ -18,10 +18,8 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
     if (command === '!cekid') {
         const targetNumber = args[1];
 
-        // Mode 1: Cek ID orang lain (cekid 0896xxxxxxx)
         if (targetNumber) {
             try {
-                // Bersihkan nomor: hapus spasi, dash, plus, 0 awal → 62
                 let cleanNumber = targetNumber.replace(/[\s\-+]/g, '');
                 if (cleanNumber.startsWith('0')) cleanNumber = '62' + cleanNumber.slice(1);
 
@@ -40,54 +38,42 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
                     return msg.reply(`❌ Nomor ${cleanNumber} tidak ditemukan.`);
                 }
             } catch (e) {
-                logger.error("CekID Error:", e.message || e);
-                return msg.reply(`❌ Gagal cek ID. Pastikan nomor valid.`);
+                logger.error('CekID Error:', e.message || e);
+                return msg.reply('❌ Gagal cek ID. Pastikan nomor valid.');
             }
         }
 
-        // Mode 2: Cek ID sendiri (cekid tanpa args)
         return msg.reply(`🆔 ID: \`${senderId}\`\n👤 Nama: ${namaPengirim}`);
     }
 
-    // owner
+    // --- OWNER ---
     if (command === '!owner') {
-        // 1. Ambil Nomor Owner dari Config
-        let ownerId = config.ownerNumber[0]; // Ambil yang pertama
-
-        // Jaga-jaga kalau di config cuma angka doang (misal: "628123")
-        // Kita tambahin buntut '@c.us' biar valid
+        let ownerId = config.ownerNumber[0];
         if (!ownerId.includes('@c.us')) ownerId += '@c.us';
 
         try {
-            // 2. Comot Data Kontak Asli dari WhatsApp
             const contact = await client.getContactById(ownerId);
-
-            // 3. Kirim Kartu Nama
-            // Bot bakal ngirim Contact Card beneran, bukan teks.
             await msg.reply(contact);
-
-            // (Opsional) Tambahin teks di bawahnya biar sopan
-            // await msg.reply("Itu kontak bos saya. Jangan dispam ya! 🤖");
-
         } catch (e) {
-            // Fallback: Kalau gagal ambil kontak, kirim teks biasa aja
-            logger.error("Gagal kirim kontak:", e);
+            logger.error('Gagal kirim kontak:', e);
             await msg.reply(`👤 Owner: ${config.creator[0] || config.creator}\n📞 Wa: https://wa.me/${ownerId.split('@')[0]}`);
         }
         return true;
     }
 
-
-    // --- MENU OTOMATIS ---
+    // --- MENU ---
     if (command === '!menu' || command === '!help') {
-        let menu = `🤖 *${config.botName} MENU* 🤖\n_Halo ${namaPengirim}!_\n\n`;
-
+        const isGuest = namaPengirim === 'Guest';
         const commandFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('.js'));
         const categories = {};
 
-        // 1. CEK SIAPA YANG MINTA MENU?
-        // Kalau di Gatekeeper tadi dia dilabeli "Guest", berarti dia orang asing.
-        const isGuest = namaPengirim === 'Guest';
+        const icons = {
+            'KEUANGAN': '💰', 'AI': '🧠', 'DOWNLOADER': '📥',
+            'MEDIA': '🎬', 'SYSTEM': '⚙️', 'LAINNYA': '📂', 'GROUP': '👥',
+            'EVENT': '📅'
+        };
+
+        let totalCommands = 0;
 
         for (const file of commandFiles) {
             try {
@@ -97,32 +83,36 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
                     if (!categories[category]) categories[category] = [];
 
                     commands.forEach(c => {
-                        // 🔥 FILTER SAKTI DI SINI 🔥
-                        // Masukin ke list JIKA:
-                        // 1. Commandnya Public (Boleh buat umum)
-                        // 2. ATAU Yang minta BUKAN Guest (Berarti Owner/Teman)
-
                         if (c.isPublic || !isGuest) {
-                            categories[category].push(`• *${c.command}*: ${c.desc}`);
+                            categories[category].push(c);
+                            totalCommands++;
                         }
                     });
                 }
-            } catch { /* skip unreadable command file */ }
+            } catch { /* skip unreadable */ }
         }
 
-        const icons = { 'KEUANGAN': '💰', 'AI': '🧠', 'DOWNLOADER': '📥', 'MEDIA': '🎬', 'SYSTEM': '⚙️', 'LAINNYA': '📂' };
+        // Build menu
+        let menu = `┌─────────────────────────┐\n`;
+        menu += `│  🤖 *${config.botName}*    │\n`;
+        menu += `│  Halo ${namaPengirim}!   │\n`;
+        menu += `└─────────────────────────┘\n\n`;
 
         for (const [cat, cmds] of Object.entries(categories)) {
-            // 🔥 HANYA TAMPILKAN KATEGORI KALAU ADA ISINYA
-            // Jadi kalau Guest buka menu, kategori "KEUANGAN" bakal ilang total (karena isinya kosong semua buat dia)
             if (cmds.length > 0) {
                 const icon = icons[cat] || '📦';
-                menu += `${icon} *${cat}*\n${cmds.join('\n')}\n\n`;
+                menu += `${icon} *${cat}*\n`;
+                menu += `${'─'.repeat(20)}\n`;
+                cmds.forEach(c => {
+                    menu += `  • *${c.command}* — ${c.desc}\n`;
+                });
+                menu += '\n';
             }
         }
 
-        const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        menu += ` _Waktu saat ini:_ 🕒 *${time}*`;
+        const time = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        menu += `_${totalCommands} command tersedia_\n`;
+        menu += `🕒 ${time}`;
 
         await msg.reply(menu);
         return true;
@@ -130,7 +120,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 };
 
 module.exports.metadata = {
-    category: "SYSTEM",
+    category: 'SYSTEM',
     commands: [
         { command: '!owner', desc: 'Kartu Nama Owner', isPublic: true },
         { command: '!menu', desc: 'Daftar Menu', isPublic: true },
