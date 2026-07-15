@@ -9,8 +9,7 @@ module.exports = async (client, msg) => {
                 await msg.react('❌');
                 return msg.reply('❌ Gagal download media.');
             }
-            const chat = await msg.getChat();
-            await chat.sendMessage(media, {
+            await client.sendMessage(msg.from, media, {
                 sendMediaAsSticker: true,
                 stickerAuthor: 'ig: @khataaam_',
                 stickerName: 'JikaeL the Creator'

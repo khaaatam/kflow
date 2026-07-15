@@ -93,9 +93,9 @@ const messageHandler = async (client, msg) => {
                 "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
                 [namaPengirim, body, msg.isForwarded ? 1 : 0]
             ).catch(() => {});
-        }
 
-        logger.info(`[${namaPengirim}]: ${body}`);
+            logger.info(`[${namaPengirim}]: ${body}`);
+        }
 
         // ============================================================
         // 🚫 4. GUEST FILTER (setelah logging, sebelum handle command)
