@@ -9,12 +9,13 @@ async function isAdmin(client, msg) {
         const chat = await msg.getChat();
         if (!chat.isGroup) return false;
 
-        // Pake msg.author atau msg.from — lebih reliable di multi-device
         const senderId = msg.author || msg.from;
+        const senderPhone = senderId.split('@')[0];
 
         return chat.participants.some(p => {
-            const participantId = p.id._serialized || p.id;
-            return participantId === senderId && p.isAdmin;
+            const pid = p.id._serialized || p.id;
+            const pidPhone = pid.split('@')[0];
+            return pidPhone === senderPhone && (p.isAdmin || p.isSuperAdmin);
         });
     } catch (e) {
         logger.error('isAdmin check failed:', e.message);
