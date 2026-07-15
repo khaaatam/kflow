@@ -2,6 +2,7 @@ const db = require('../lib/database');
 const ai = require('../lib/ai');
 const config = require('../config');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, args, senderId, _namaPengirim) => {
     try {
@@ -26,7 +27,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim) => {
             return msg.reply("❌ Identitas tidak dikenali di skenario percintaan ini.");
         }
 
-        await msg.react('🔍');
+        await react(msg, '🔍');
 
         // 3. AMBIL CHAT SI TARGET DARI DATABASE
         // Pake LIKE biar fleksibel (misal: "Tami (Ganteng)", "Dini (Sayang)")
@@ -78,7 +79,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim) => {
         `;
 
         const result = await ai.generateContent(prompt);
-        await msg.react('✅');
+        await react(msg, '✅');
         msg.reply(result.response.text());
 
     } catch (error) {

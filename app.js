@@ -47,12 +47,7 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
-            '--no-zygote',
-            '--disable-extensions',
-            '--disable-background-networking',
-            '--disable-default-apps',
-            '--disable-translate',
-            '--disable-sync'
+            '--no-zygote'
         ]
     }
 });

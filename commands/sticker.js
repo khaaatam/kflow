@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 const ffmpeg = require('fluent-ffmpeg');
 
 const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
@@ -26,11 +27,11 @@ const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
 module.exports = async (client, msg) => {
     if (msg.hasMedia) {
         try {
-            await msg.react('⏳');
+            await react(msg, '⏳');
 
             const media = await msg.downloadMedia();
             if (!media) {
-                await msg.react('❌');
+                await react(msg, '❌');
                 return msg.reply('❌ Gagal download media.');
             }
 
@@ -41,7 +42,7 @@ module.exports = async (client, msg) => {
                     stickerAuthor: 'ig: @khataaam_',
                     stickerName: 'JikaeL the Creator'
                 });
-                await msg.react('✅');
+                await react(msg, '✅');
                 return;
             }
 
@@ -68,10 +69,10 @@ module.exports = async (client, msg) => {
             try { fs.unlinkSync(inputPath); } catch { /* ignore */ }
             try { fs.unlinkSync(outputPath); } catch { /* ignore */ }
 
-            await msg.react('✅');
+            await react(msg, '✅');
         } catch (e) {
             logger.error("Sticker Error:", e.message || e);
-            await msg.react('❌');
+            await react(msg, '❌');
             msg.reply('❌ Gagal bikin stiker.');
         }
     } else {

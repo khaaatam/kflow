@@ -1,9 +1,10 @@
 const model = require('../lib/ai');
 const db = require('../lib/database');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, _args) => {
-    await msg.react('🤔');
+    await react(msg, '🤔');
     try {
         let context = "";
         if (msg.hasQuotedMsg) {
@@ -16,7 +17,7 @@ module.exports = async (client, msg, _args) => {
         const prompt = `Role: Teman curhat yang solutif.\nContext Chat:\n${history}\n${context}\nUser butuh saran balasan/solusi. Berikan 3 opsi balasan (Sopan, Santai, Lucu).`;
 
         const result = await model.generateContent(prompt);
-        await msg.react('✅');
+        await react(msg, '✅');
         msg.reply(result.response.text());
     } catch (e) {
         logger.error(e);

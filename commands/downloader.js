@@ -3,6 +3,7 @@ const axios = require('axios');
 const { getFbVideoInfo } = require('fb-downloader-scrapper');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 const RateLimiter = require('../lib/rateLimiter');
 
 // Rate limit: 3 downloads per minute per user
@@ -29,7 +30,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
         // 1. TIKTOK DOWNLOADER (TikWM) - [AMAN]
         // =========================================================
         if (url.includes('tiktok.com')) {
-            await msg.react('⏳');
+            await react(msg, '⏳');
             try {
                 const response = await axios.post('https://www.tikwm.com/api/', {
                     url: url, count: 12, cursor: 0, web: 1, hd: 1
@@ -44,7 +45,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `🎵 *TikTok*\n👤 ${data.author?.nickname || '-'}`
                 });
-                await msg.react('✅');
+                await react(msg, '✅');
             } catch (e) {
                 logger.error("TikTok Error:", e);
                 await msg.reply("❌ Error TikTok.");
@@ -57,7 +58,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
         // =========================================================
         // Regex diperluas biar nangkep semua variasi FB
         if (url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com')) {
-            await msg.react('⏳');
+            await react(msg, '⏳');
             try {
                 // Expand Link Share (Penting buat fb.watch)
                 if (url.includes('share') || url.includes('/r/') || url.includes('fb.watch') || url.includes('fb.com')) {
@@ -84,7 +85,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
                 await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
                     caption: `💙 *Facebook Downloader*\nBot Created by ${config.creator}`
                 });
-                await msg.react('✅');
+                await react(msg, '✅');
 
             } catch (e) {
                 logger.error("FB Error:", e);

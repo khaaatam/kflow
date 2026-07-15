@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => {
     const isMedia = msg.hasMedia;
@@ -12,7 +13,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
         return msg.reply("❌ Kirim/Reply video pake caption `!pixel`");
     }
 
-    await msg.react('📠'); // React Fax/Jadul
+    await react(msg, '📠'); // React Fax/Jadul
 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
@@ -68,7 +69,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
             fs.unlinkSync(outputPath);
         } catch { /* cleanup best-effort */ }
 
-        await msg.react('✅');
+        await react(msg, '✅');
 
     } catch (error) {
         logger.error("Pixel Error:", error.message || error);

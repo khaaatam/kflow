@@ -2,6 +2,7 @@ const db = require('../lib/database');
 const ai = require('../lib/ai');
 const config = require('../config');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     // 🔥 SECURITY CHECK: CUMA NOMOR TERDAFTAR DI CONFIG.JS
@@ -18,7 +19,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             return msg.reply("ngomong apa? ketik yg jelas.");
         }
 
-        await msg.react('🧠');
+        await react(msg, '🧠');
 
         // 1. AMBIL DATABASE CHAT (BUAT BELAJAR GAYA TAMI)
         // Ambil chat dari Tami/JikaeL buat jadi referensi gaya bicara
@@ -58,7 +59,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         const result = await ai.generateContent(prompt);
         let replyText = result.response.text();
 
-        await msg.react('✅');
+        await react(msg, '✅');
         // Paksa huruf kecil biar otentik
         msg.reply(replyText.toLowerCase());
 

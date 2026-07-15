@@ -3,6 +3,7 @@ const Transaction = require('../models/Transaction');
 const { formatRupiah } = require('../utils/formatter');
 const model = require('../lib/ai');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     const command = args[0].toLowerCase();
@@ -24,7 +25,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         }
         // B. FORMAT AI
         else {
-            await msg.react('🧠'); 
+            await react(msg, '🧠'); 
             try {
                 const prompt = `
                 Role: Finance Assistant.
@@ -74,7 +75,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         const icon = jenis === 'pemasukan' ? '📈' : '📉';
         const saldoAkhir = await Transaction.getBalance();
 
-        await msg.react('✅');
+await react(msg, '✅');
         return msg.reply(
             `✅ *TRANSAKSI BERHASIL*\n` +
             `${icon} Jenis: ${jenis.toUpperCase()}\n` +
@@ -140,7 +141,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             labelPeriode = `${days} Hari Terakhir`;
         }
 
-        await msg.react('📊');
+        await react(msg, '📊');
 
         // Pake fungsi konversi lokal yang baru
         const sqlStart = toLocalSQL(startDate);
@@ -172,7 +173,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         msgReply += `----------------------------------\n`;
         msgReply += `📝 *Rincian Transaksi:*\n${recentList || '_Tidak ada data di rentang waktu ini._'}\n`;
 
-        await msg.react('✅');
+        await react(msg, '✅');
         return msg.reply(msgReply);
     }
 
@@ -180,7 +181,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
     // 📈 4. FITUR GRAFIK
     // ============================================================
     if (command === '!grafik') {
-        await msg.react('🎨');
+        await react(msg, '🎨');
         const stats = await Transaction.getStats(); 
         const masuk = stats.total_masuk || 0;
         const keluar = stats.total_keluar || 0;
@@ -209,7 +210,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         try {
             const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
             await client.sendMessage(msg.from, media, { caption: `📊 *Visualisasi Keuangan*\n\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 Saldo: ${formatRupiah(saldo)}` });
-            await msg.react('✅');
+            await react(msg, '✅');
         } catch { msg.reply("❌ Gagal bikin grafik."); }
     }
 };

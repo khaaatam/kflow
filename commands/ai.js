@@ -3,6 +3,7 @@ const Memory = require('../models/Memory');
 const ChatLog = require('../models/ChatLog');
 const config = require('../config');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 const RateLimiter = require('../lib/rateLimiter');
 
 // Rate limit: 5 AI requests per minute per user
@@ -119,7 +120,7 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
             return msg.reply("Mau nanya apa? (Kirim teks atau gambar)");
         }
 
-        await msg.react('👀');
+        await react(msg, '👀');
 
         try {
             let quotedText = "";
@@ -183,7 +184,7 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
 
             reply += `\n\n${botSignature}`;
 
-            await msg.react('✅');
+            await react(msg, '✅');
             msg.reply(reply);
 
         } catch (e) {

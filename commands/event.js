@@ -1,6 +1,7 @@
 const moment = require('moment');
 const db = require('../lib/database');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, args, senderId) => {
     const chatDestination = msg.fromMe ? msg.to : msg.from;
@@ -16,19 +17,19 @@ module.exports = async (client, msg, args, senderId) => {
                 return msg.reply("❌ Format: `!event tambah YYYY-MM-DD Nama Event`");
             }
 
-            await msg.react('⏳');
+            await react(msg, '⏳');
             await db.query("INSERT INTO events (nama_event, tanggal, dibuat_oleh) VALUES (?, ?, ?)",
                 [eventName, dateStr, senderId]);
-            await msg.react('✅');
+            await react(msg, '✅');
 
             return msg.reply(`✅ Event *"${eventName}"* (${dateStr}) disimpan.`);
         }
 
         // 2. LIST EVENT
         if (subCommand === 'list' || !subCommand) {
-            await msg.react('⏳');
+            await react(msg, '⏳');
             const [rows] = await db.query("SELECT * FROM events ORDER BY tanggal ASC");
-            await msg.react('✅');
+            await react(msg, '✅');
             if (rows.length === 0) return msg.reply("Belum ada event. `!event tambah` dulu.");
 
             let pesan = "🗓️ *AGENDA MENDATANG* 🗓️\n\n";

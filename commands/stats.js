@@ -1,9 +1,10 @@
 const ChatLog = require('../models/ChatLog');
 const logger = require('../lib/logger');
+const react = require('../lib/react');
 
 module.exports = async (client, msg, _args) => {
     try {
-        await msg.react('⏳');
+        await react(msg, '⏳');
         const [statsHarian, topUser, recentMsgs] = await Promise.all([
             ChatLog.getDailyStats(),
             ChatLog.getTopUser(),
@@ -31,7 +32,7 @@ module.exports = async (client, msg, _args) => {
 
         const reply = `📊 *STATISTIK CHAT HARI INI*\n📨 Total Chat: ${statsHarian.total_chat}\n🏆 Top Spam: **${topUser.nama_pengirim}** (${topUser.jumlah})\n🔥 Trending: "${topWord}"`;
         await client.sendMessage(msg.from, reply);
-        await msg.react('✅');
+        await react(msg, '✅');
 
     } catch (err) {
         logger.error("Stats Error:", err);
