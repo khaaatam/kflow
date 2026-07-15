@@ -1,7 +1,7 @@
 const ChatLog = require('../models/ChatLog');
 const logger = require('../lib/logger');
 
-module.exports = async (client, msg, args) => {
+module.exports = async (client, msg, _args) => {
     try {
         await msg.react('⏳');
         const [statsHarian, topUser, recentMsgs] = await Promise.all([

@@ -8,7 +8,7 @@ const RateLimiter = require('../lib/rateLimiter');
 // Rate limit: 3 downloads per minute per user
 const downloadLimiter = new RateLimiter(60000, 3);
 
-module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
+module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
     try {
         // Rate limit check
         if (!downloadLimiter.check(senderId)) {
@@ -68,7 +68,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
                             url = originalUrl;
                             logger.info(`Link Asli Ditemukan: ${url}`);
                         }
-                    } catch (err) {
+                    } catch {
                         logger.warn("Gagal expand, lanjut pake link mentah.");
                     }
                 }
@@ -96,8 +96,8 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
         // Kalau link lain (IG/YouTube) bisa ditambah di sini...
         return false;
 
-    } catch (error) {
-        logger.error("Downloader System Error:", error);
+    } catch {
+        logger.error("Downloader System Error");
         return false;
     }
 };
@@ -111,7 +111,7 @@ async function expandFbUrl(shortUrl) {
             }
         });
         return response.request.res.responseUrl || response.request.responseURL || shortUrl;
-    } catch (error) {
+    } catch {
         return shortUrl;
     }
 }

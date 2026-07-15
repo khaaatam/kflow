@@ -210,7 +210,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim, text) => {
             const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
             await client.sendMessage(msg.from, media, { caption: `📊 *Visualisasi Keuangan*\n\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 Saldo: ${formatRupiah(saldo)}` });
             await msg.react('✅');
-        } catch (e) { msg.reply("❌ Gagal bikin grafik."); }
+        } catch { msg.reply("❌ Gagal bikin grafik."); }
     }
 };
 

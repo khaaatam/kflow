@@ -4,7 +4,6 @@ const ChatLog = require('../models/ChatLog');
 const config = require('../config');
 const logger = require('../lib/logger');
 const RateLimiter = require('../lib/rateLimiter');
-const { MessageMedia } = require('whatsapp-web.js');
 
 // Rate limit: 5 AI requests per minute per user
 const aiLimiter = new RateLimiter(60000, 5);
@@ -156,7 +155,7 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
             
             [CHAT TERAKHIR]
             ${chatHistory}
-            
+            ${quotedText}
             User: "${userPrompt}"
             Jawab natural & santai.
             `;

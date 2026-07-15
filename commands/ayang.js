@@ -3,7 +3,7 @@ const ai = require('../lib/ai');
 const config = require('../config');
 const logger = require('../lib/logger');
 
-module.exports = async (client, msg, args, senderId, namaPengirim) => {
+module.exports = async (client, msg, args, senderId, _namaPengirim) => {
     try {
         // 1. CEK IDENTITAS PENGIRIM DARI CONFIG
         // Kita cocokin senderId sama daftar di config.users
@@ -15,16 +15,13 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 
         // 2. TENTUKAN TARGET OPERASI (OTOMATIS TUKAR PERAN)
         let targetName = "";
-        let panggilan = "";
 
         if (senderName.includes('Tami')) {
             // Kalau Tami yang nanya -> Cari Dini
             targetName = "Dini";
-            panggilan = "Ayang Dini";
         } else if (senderName.includes('Dini')) {
             // Kalau Dini yang nanya -> Cari Tami
-            targetName = "Tami"; // Pastikan di database nama lu "Tami" atau "JikaeL"
-            panggilan = "Ayang Tami";
+            targetName = "Tami";
         } else {
             return msg.reply("❌ Identitas tidak dikenali di skenario percintaan ini.");
         }

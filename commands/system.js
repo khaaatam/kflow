@@ -107,7 +107,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
                         }
                     });
                 }
-            } catch (e) { /* skip unreadable command file */ }
+            } catch { /* skip unreadable command file */ }
         }
 
         const icons = { 'KEUANGAN': '💰', 'AI': '🧠', 'DOWNLOADER': '📥', 'MEDIA': '🎬', 'SYSTEM': '⚙️', 'LAINNYA': '📂' };

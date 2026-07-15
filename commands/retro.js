@@ -75,7 +75,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
             });
 
             // 5. BERSIH-BERSIH
-            try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch (_e) { /* cleanup best-effort */ }
+            try { fs.unlinkSync(inputPath); fs.unlinkSync(outputPath); } catch { /* cleanup best-effort */ }
             await msg.react('✅');
         });
 

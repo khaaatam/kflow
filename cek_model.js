@@ -22,7 +22,7 @@ async function checkModels() {
 
     for (const model of modelsToTry) {
         try {
-            const result = await client.chat.completions.create({
+            await client.chat.completions.create({
                 model,
                 messages: [{ role: 'user', content: 'Hi' }],
                 max_tokens: 5

@@ -68,13 +68,13 @@ client.on('ready', async () => {
     logger.info('------------------------------------------------');
 
     // Fix Bug "Send Seen"
-    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch (e) { /* sendSeen fix is best-effort */ }
+    try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch { /* sendSeen fix is best-effort */ }
 
     // Notif ke Owner
     if (config.system.logNumber) {
         client.sendMessage(config.system.logNumber, `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart & database terhubung.`)
             .then(() => logger.info("Notif ke owner terkirim"))
-            .catch((e) => logger.error("Gagal kirim notif ke owner:", e.message));
+            .catch((_err) => logger.error("Gagal kirim notif ke owner:", _err.message));
     }
 
     // Restore Reminder yang tertunda (Background Task)
@@ -120,11 +120,11 @@ const cleanTempFolder = () => {
             if (file.endsWith('.mp4') || file.endsWith('.png') || file.endsWith('.jpg') || file.endsWith('.webp')) {
                 try {
                     fs.unlinkSync(path.join(tempDir, file));
-                } catch (e) { /* temp file already removed */ }
+                } catch { /* temp file already removed */ }
             }
         });
     } else {
-        try { fs.mkdirSync(tempDir); } catch (e) { /* dir exists */ }
+        try { fs.mkdirSync(tempDir); } catch { /* dir exists */ }
     }
 };
 // Jalankan pembersihan

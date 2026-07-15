@@ -2,7 +2,7 @@ const model = require('../lib/ai');
 const db = require('../lib/database');
 const logger = require('../lib/logger');
 
-module.exports = async (client, msg, args) => {
+module.exports = async (client, msg, _args) => {
     await msg.react('🤔');
     try {
         let context = "";
