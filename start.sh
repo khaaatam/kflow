@@ -46,7 +46,7 @@ if curl -s http://localhost:20128/v1/models > /dev/null 2>&1; then
     echo -e "${GREEN}9router already running${NC}"
 else
     echo -e "${YELLOW}Starting 9router in tmux...${NC}"
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     tmux new-session -d -s router "bash ${SCRIPT_DIR}/start-router.sh"
     sleep 3
     for i in {1..10}; do
