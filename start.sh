@@ -40,13 +40,13 @@ if ! pgrep -x sshd > /dev/null 2>&1; then
 fi
 
 # ============================================
-# START 9ROUTER (AI API Proxy via PM2)
+# START 9ROUTER (AI API Proxy via tmux)
 # ============================================
-if pm2 list 2>/dev/null | grep -q "9router"; then
+if tmux has-session -t router 2>/dev/null; then
     echo -e "${GREEN}9router already running${NC}"
 else
-    echo -e "${YELLOW}Starting 9router...${NC}"
-    pm2 start "npx 9router" --name "9router" --max-memory-restart 200M
+    echo -e "${YELLOW}Starting 9router in tmux...${NC}"
+    tmux new-session -d -s router "9router"
     sleep 3
     for i in {1..10}; do
         if curl -s http://localhost:20128/v1/models > /dev/null 2>&1; then
