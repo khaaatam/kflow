@@ -16,6 +16,27 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
 
     // --- CEK ID ---
     if (command === '!cekid') {
+        const targetNumber = args[1];
+
+        // Mode 1: Cek ID orang lain (cekid 0896xxxxxxx)
+        if (targetNumber) {
+            try {
+                // Bersihkan nomor: hapus spasi, dash, plus
+                const cleanNumber = targetNumber.replace(/[\s\-+]/g, '');
+                const numberId = await client.getNumberId(cleanNumber);
+
+                if (numberId) {
+                    return msg.reply(`🆔 ID: \`${numberId._serialized}\`\n📞 Nomor: ${cleanNumber}\n✅ Terdaftar di WhatsApp`);
+                } else {
+                    return msg.reply(`❌ Nomor ${cleanNumber} tidak ditemukan di WhatsApp.`);
+                }
+            } catch (e) {
+                logger.error("CekID Error:", e.message);
+                return msg.reply(`❌ Gagal cek ID. Pastikan nomor valid.`);
+            }
+        }
+
+        // Mode 2: Cek ID sendiri (cekid tanpa args)
         return msg.reply(`🆔 ID: \`${senderId}\`\n👤 Nama: ${namaPengirim}`);
     }
 
@@ -105,6 +126,6 @@ module.exports.metadata = {
         { command: '!owner', desc: 'Kartu Nama Owner', isPublic: true },
         { command: '!menu', desc: 'Daftar Menu', isPublic: true },
         { command: '!ping', desc: 'Cek Sinyal', isPublic: true },
-        { command: '!cekid', desc: 'Cek ID User', isPublic: true }
+        { command: '!cekid', desc: 'Cek ID (sendiri/nomor)', isPublic: true }
     ]
 };
