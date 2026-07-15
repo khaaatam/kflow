@@ -40,6 +40,24 @@ if ! pgrep -x sshd > /dev/null 2>&1; then
 fi
 
 # ============================================
+# START 9ROUTER (AI API Proxy)
+# ============================================
+if ! pgrep -f "9router" > /dev/null 2>&1; then
+    echo -e "${YELLOW}Starting 9router...${NC}"
+    nohup npx 9router > /dev/null 2>&1 &
+    sleep 3
+    for i in {1..10}; do
+        if curl -s http://localhost:20128/v1/models > /dev/null 2>&1; then
+            echo -e "${GREEN}9router running on port 20128${NC}"
+            break
+        fi
+        sleep 1
+    done
+else
+    echo -e "${GREEN}9router already running${NC}"
+fi
+
+# ============================================
 # START BOT (PM2 or tmux)
 # ============================================
 
