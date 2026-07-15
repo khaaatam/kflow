@@ -47,7 +47,12 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
-            '--no-zygote'
+            '--no-zygote',
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-translate',
+            '--disable-sync'
         ]
     }
 });
@@ -59,6 +64,9 @@ client.on('qr', (qr) => {
 
 client.on('ready', async () => {
     const cmdCount = messageHandler.commands ? messageHandler.commands.size : 0;
+
+    // Tunggu DB ready sebelum restore reminder/event
+    await dbReady;
 
     logger.info(`${config.botName} Siap Melayani!`);
     logger.info('------------------------------------------------');
@@ -131,9 +139,9 @@ const cleanTempFolder = () => {
 cleanTempFolder();
 // ============================================================
 
-// Start Client & Web (after DB ready)
+// Start Client & Web (parallel — DB dan WhatsApp init jalan bareng)
 (async () => {
-    await dbReady;
+    // DB dan client init jalan BARENG, gak nunggu satu sama lain
     client.initialize();
     const server = app.listen(config.system.port, () => logger.info(`Server Web jalan di Port ${config.system.port}`));
 
