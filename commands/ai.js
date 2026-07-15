@@ -60,9 +60,13 @@ Jika TIDAK layak simpan, jawab HANYA: SKIP`;
 
         // Lapor ke Owner (Jika bukan dari owner sendiri)
         if (config.system && config.system.logNumber) {
-            client.sendMessage(config.system.logNumber,
-                `📝 *INGATAN BARU TERCIPTA*\n👤 ${namaPengirim}\n🧠 ${fact}`
-            ).catch(() => { });
+            const baseId = config.system.logNumber.replace(/@.*/, '');
+            const memMsg = `📝 *INGATAN BARU TERCIPTA*\n👤 ${namaPengirim}\n🧠 ${fact}`;
+            try {
+                await client.sendMessage(`${baseId}@c.us`, memMsg);
+            } catch {
+                try { await client.sendMessage(`${baseId}@lid`, memMsg); } catch { /* skip */ }
+            }
         }
 
     } catch (err) {

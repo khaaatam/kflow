@@ -73,11 +73,19 @@ client.on('ready', async () => {
     // Fix Bug "Send Seen"
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch { /* sendSeen fix is best-effort */ }
 
-    // Notif ke Owner
+    // Notif ke Owner (try @c.us first, fallback to @lid)
     if (config.system.logNumber) {
-        client.sendMessage(config.system.logNumber, `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart & database terhubung.`)
-            .then(() => logger.info("Notif ke owner terkirim"))
-            .catch((_err) => logger.error("Gagal kirim notif ke owner:", _err.message));
+        const logMsg = `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart & database terhubung.`;
+        const baseId = config.system.logNumber.replace(/@.*/, '');
+
+        const trySend = async (id) => {
+            try { await client.sendMessage(id, logMsg); return true; }
+            catch { return false; }
+        };
+
+        const sent = await trySend(`${baseId}@c.us`) || await trySend(`${baseId}@lid`);
+        if (sent) logger.info("Notif ke owner terkirim");
+        else logger.warn("Gagal kirim notif ke owner (coba @c.us & @lid)");
     }
 
     // Restore Reminder yang tertunda (Background Task)
