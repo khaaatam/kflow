@@ -10,6 +10,15 @@ class ChatLog {
         return rows.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
     }
 
+    static async getHistoryByUser(user, limit = 10, excludeCommands = true) {
+        let query = "SELECT nama_pengirim, pesan FROM full_chat_logs WHERE nama_pengirim = ?";
+        if (excludeCommands) query += " AND pesan NOT LIKE '!%'";
+        query += " ORDER BY id DESC LIMIT ?";
+
+        const [rows] = await db.query(query, [user, limit]);
+        return rows.reverse().map(r => `${r.nama_pengirim}: "${r.pesan}"`).join("\n");
+    }
+
     static async getDailyStats() {
         const query = `
             SELECT 

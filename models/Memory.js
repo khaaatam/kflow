@@ -4,7 +4,7 @@ const logger = require('../lib/logger');
 class Memory {
     static async add(user, fakta) {
         const [rows] = await db.query(
-            "SELECT id FROM memori WHERE user = ? AND fakta LIKE ?", 
+            "SELECT id FROM memori WHERE user = ? AND fakta LIKE ?",
             [user, `%${fakta}%`]
         );
 
@@ -21,7 +21,7 @@ class Memory {
 
     static async getByUser(user, limit = 10) {
         const [rows] = await db.query(
-            "SELECT fakta FROM memori WHERE user = ? ORDER BY id DESC LIMIT ?", 
+            "SELECT id, fakta, created_at FROM memori WHERE user = ? ORDER BY id DESC LIMIT ?",
             [user, limit]
         );
         return rows;
@@ -37,7 +37,35 @@ class Memory {
         return db.query("INSERT INTO system_instruction (instruction) VALUES (?)", [instruction]);
     }
 
-    // Cleanup old memories (keep last 500 per user)
+    static async delete(id, user) {
+        if (user) {
+            return db.query("DELETE FROM memori WHERE id = ? AND user = ?", [id, user]);
+        }
+        return db.query("DELETE FROM memori WHERE id = ?", [id]);
+    }
+
+    static async deleteAll(user) {
+        const [result] = await db.query("DELETE FROM memori WHERE user = ?", [user]);
+        return result.affectedRows;
+    }
+
+    static async search(user, keyword) {
+        const [rows] = await db.query(
+            "SELECT id, fakta FROM memori WHERE user = ? AND fakta LIKE ? ORDER BY id DESC LIMIT 20",
+            [user, `%${keyword}%`]
+        );
+        return rows;
+    }
+
+    static async getCount(user) {
+        const query = user
+            ? "SELECT COUNT(*) as total FROM memori WHERE user = ?"
+            : "SELECT COUNT(*) as total FROM memori";
+        const [rows] = await db.query(query, user ? [user] : []);
+        return rows[0].total;
+    }
+
+    // Cleanup old memories (keep last maxPerUser per user)
     static async cleanup(maxPerUser = 500) {
         try {
             const [users] = await db.query("SELECT DISTINCT user FROM memori");
@@ -45,7 +73,7 @@ class Memory {
 
             for (const { user } of users) {
                 const [rows] = await db.query(
-                    "SELECT id FROM memori WHERE user = ? ORDER BY id DESC LIMIT ?, 10000",
+                    "SELECT id FROM memori WHERE user = ? ORDER BY id DESC LIMIT 1 OFFSET ?",
                     [user, maxPerUser]
                 );
                 if (rows.length > 0) {
