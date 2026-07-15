@@ -42,11 +42,12 @@ fi
 # ============================================
 # START 9ROUTER (AI API Proxy via tmux)
 # ============================================
-if tmux has-session -t router 2>/dev/null; then
+if curl -s http://localhost:20128/v1/models > /dev/null 2>&1; then
     echo -e "${GREEN}9router already running${NC}"
 else
     echo -e "${YELLOW}Starting 9router in tmux...${NC}"
-    tmux new-session -d -s router "9router"
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    tmux new-session -d -s router "bash ${SCRIPT_DIR}/start-router.sh"
     sleep 3
     for i in {1..10}; do
         if curl -s http://localhost:20128/v1/models > /dev/null 2>&1; then
