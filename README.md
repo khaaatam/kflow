@@ -9,7 +9,7 @@ npm install
 cp .env.example .env
 ```
 
-Lalu edit `.env` sesuai environment kamu (minimal `DB_*`, `LOG_NUMBER`, dan `GEMINI_API_KEY` kalau mau fitur AI aktif).
+Lalu edit `.env` sesuai environment kamu (minimal `DB_*`, `LOG_NUMBER`, dan `ROUTER_API_KEY` kalau mau fitur AI aktif).
 
 ## 2) Jalankan aplikasi
 
@@ -26,7 +26,9 @@ npm run start
 - `PORT` - port web server.
 - `LOG_NUMBER` - nomor WhatsApp tujuan notifikasi sistem (`@c.us` / `@lid`).
 - `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` - konfigurasi MySQL.
-- `GEMINI_API_KEY` - aktifkan fitur AI.
+- `ROUTER_API_KEY` - API key dari 9Router dashboard untuk fitur AI.
+- `ROUTER_URL` - endpoint 9Router (default: `http://localhost:20128/v1`).
+- `ROUTER_MODEL` - model AI yang dipakai (default: `mimo/mimo-v2.5-flash`).
 - `PUPPETEER_EXECUTABLE_PATH` - opsional, isi kalau Chromium tidak terdeteksi otomatis.
 
 Lihat contoh lengkap di `.env.example`.
@@ -42,17 +44,20 @@ Lihat contoh lengkap di `.env.example`.
 - Pastikan `DB_*` di `.env` benar.
 
 ### Fitur AI selalu balas error
-- Pastikan `GEMINI_API_KEY` valid.
-- Cek limit/kuota provider AI.
+- Pastikan 9Router sudah jalan di `http://localhost:20128`.
+- Pastikan `ROUTER_API_KEY` valid (ambil dari dashboard 9Router).
+- Pastikan API key provider (misal Xiaomi MiMo) sudah ditambah di 9Router dashboard.
 
 ## 5) Scripts
 
 ```bash
 npm run start
 npm run check
+npm run lint
 npm test
 ```
 
 - `start`: jalankan bot + web dashboard.
 - `check`: validasi syntax file inti.
-- `test`: placeholder (belum ada unit test resmi).
+- `lint`: jalankan ESLint.
+- `test`: jalankan unit test (Jest).

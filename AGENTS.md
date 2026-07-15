@@ -31,11 +31,34 @@ No typecheck step. No build step. No monorepo.
 - **views/index.ejs** — single EJS template for dashboard.
 - **migrations/** — `NNN_description.sql` files, tracked in `schema_migrations` table, run in sorted order on startup.
 
+## 9Router (AI Gateway)
+
+All AI calls go through a local 9Router instance — an OpenAI-compatible gateway at `http://localhost:20128/v1`. API key set via `ROUTER_API_KEY` env.
+
+```bash
+# Health check
+curl http://localhost:20128/api/health
+
+# List available models
+curl http://localhost:20128/v1/models
+
+# Test a completion
+curl http://localhost:20128/v1/chat/completions \
+  -H "Authorization: Bearer $ROUTER_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"mimo/mimo-v2.5-pro","messages":[{"role":"user","content":"hi"}]}'
+```
+
+Additional endpoints: `/v1/models/image` (image-gen), `/v1/models/tts` (text-to-speech), `/v1/models/embedding` (embeddings), `/v1/models/web` (web search). Use `data[].id` as `model` field.
+
+Errors: 401 → refresh key via Dashboard → Keys. 503 → wait `retry-after` or add another provider account.
+
+Full skill reference: `skills/9router/SKILL.md` in the9router repo, or see capability skills at `skills/9router-chat/SKILL.md`, `skills/9router-image/SKILL.md`, etc.
+
 ## Key patterns
 
 - Commands are auto-discovered: drop a `.js` in `commands/` with `metadata.commands` array and it's live.
 - `isPublic: true` in command metadata = accessible to unregistered users (guests).
-- AI calls go through 9Router at `http://localhost:20128/v1`, model `mimo/mimo-v2.5-flash` by default. API key set via `ROUTER_API_KEY` env.
 - `lib/ai.js` wraps the OpenAI SDK into a Gemini-like `generateContent()` interface for legacy compatibility.
 - Media download uses Puppeteer page injection (`window.Store`) — not a simple HTTP fetch.
 - `rawSenderId` vs `senderId`: rawSenderId preserves the full `:2`/`:20` suffix for cooldown tracking; senderId is cleaned for config lookup.
