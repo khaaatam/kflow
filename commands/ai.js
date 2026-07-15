@@ -97,7 +97,7 @@ const interact = async (client, msg, args, senderId, namaPengirim, text) => {
         if (!memories.length) return msg.reply("🔍 Gak ada memori yang cocok.");
         if (!content) {
             const list = memories.slice(0, 10).map((m, i) => `${i + 1}. ${m.fakta}`).join('\n');
-            return msg.reply(`🧠 *Memori kamu:*\n${list}\n\nKetik `!lupa <kata kunci>` buat hapus.`);
+            return msg.reply(`🧠 *Memori kamu:*\n${list}\n\nKetik *!lupa <kata kunci>* buat hapus.`);
         }
         let deleted = 0;
         for (const m of memories) {
