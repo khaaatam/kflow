@@ -21,17 +21,26 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         // Mode 1: Cek ID orang lain (cekid 0896xxxxxxx)
         if (targetNumber) {
             try {
-                // Bersihkan nomor: hapus spasi, dash, plus
-                const cleanNumber = targetNumber.replace(/[\s\-+]/g, '');
-                const numberId = await client.getNumberId(cleanNumber);
+                // Bersihkan nomor: hapus spasi, dash, plus, 0 awal → 62
+                let cleanNumber = targetNumber.replace(/[\s\-+]/g, '');
+                if (cleanNumber.startsWith('0')) cleanNumber = '62' + cleanNumber.slice(1);
 
-                if (numberId) {
-                    return msg.reply(`🆔 ID: \`${numberId._serialized}\`\n📞 Nomor: ${cleanNumber}\n✅ Terdaftar di WhatsApp`);
+                const whatsappId = cleanNumber + '@c.us';
+                const contact = await client.getContactById(whatsappId);
+
+                if (contact) {
+                    const isRegistered = contact.isRegistered !== false;
+                    return msg.reply(
+                        `📞 Nomor: ${cleanNumber}\n` +
+                        `🆔 ID: \`${contact.id._serialized}\`\n` +
+                        `📛 Nama: ${contact.pushname || '-'}\n` +
+                        `${isRegistered ? '✅' : '❌'} ${isRegistered ? 'Terdaftar di WhatsApp' : 'Tidak terdaftar'}`
+                    );
                 } else {
-                    return msg.reply(`❌ Nomor ${cleanNumber} tidak ditemukan di WhatsApp.`);
+                    return msg.reply(`❌ Nomor ${cleanNumber} tidak ditemukan.`);
                 }
             } catch (e) {
-                logger.error("CekID Error:", e.message);
+                logger.error("CekID Error:", e.message || e);
                 return msg.reply(`❌ Gagal cek ID. Pastikan nomor valid.`);
             }
         }

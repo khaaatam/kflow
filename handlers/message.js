@@ -59,9 +59,9 @@ const messageHandler = async (client, msg) => {
 
         const isGroup = msg.from.includes('@g.us');
 
-        // ==========================================
+        // ============================================================
         // 🛑 1. THE GATEKEEPER (SMART FILTER)
-        // ==========================================
+        // ==========================================================
         // Cek apakah ID bersih ada di config
         let namaPengirim = config.users[senderId];
         const isRegisteredUser = !!namaPengirim; // true kalau ada di config
@@ -69,21 +69,6 @@ const messageHandler = async (client, msg) => {
         // Kalau terpaksa banget masih gak ketemu
         if (!namaPengirim) {
             namaPengirim = msg.pushName || "Guest";
-        }
-
-        const isPublicCommand = publicCommands.some(cmd => body.toLowerCase().startsWith(cmd));
-        const isLink = body.match(/(https?:\/\/[^\s]+)/g);
-        const isDownloaderLink = isLink && (
-            body.toLowerCase().includes('tiktok.com') ||
-            body.toLowerCase().includes('facebook.com') ||
-            body.toLowerCase().includes('instagram.com')
-        );
-
-        // USIR GUEST JIKA BUKAN PUBLIC COMMAND / DOWNLOADER
-        if (!isRegisteredUser) {
-            if (!isPublicCommand && !isDownloaderLink) {
-                return; 
-            }
         }
 
         // ============================================================
@@ -100,18 +85,36 @@ const messageHandler = async (client, msg) => {
 
         if (isBotResponse) return;
 
+        // ============================================================
+        // 💾 3. DATABASE LOGGING (selalu jalan, SEBELUM filter command)
+        // ============================================================
+        if (!isGroup && cleanBody.length > 0) {
+            db.query(
+                "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
+                [namaPengirim, body, msg.isForwarded ? 1 : 0]
+            ).catch(() => {});
+        }
+
         logger.info(`[${namaPengirim}]: ${body}`);
 
         // ============================================================
-        // 💾 3. DATABASE LOGGING (async — gak nunggu)
+        // 🚫 4. GUEST FILTER (setelah logging, sebelum handle command)
         // ============================================================
-        db.query(
-            "INSERT INTO full_chat_logs (nama_pengirim, pesan, is_forwarded) VALUES (?, ?, ?)",
-            [namaPengirim, body, msg.isForwarded ? 1 : 0]
-        ).catch(() => {});
+        const isPublicCommand = publicCommands.some(cmd => body.toLowerCase().startsWith(cmd));
+        const isLink = body.match(/(https?:\/\/[^\s]+)/g);
+        const isDownloaderLink = isLink && (
+            body.toLowerCase().includes('tiktok.com') ||
+            body.toLowerCase().includes('facebook.com') ||
+            body.toLowerCase().includes('instagram.com')
+        );
+
+        if (!isRegisteredUser && !isPublicCommand && !isDownloaderLink) {
+            logger.debug(`[GUEST DROP] ID: ${senderId} | Nama: ${namaPengirim}`);
+            return;
+        }
 
         // ============================================================
-        // 🎮 4. HANDLE COMMANDS
+        // 🎮 5. HANDLE COMMANDS
         // ============================================================
         if (body.startsWith('!') || body.startsWith('/')) {
             const args = body.trim().split(/ +/);
@@ -137,7 +140,7 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // 📥 5. AUTO DOWNLOADER
+        // 📥 6. AUTO DOWNLOADER
         // ============================================================
         if (isDownloaderLink) {
             if (msg.hasMedia || isGroup) return;
@@ -151,7 +154,7 @@ const messageHandler = async (client, msg) => {
         }
 
         // ============================================================
-        // 🧠 6. AI OBSERVER (debounce: 10 detik per user)
+        // 🧠 7. AI OBSERVER (debounce: 10 detik per user)
         // ============================================================
         if (!body.startsWith('!') && !body.startsWith('/') && !isGroup && isRegisteredUser) {
             const lastObserve = observerCooldowns.get(rawSenderId) || 0;
