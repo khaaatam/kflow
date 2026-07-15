@@ -27,7 +27,8 @@ const users = parseUsersMap(process.env.BOT_USERS, {
     '6289608506367@c.us': 'Tami',
     '6289608506367:2@c.us': 'Tami',
     '62881081132332@c.us': 'Tami',
-    '6283806618448@c.us': 'Dini'
+    '6283806618448@c.us': 'Dini',
+    '6283806618448@lid': 'Dini'
 });
 
 const ownerNumber = parseList(process.env.BOT_OWNER_NUMBERS, [
