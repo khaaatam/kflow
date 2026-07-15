@@ -40,11 +40,13 @@ if ! pgrep -x sshd > /dev/null 2>&1; then
 fi
 
 # ============================================
-# START 9ROUTER (AI API Proxy)
+# START 9ROUTER (AI API Proxy via PM2)
 # ============================================
-if ! pgrep -f "9router" > /dev/null 2>&1; then
+if pm2 list 2>/dev/null | grep -q "9router"; then
+    echo -e "${GREEN}9router already running${NC}"
+else
     echo -e "${YELLOW}Starting 9router...${NC}"
-    nohup npx 9router > /dev/null 2>&1 &
+    pm2 start "npx 9router" --name "9router" --max-memory-restart 200M
     sleep 3
     for i in {1..10}; do
         if curl -s http://localhost:20128/v1/models > /dev/null 2>&1; then
@@ -53,8 +55,6 @@ if ! pgrep -f "9router" > /dev/null 2>&1; then
         fi
         sleep 1
     done
-else
-    echo -e "${GREEN}9router already running${NC}"
 fi
 
 # ============================================
