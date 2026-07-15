@@ -57,6 +57,8 @@ const messageHandler = async (client, msg) => {
             senderId = senderId.substring(0, senderId.indexOf(':')) + senderId.substring(senderId.indexOf('@'));
         }
 
+        logger.info(`[DEBUG-SENDER] raw="${rawSenderId}" cleaned="${senderId}" matched=${!!namaPengirim}`);
+
         const isGroup = msg.from.includes('@g.us');
 
         // ============================================================
