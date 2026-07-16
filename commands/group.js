@@ -10,12 +10,10 @@ async function isAdmin(client, msg) {
         if (!chat.isGroup) return false;
 
         const senderId = msg.author || msg.from;
-        const senderPhone = senderId.split('@')[0];
 
         return chat.participants.some(p => {
-            const pid = p.id._serialized || p.id;
-            const pidPhone = pid.split('@')[0];
-            return pidPhone === senderPhone && (p.isAdmin || p.isSuperAdmin);
+            const pid = p.id._serialized || p.id.$1 || p.id;
+            return pid === senderId && (p.isAdmin || p.isSuperAdmin);
         });
     } catch (e) {
         logger.error('isAdmin check failed:', e.message);
@@ -28,7 +26,7 @@ async function isAdmin(client, msg) {
 // ============================================================
 function getMentionedIds(msg) {
     if (!msg.mentionedIds || msg.mentionedIds.length === 0) return [];
-    return msg.mentionedIds.map(id => id._serialized || id);
+    return msg.mentionedIds.map(id => id._serialized || id.$1 || id);
 }
 
 // ============================================================
@@ -54,7 +52,7 @@ async function handleKick(client, msg, _args) {
     }
 
     // Cek apakah target admin
-    const targetParticipant = chat.participants.find(p => (p.id._serialized || p.id) === targetId);
+    const targetParticipant = chat.participants.find(p => (p.id._serialized || p.id.$1 || p.id) === targetId);
     if (targetParticipant && targetParticipant.isAdmin) {
         return msg.reply('❌ Gak bisa kick admin lain.');
     }

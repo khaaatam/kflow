@@ -5,6 +5,7 @@ const { OVERDUE_EXPIRY_MINUTES, OVERDUE_STAGGER_MS } = require('../lib/constants
 
 // --- HELPER: PENJADWAL TUGAS ---
 let overdueCounter = 0;
+let safetyInterval = null;
 
 const toSQL = (d) => {
     const y = d.getFullYear();
@@ -32,20 +33,24 @@ function getNextTime(recurrence, from) {
 }
 
 const scheduleJob = (client, id, userId, pesan, waktuEksekusi, recurrence) => {
-    const now = new Date().getTime();
+    const now = Date.now();
     const target = new Date(waktuEksekusi).getTime();
     const delay = target - now;
+
+    logger.info(`[Reminder] ID=${id} now=${new Date(now).toISOString()} target=${new Date(target).toISOString()} delay=${delay}ms`);
 
     const executeReminder = async (isOverdue, overdueMinutes) => {
         try {
             const [rows] = await db.query('SELECT status FROM reminders WHERE id = ?', [id]);
-            if (rows.length === 0 || rows[0].status !== 'pending') return;
+            if (rows.length === 0 || rows[0].status !== 'pending') {
+                logger.info(`[Reminder] ID=${id} skipped (status=${rows[0]?.status})`);
+                return;
+            }
 
             const prefix = isOverdue ? `⏰ *REMINDER (TELAT ${overdueMinutes} menit)*: ` : '⏰ *REMINDER*: ';
             const suffix = isOverdue ? '\n_(Maaf tadi bot sempat mati/restart)_' : '';
             await client.sendMessage(userId, `${prefix}${pesan}${suffix}`);
 
-            // Kalau recurring, jadwalkan ulang. Kalau one-shot, mark done.
             if (recurrence) {
                 const nextTime = getNextTime(recurrence, waktuEksekusi);
                 const sqlTime = toSQL(nextTime);
@@ -57,6 +62,7 @@ const scheduleJob = (client, id, userId, pesan, waktuEksekusi, recurrence) => {
                 logger.info(`Reminder ID ${id} (${recurrence}) dijadwalkan ulang: ${sqlTime}`);
             } else {
                 await db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [id]);
+                logger.info(`Reminder ID ${id} done.`);
             }
         } catch (e) {
             logger.error('Gagal kirim reminder:', e);
@@ -83,7 +89,7 @@ const scheduleJob = (client, id, userId, pesan, waktuEksekusi, recurrence) => {
 
     // B. On-time
     setTimeout(() => executeReminder(false, 0), delay);
-    logger.info(`Reminder ID ${id} dijadwalkan dalam ${Math.ceil(delay / 1000 / 60)} menit.`);
+    logger.info(`Reminder ID ${id} scheduled in ${Math.ceil(delay / 1000 / 60)} min (${delay}ms)`);
 };
 
 // --- COMMAND UTAMA (!ingetin) ---
@@ -235,11 +241,53 @@ module.exports.restoreReminders = async (client) => {
 
         for (const row of rows) {
             const waktu = row.next_time || row.waktu_eksekusi;
+            logger.info(`Restore ID=${row.id} waktu="${waktu}" next_time="${row.next_time}" recurrence="${row.recurrence}"`);
             scheduleJob(client, row.id, row.user_id, row.pesan, waktu, row.recurrence);
         }
     } catch (e) {
         logger.error('Gagal restore reminder:', e);
     }
+
+    // Safety net: periodic check setiap 30 detik
+    if (safetyInterval) clearInterval(safetyInterval);
+    safetyInterval = setInterval(async () => {
+        try {
+            const now = toSQL(new Date());
+            const [rows] = await db.query(
+                "SELECT * FROM reminders WHERE status = 'pending' AND waktu_eksekusi <= ?",
+                [now]
+            );
+            for (const row of rows) {
+                const waktu = row.next_time || row.waktu_eksekusi;
+                const delay = new Date(waktu).getTime() - Date.now();
+                if (delay <= 0) {
+                    // Overdue — fire immediately via stagger
+                    const staggerDelay = overdueCounter * OVERDUE_STAGGER_MS;
+                    overdueCounter++;
+                    setTimeout(() => {
+                        (async () => {
+                            try {
+                                const [check] = await db.query('SELECT status FROM reminders WHERE id = ?', [row.id]);
+                                if (check.length === 0 || check[0].status !== 'pending') return;
+                                const overdueMin = Math.abs(Math.ceil(delay / 60000));
+                                await client.sendMessage(row.user_id, `⏰ *REMINDER (TELAT ${overdueMin} menit)*: ${row.pesan}\n_(Maaf tadi bot sempat mati/restart)_`);
+                                if (row.recurrence) {
+                                    const next = getNextTime(row.recurrence, waktu);
+                                    const sqlTime = toSQL(next);
+                                    await db.query("UPDATE reminders SET waktu_eksekusi = ?, next_time = ? WHERE id = ?", [sqlTime, sqlTime, row.id]);
+                                    scheduleJob(client, row.id, row.user_id, row.pesan, next, row.recurrence);
+                                } else {
+                                    await db.query("UPDATE reminders SET status = 'done' WHERE id = ?", [row.id]);
+                                }
+                            } catch (e) { logger.error('Safety reminder error:', e.message); }
+                        })();
+                    }, staggerDelay);
+                    logger.info(`[Safety] Reminder ID ${row.id} overdue, fires in ${staggerDelay}ms`);
+                }
+            }
+        } catch { /* ignore */ }
+    }, 30 * 1000);
+    logger.info('Safety interval started (30s)');
 };
 
 module.exports.metadata = {
