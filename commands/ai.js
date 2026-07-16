@@ -52,9 +52,19 @@ Jika pesan berisi fakta yang layak disimpan, jawab HANYA fakta tersebut dalam su
 Jika TIDAK layak simpan, jawab HANYA: SKIP`;
 
         const result = await model.generateContent(prompt);
+        if (result.fallback) {
+            logger.debug('[OBSERVER] AI fallback, skip save');
+            return;
+        }
         const fact = result.response.text().trim();
 
         if (fact.toUpperCase().includes('SKIP')) return;
+
+        // Defensive: filter fallback-like messages (⚠️ prefix or error keywords)
+        if (fact.startsWith('⚠️') || fact.startsWith('⚠') || /9Router|AI lagi (error|gangguan|down)|Otak.*(?:error|istirahat|gangguan|konslet)/i.test(fact)) {
+            logger.debug(`[OBSERVER] Filtered fallback-like: ${fact.slice(0, 60)}`);
+            return;
+        }
 
         // Simpan ke Database
         await Memory.add(namaPengirim, fact);
