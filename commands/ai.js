@@ -25,12 +25,19 @@ const observe = async (client, msg, namaPengirim) => {
     // 🔥 FILTER KHUSUS: CEK WATERMARK BOT (ANTI-LOOP)
     if (text.includes(botSignature)) return;
 
-    // --- LAYER 0: PRE-CHECK ---
-    if (text.startsWith('!') || text.length < 5) return;
-    const blacklist = ['bot', 'menu', 'error', 'system', 'reset', 'admin'];
+    // --- LAYER 0: PRE-CHECK (STRICT) ---
+    if (text.startsWith('!') || text.length < 15) return;
+    const blacklist = ['bot', 'menu', 'error', 'system', 'reset', 'admin', 'ping', 'cekid', 'owner'];
     if (blacklist.some(w => text.toLowerCase().includes(w))) return;
 
-    // --- LAYER 1: SMART AI FILTER (NO MORE KEYWORD TRIGGERS) ---
+    // Quick filter: aktivitas super transient + pendek (<40 char) -> langsung skip tanpa panggil AI
+    const transientShort = /^(lagi|barusan|udah|telah|baru)\s+(main|makan|minum|tidur|kerja|balas|nonton|mandi|di\s)/i;
+    if (transientShort.test(text) && text.length < 50) {
+        logger.debug(`[OBSERVER] Skip transient short: "${text.slice(0, 30)}"`);
+        return;
+    }
+
+    // --- LAYER 1: SUPER SELECTIVE AI FILTER ---
     logger.debug(`[OBSERVER] Kandidat: "${text.slice(0, 40)}..."`);
 
     try {
@@ -38,31 +45,82 @@ const observe = async (client, msg, namaPengirim) => {
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         });
 
-        const prompt = `Kamu adalah Memory Keeper. Tugasmu mengekstrak FAKTA PENTING dari pesan chat.
+        const prompt = `Kamu adalah Memory Keeper yang SUPER KETAT dan SELEKTIF. Hanya simpan fakta yang SANGAT PENTING untuk jangka panjang (>30 hari). Lebih baik SKIP daripada simpan sampah.
 
-User: ${namaPengirim}
+User pengirim: ${namaPengirim}
 Tanggal: ${today}
 Pesan: "${text}"
 
-ATURAN:
-- SIMPAN: Info pribadi (nama, umur, tanggal lahir), hubungan, preferensi, hobi, rencana, kebiasaan, pekerjaan, lokasi.
-- SKIP: Salam basa-basi, pertanyaan ke bot, perasaan sesaat, opini tanpa fakta, pesan pendek, command.
+❌ WAJIB SKIP jika salah satu terpenuhi:
+- Aktivitas sesaat/transient: main game (ML dll), lagi makan, balas chat/Slack, meeting selesai, nonton, di kantor/jalan, mabar, gabut
+- Rencana vague tanpa detail lengkap: "ketemu Sabtu", "mau beli RTX", "mau main" (tanpa tanggal+tempat+orang jelas)
+- Kerjaan harian / to-do list / laporan selesai: "udah balas chat di Slack", "tugas selesai"
+- Basa-basi, salam, curhat emosi sesaat, keluhan sementara
+- Fakta tentang ORANG LAIN yang bukan ${namaPengirim} (misal "${namaPengirim === 'Tami' ? 'Dini' : 'Tami'} bangun jam 5" padahal pengirim ${namaPengirim}) → SKIP, kecuali relasi inti: pacar/tunangan/suami/istri/keluarga + detail jelas
+- Pertanyaan, bukan pernyataan fakta
 
-Jika pesan berisi fakta yang layak disimpan, jawab HANYA fakta tersebut dalam sudut pandang ke-3 (contoh: "Dini suka makan mie ayam").
-Jika TIDAK layak simpan, jawab HANYA: SKIP`;
+✅ BOLEH SIMPAN hanya jika SEMUA terpenuhi:
+1. Tentang ${namaPengirim} sendiri (bukan orang lain)
+2. Permanen ATAU kebiasaan kuat berulang ATAU preferensi yang ditekankan ATAU rencana KONKRET dengan tgl+tempat+orang jelas
+3. Spesifik dan berguna untuk personalisasi >1 bulan ke depan
+4. Contoh yang BOLEH: ultah, alamat, alergi, makanan favorit yang alergi/benci banget, status hubungan (pacaran/tunangan/nikah) dengan nama pasangan, pekerjaan tetap, hobi yang ditekuni serius
+
+FORMAT OUTPUT KETAT:
+- Jika layak: 1 kalimat pendek, MAX 12 KATA, sudut pandang ke-3, to-the-point. Contoh: "Dini ultah 5 Mei", "Tami alergi udang parah", "Tami tunangan Rina nikah Desember Bali"
+- Jika tidak layak / ragu sedikit pun: tulis persis: SKIP
+
+CONTOH TRAINING (WAJIB IKUTI):
+Pesan: "mau main Mobile Legends bentar" dari Tami → SKIP
+Pesan: "mau ketemu sabtu" dari Tami → SKIP
+Pesan: "udah balas chat di Slack" dari Tami → SKIP
+Pesan: "Dini bangun jam 5:20 masih ngantuk" dari Tami → SKIP (tentang Dini, bukan Tami)
+Pesan: "aku berencana menggunakan RTX 5090 untuk keperluan lokal" dari Tami → SKIP (rencana belum konkret, bukan fakta permanen)
+Pesan: "aku ultah 5 Mei" dari Dini → "Dini ultah 5 Mei"
+Pesan: "aku alergi udang parah sampe sesak" dari Tami → "Tami alergi udang parah"
+Pesan: "aku tunangan sama Rina, nikah Desember di Bali" dari Tami → "Tami tunangan Rina, nikah Desember di Bali"
+
+Output untuk pesan di atas:`;
 
         const result = await model.generateContent(prompt);
         if (result.fallback) {
             logger.debug('[OBSERVER] AI fallback, skip save');
             return;
         }
-        const fact = result.response.text().trim();
+        let fact = result.response.text().trim();
 
-        if (fact.toUpperCase().includes('SKIP')) return;
+        if (fact.toUpperCase() === 'SKIP' || fact.toUpperCase().includes('SKIP')) return;
 
         // Defensive: filter fallback-like messages (⚠️ prefix or error keywords)
         if (fact.startsWith('⚠️') || fact.startsWith('⚠') || /9Router|AI lagi (error|gangguan|down)|Otak.*(?:error|istirahat|gangguan|konslet)/i.test(fact)) {
             logger.debug(`[OBSERVER] Filtered fallback-like: ${fact.slice(0, 60)}`);
+            return;
+        }
+
+        // === EXTRA STRICT POST-FILTERS (anti sampah) ===
+        // 1. Terlalu panjang = sampah verbose
+        if (fact.length > 100) {
+            logger.debug(`[OBSERVER] Skip too long (${fact.length} chars): ${fact.slice(0, 60)}`);
+            return;
+        }
+        const wordCount = fact.split(/\s+/).length;
+        if (wordCount > 15) {
+            logger.debug(`[OBSERVER] Skip too many words (${wordCount}): ${fact.slice(0, 60)}`);
+            return;
+        }
+        // 2. Frasa verbose khas AI sampah
+        if (/berencana atau memiliki preferensi|telah menyelesaikan tugas|berencana untuk menggunakan/i.test(fact)) {
+            logger.debug(`[OBSERVER] Skip verbose trash: ${fact.slice(0, 60)}`);
+            return;
+        }
+        // 3. Harus menyebut nama pengirim (anti cross-user pollution)
+        // Fakta harus mengandung namaPengirim, kalau tidak → skip (kecuali manual, tapi ini auto)
+        if (!fact.toLowerCase().includes(namaPengirim.toLowerCase())) {
+            logger.debug(`[OBSERVER] Skip not about sender (${namaPengirim}): ${fact.slice(0, 60)}`);
+            return;
+        }
+        // 4. Filter keyword transient yang lolos
+        if (/main.*(ML|Mobile Legends)|balas chat|balas.*Slack|berencana bertemu pada hari Sabtu/i.test(fact)) {
+            logger.debug(`[OBSERVER] Skip transient keyword: ${fact.slice(0, 60)}`);
             return;
         }
 
