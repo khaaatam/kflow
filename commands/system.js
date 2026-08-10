@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const config = require('../config');
 const logger = require('../lib/logger');
+const { getStats } = require('../lib/sendWrapper');
 
 module.exports = async (client, msg, args, senderId, namaPengirim) => {
     const command = args[0];
@@ -11,7 +12,36 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
         const start = Date.now();
         await client.sendMessage(msg.from, 'Pong!');
         const latency = Date.now() - start;
-        return client.sendMessage(msg.from, `📶 Latency: ${latency}ms`);
+        const stats = getStats();
+
+        const uptimeMin = Math.floor(process.uptime() / 60);
+        const uptimeHr = Math.floor(uptimeMin / 60);
+        const mem = process.memoryUsage();
+        const rssMB = (mem.rss / 1024 / 1024).toFixed(0);
+        const heapMB = (mem.heapUsed / 1024 / 1024).toFixed(0);
+
+        let waStatus;
+        try {
+            const state = await client.pupPage.evaluate(() => {
+                try { return window.Store?.State?.default?.state || 'unknown'; } catch { return 'unknown'; } // eslint-disable-line no-undef
+            });
+            waStatus = state === 'CONNECTED' ? '✅ Connected' : `⚠️ ${state}`;
+        } catch { waStatus = '❓ error'; }
+
+        const lines = [
+            `📶 *PING REPORT*`,
+            ``,
+            `⏱️ *Send:* ${latency}ms`,
+            stats.avgRealPing > 0 ? `📡 *Real RTT:* ${stats.avgRealPing}ms (avg)` : null,
+            stats.lastLatency !== null ? `📊 *Avg Send:* ${stats.avgLatency}ms` : null,
+            stats.pendingCount > 0 ? `📤 *Pending:* ${stats.pendingCount} send(s)` : null,
+            ``,
+            `🔗 WA: ${waStatus}`,
+            `⏱️ Uptime: ${uptimeHr}j ${uptimeMin % 60}m`,
+            `💾 RAM: ${rssMB}MB (heap: ${heapMB}MB)`
+        ].filter(Boolean);
+
+        return client.sendMessage(msg.from, lines.join('\n'));
     }
 
     // --- CEK ID ---

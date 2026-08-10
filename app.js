@@ -7,6 +7,7 @@ const config = require('./config');
 const db = require('./lib/database');
 const logger = require('./lib/logger');
 const messageHandler = require('./handlers/message');
+const { wrapClient } = require('./lib/sendWrapper');
 const os = require('os');
 const isWindows = os.platform() === 'win32';
 
@@ -49,10 +50,30 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
-            '--no-zygote'
+            '--no-zygote',
+            '--disable-background-timer-throttling',
+            '--disable-renderer-backgrounding',
+            '--disable-backgrounding-occluded-windows'
         ]
     }
 });
+
+// --- Wrap sendMessage dengan logging & watchdog ---
+const restartBot = async (reason) => {
+    logger.error(`[WATCHDOG] Auto-restart: ${reason}`);
+    try {
+        if (config.system.logNumber) {
+            const baseId = config.system.logNumber.replace(/@.*/, '');
+            const msg = `⚠️ *WATCHDOG RESTART*\n${reason}`;
+            try { await client.sendMessage(`${baseId}@c.us`, msg); } catch {
+                try { await client.sendMessage(`${baseId}@lid`, msg); } catch { /* ignore */ }
+            }
+        }
+    } catch { /* ignore */ }
+    setTimeout(() => process.exit(1), 2000);
+};
+
+wrapClient(client, () => restartBot('Send timeout detected'));
 
 client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
