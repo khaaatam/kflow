@@ -1,6 +1,6 @@
 /* global Buffer */
 const fs = require('fs');
-const sharp = require('sharp');
+const sharp = require('@img/sharp-wasm32');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
