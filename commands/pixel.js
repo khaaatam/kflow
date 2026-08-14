@@ -20,7 +20,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
         const media = await downloadMedia(targetMsg);
 
-        if (!media.mimetype.includes('video')) return msg.reply("❌ Khusus Video Bang!");
+        if (media.mimetype && !media.mimetype.includes('video')) return msg.reply("❌ Khusus Video Bang!");
 
         const inputPath = tempPath('px_in', 'mp4');
         const outputPath = tempPath('px_out', 'mp4');

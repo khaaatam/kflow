@@ -20,7 +20,7 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
         const media = await downloadMedia(targetMsg);
 
-        if (!media.mimetype.includes('image')) return msg.reply("❌ Khusus Foto Bang! Kalau video pake !pixel");
+        if (media.mimetype && !media.mimetype.includes('image')) return msg.reply("❌ Khusus Foto Bang! Kalau video pake !pixel");
 
         const inputPath = tempPath('retro_in', 'jpg');
         const outputPath = tempPath('retro_out', 'jpg');
