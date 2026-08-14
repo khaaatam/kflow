@@ -26,13 +26,13 @@ module.exports = async (client, msg) => {
         if (!isSticker) return msg.reply('❌ Itu bukan sticker!');
 
         const inputPath = tempPath('toimg_in', 'webp');
-        const outputPath = tempPath('toimg_out', 'png');
+        const outputPath = tempPath('toimg_out', 'jpg');
         fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
 
         await new Promise((resolve, reject) => {
             ffmpeg(inputPath)
                 .outputOptions(['-y'])
-                .toFormat('png')
+                .toFormat('jpg')
                 .save(outputPath)
                 .on('end', resolve)
                 .on('error', reject);
