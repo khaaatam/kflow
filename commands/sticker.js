@@ -6,7 +6,6 @@ const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
 const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 const ffmpeg = require('fluent-ffmpeg');
-const db = require('../lib/database');
 
 const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
     ffmpeg(inputPath)
@@ -24,25 +23,17 @@ const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
 module.exports = async (client, msg, args) => {
     const sub = args[1];
 
-    // --- ADD STICKER: !sticker add <nama> (reply/kirim gambar) ---
     if (sub === 'add' || sub === 'simpan') {
         const nama = args.slice(2).join(' ').trim();
         if (!nama) return msg.reply('Nama sticker-nya apa?\nContoh: `!sticker add lucu`');
-
         const isMedia = msg.hasMedia;
         const isQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
-
-        if (!isMedia && !isQuotedMedia) {
-            return msg.reply('Reply/kirim gambar dengan caption `!sticker add <nama>`');
-        }
-
+        if (!isMedia && !isQuotedMedia) return msg.reply('Reply/kirim gambar dengan caption `!sticker add <nama>`');
         await react(msg, '⏳');
-
         try {
             const targetMsg = isMedia ? msg : await msg.getQuotedMessage();
             const media = await downloadMedia(targetMsg);
             if (!media) return msg.reply('❌ Gagal download media.');
-
             let webpBuffer;
             if (media.mimetype?.includes('webp')) {
                 webpBuffer = Buffer.from(media.data, 'base64');
@@ -55,12 +46,8 @@ module.exports = async (client, msg, args) => {
                 webpBuffer = fs.readFileSync(outputPath);
                 cleanupFiles(inputPath, outputPath);
             }
-
-            await db.query(
-                'INSERT INTO sticker_packs (nama, webp_data, mimetype, created_by) VALUES (?, ?, ?, ?)',
-                [nama, webpBuffer, 'image/webp', msg.author || msg.from]
-            );
-
+            const db = require('../lib/database');
+            await db.query('INSERT INTO sticker_packs (nama, webp_data, mimetype, created_by) VALUES (?, ?, ?, ?)', [nama, webpBuffer, 'image/webp', msg.author || msg.from]);
             await react(msg, '✅');
             await msg.reply(`✅ Sticker *"${nama}"* berhasil disimpan!`);
         } catch (e) {
@@ -71,18 +58,16 @@ module.exports = async (client, msg, args) => {
         return;
     }
 
-    // --- LIST STICKERS: !sticker list ---
     if (sub === 'list' || sub === 'lihat') {
-        const [rows] = await db.query(
-            'SELECT id, nama, created_by, DATE_FORMAT(created_at, "%d/%m %H:%i") as waktu FROM sticker_packs ORDER BY id DESC LIMIT 50'
-        );
+        const db = require('../lib/database');
+        const [rows] = await db.query('SELECT id, nama, created_by, DATE_FORMAT(created_at, "%d/%m %H:%i") as waktu FROM sticker_packs ORDER BY id DESC LIMIT 50');
         if (!rows.length) return msg.reply('📭 Belum ada sticker tersimpan.\nKetik `!sticker add <nama>` buat simpan.');
         const lines = rows.map((r, i) => `${i + 1}. [${r.id}] *${r.nama}* — ${r.waktu}`);
         return msg.reply(`🎨 *STICKER PACK* (${rows.length})\n\n${lines.join('\n')}\n\nKetik *!sticker <id/nama>* buat kirim.`);
     }
 
-    // --- DELETE STICKER: !sticker hapus <id> ---
     if (sub === 'hapus' || sub === 'del') {
+        const db = require('../lib/database');
         const id = parseInt(args[2]);
         if (isNaN(id)) return msg.reply('ID mana? Cek `!sticker list` dulu.');
         const [rows] = await db.query('SELECT id, nama FROM sticker_packs WHERE id = ?', [id]);
@@ -92,44 +77,35 @@ module.exports = async (client, msg, args) => {
         return msg.reply(`🗑️ Sticker *"${rows[0].nama}"* (ID:${id}) dihapus.`);
     }
 
-    // --- SEND STICKER FROM PACK: !sticker <id/nama> ---
     if (sub && !isNaN(parseInt(sub))) {
+        const db = require('../lib/database');
         const [rows] = await db.query('SELECT webp_data, mimetype FROM sticker_packs WHERE id = ?', [parseInt(sub)]);
         if (!rows.length) return msg.reply('❌ Sticker gak ditemukan.');
         try {
             const sticker = rows[0];
             const media = new MessageMedia(sticker.mimetype, sticker.webp_data.toString('base64'));
             await msg.reply(media, undefined, { sendMediaAsSticker: true, stickerAuthor: 'K-Flow Bot', stickerName: 'Sticker Pack' });
-        } catch (e) {
-            logger.error('Sticker Pack Send Error:', e.message);
-            await msg.reply('❌ Gagal kirim sticker.');
-        }
+        } catch (e) { logger.error('Sticker Pack Send Error:', e.message); await msg.reply('❌ Gagal kirim sticker.'); }
         return;
     }
 
     if (sub) {
+        const db = require('../lib/database');
         const [rows] = await db.query('SELECT id, nama, webp_data, mimetype FROM sticker_packs WHERE nama LIKE ? ORDER BY id DESC LIMIT 1', [`%${sub}%`]);
         if (!rows.length) return msg.reply('❌ Sticker gak ditemukan.');
         try {
             const sticker = rows[0];
             const media = new MessageMedia(sticker.mimetype, sticker.webp_data.toString('base64'));
             await msg.reply(media, undefined, { sendMediaAsSticker: true, stickerAuthor: 'K-Flow Bot', stickerName: sticker.nama });
-        } catch (e) {
-            logger.error('Sticker Pack Send Error:', e.message);
-            await msg.reply('❌ Gagal kirim sticker.');
-        }
+        } catch (e) { logger.error('Sticker Pack Send Error:', e.message); await msg.reply('❌ Gagal kirim sticker.'); }
         return;
     }
 
-    // --- CONVERT IMAGE TO STICKER: !sticker (with image, no subcommand) ---
     if (msg.hasMedia) {
         try {
             await react(msg, '⏳');
             const media = await downloadMedia(msg);
-            if (!media) {
-                await react(msg, '❌');
-                return msg.reply('❌ Gagal download media.');
-            }
+            if (!media) { await react(msg, '❌'); return msg.reply('❌ Gagal download media.'); }
 
             if (media.mimetype?.includes('webp')) {
                 await msg.reply(media, undefined, { sendMediaAsSticker: true, stickerAuthor: 'ig: @khataaam_', stickerName: 'JikaeL the Creator' });
@@ -144,9 +120,7 @@ module.exports = async (client, msg, args) => {
             const brightnessVal = effects.find(e => e.startsWith('brightness='));
             const saturationVal = effects.find(e => e.startsWith('saturation='));
 
-            const hasEffects = hasNegate || hasGrayscale || blurVal || brightnessVal || saturationVal;
-
-            if (hasEffects) {
+            if (hasNegate || hasGrayscale || blurVal || brightnessVal || saturationVal) {
                 const { applyEffects } = require('../lib/mediaEffects');
                 const imgBuffer = Buffer.from(media.data, 'base64');
                 const webpBuf = await applyEffects(imgBuffer, {
@@ -177,7 +151,6 @@ module.exports = async (client, msg, args) => {
         return;
     }
 
-    // --- HELP ---
     await msg.reply(
         '🎨 *STICKER*\n\n' +
         '• `!sticker` (kirim gambar) — Convert ke stiker\n' +
@@ -190,8 +163,7 @@ module.exports = async (client, msg, args) => {
         '• `!sticker grayscale` — B&W\n' +
         '• `!sticker blur=5` — Blur\n' +
         '• `!sticker brightness=1.5` — Terang\n' +
-        '• `!sticker saturation=2` — Saturated\n\n' +
-        'Gabungkan: `!sticker blur=3 brightness=1.2`'
+        '• `!sticker saturation=2` — Saturated'
     );
 };
 

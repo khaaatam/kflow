@@ -2,25 +2,19 @@ const logger = require('../lib/logger');
 const react = require('../lib/react');
 const { MessageMedia } = require('whatsapp-web.js');
 const fetch = require('node-fetch');
+const { svgToPng } = require('../lib/mediaEffects');
 
 module.exports = async (client, msg) => {
     await react(msg, '👤');
-
     try {
         const seed = Math.random().toString(36).substring(7);
         const url = `https://api.dicebear.com/7.x/adventurer/svg?seed=${seed}&backgroundColor=b6e3f4,c0aede,d1d4f9`;
-
         const response = await fetch(url, { timeout: 10000 });
         if (!response.ok) throw new Error('DiceBear API unavailable');
-
-        const svgBuffer = await response.buffer();
-        const { svgToBuffer } = require('../lib/mediaEffects');
-        const pngBuffer = await svgToBuffer(svgBuffer.toString(), 'png');
-
-        const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
-        await msg.reply(media, undefined, {
-            caption: `👤 Random Avatar (${seed})`,
-        });
+        const svgText = await response.text();
+        const pngBuf = svgToPng(svgText);
+        const media = new MessageMedia('image/png', pngBuf.toString('base64'));
+        await msg.reply(media, undefined, { caption: `👤 Random Avatar (${seed})` });
         await react(msg, '✅');
     } catch (e) {
         logger.error('Avatar Error:', e.message);

@@ -14,6 +14,8 @@
   "license": "ISC",
   "packageManager": "pnpm@10.20.0",
   "dependencies": {
+    "@jimp/plugin-print": "^1.6.1",
+    "@resvg/resvg-js": "^2.6.2",
     "axios": "^1.13.4",
     "dotenv": "^17.2.3",
     "ejs": "^4.0.1",
@@ -23,6 +25,7 @@
     "jimp": "^1.6.1",
     "mysql2": "^3.16.0",
     "openai": "^4.98.0",
+    "opentype.js": "^2.0.0",
     "puppeteer": "^24.36.1",
     "qrcode-terminal": "^0.12.0",
     "whatsapp-web.js": "github:lindionez/whatsapp-web.js#feat/fix-_serialized-id-fallback"

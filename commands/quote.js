@@ -13,16 +13,12 @@ module.exports = async (client, msg, args) => {
         authorName = quoted.pushName || quoted.author || 'Anonymous';
     }
 
-    if (!quoteText) {
-        return msg.reply('Reply pesan pake caption `!quote` atau `!quote [nama]`');
-    }
+    if (!quoteText) return msg.reply('Reply pesan pake caption `!quote` atau `!quote [nama]`');
 
     await react(msg, '💬');
-
     try {
         const pngBuffer = await createQuoteCard(quoteText, authorName);
         const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
-
         await msg.reply(media, undefined, {
             sendMediaAsSticker: true,
             stickerAuthor: 'K-Flow Bot',
