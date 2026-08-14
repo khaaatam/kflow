@@ -28,14 +28,14 @@ module.exports = async (client, msg, args) => {
         const [rows] = await db.query(sql, [...params, limit]);
         if (!rows.length) {
             await react(msg, '✅');
-            return client.sendMessage(msg.from, '📭 *KOSONG*\nGak ada chat logs.');
+            return msg.reply('📭 *KOSONG*\nGak ada chat logs.');
         }
 
         rows.reverse();
         const lines = rows.map((r, i) => `${i + 1}. [${r.waktu}] *${r.nama_pengirim}*: ${r.pesan}`);
         const header = `📋 *CHAT LOGS* (${rows.length} messages)\n\n`;
         await react(msg, '✅');
-        client.sendMessage(msg.from, header + lines.join('\n'));
+        msg.reply(header + lines.join('\n'));
     } catch (e) {
         logger.error('Logs Error:', e);
         await msg.reply('❌ Gagal ambil chat logs.');

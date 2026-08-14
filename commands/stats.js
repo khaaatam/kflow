@@ -31,7 +31,7 @@ module.exports = async (client, msg, _args) => {
         }
 
         const reply = `📊 *STATISTIK CHAT HARI INI*\n📨 Total Chat: ${statsHarian.total_chat}\n🏆 Top Spam: **${topUser.nama_pengirim}** (${topUser.jumlah})\n🔥 Trending: "${topWord}"`;
-        await client.sendMessage(msg.from, reply);
+        await msg.reply(reply);
         await react(msg, '✅');
 
     } catch (err) {

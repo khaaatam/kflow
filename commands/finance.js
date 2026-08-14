@@ -209,7 +209,7 @@ await react(msg, '✅');
         const url = `https://quickchart.io/chart?c=${encodeURIComponent(JSON.stringify(chartConfig))}&w=500&h=500`;
         try {
             const media = await MessageMedia.fromUrl(url, { unsafeMime: true });
-            await client.sendMessage(msg.from, media, { caption: `📊 *Visualisasi Keuangan*\n\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 Saldo: ${formatRupiah(saldo)}` });
+            await msg.reply(media, undefined, { caption: `📊 *Visualisasi Keuangan*\n\n📈 Masuk: ${formatRupiah(masuk)}\n📉 Keluar: ${formatRupiah(keluar)}\n💵 Saldo: ${formatRupiah(saldo)}` });
             await react(msg, '✅');
         } catch { await msg.reply("❌ Gagal bikin grafik."); }
     }

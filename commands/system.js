@@ -10,7 +10,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
     // --- PING ---
     if (command === '!ping') {
         const start = Date.now();
-        await client.sendMessage(msg.from, 'Pong!');
+        await msg.reply('Pong!');
         const latency = Date.now() - start;
         const stats = getStats();
 
@@ -41,7 +41,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
             `💾 RAM: ${rssMB}MB (heap: ${heapMB}MB)`
         ].filter(Boolean);
 
-        return client.sendMessage(msg.from, lines.join('\n'));
+        return msg.reply(lines.join('\n'));
     }
 
     // --- CEK ID ---

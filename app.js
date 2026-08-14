@@ -8,6 +8,7 @@ const db = require('./lib/database');
 const logger = require('./lib/logger');
 const messageHandler = require('./handlers/message');
 const { wrapClient } = require('./lib/sendWrapper');
+const { warmUpLids, resolveId } = require('./lib/lid');
 const os = require('os');
 const isWindows = os.platform() === 'win32';
 
@@ -59,17 +60,15 @@ const client = new Client({
 });
 
 // --- Wrap sendMessage dengan logging & watchdog ---
+const sendOwnerNotif = async (text) => {
+    if (!config.system.logNumber) return;
+    const target = resolveId(config.system.logNumber);
+    await client.sendMessage(target, text);
+};
+
 const restartBot = async (reason) => {
     logger.error(`[WATCHDOG] Auto-restart: ${reason}`);
-    try {
-        if (config.system.logNumber) {
-            const baseId = config.system.logNumber.replace(/@.*/, '');
-            const msg = `⚠️ *WATCHDOG RESTART*\n${reason}`;
-            try { await client.sendMessage(`${baseId}@c.us`, msg); } catch {
-                try { await client.sendMessage(`${baseId}@lid`, msg); } catch { /* ignore */ }
-            }
-        }
-    } catch { /* ignore */ }
+    sendOwnerNotif(`⚠️ *WATCHDOG RESTART*\n${reason}`).catch(() => {});
     setTimeout(() => process.exit(1), 2000);
 };
 
@@ -92,15 +91,13 @@ client.on('ready', async () => {
     // Fix "Send Seen"
     try { await client.pupPage.evaluate(() => { window.WWebJS.sendSeen = async () => true; }); } catch { /* best-effort */ }
 
-    // Notif ke Owner (try @c.us first, fallback to @lid)
-    if (config.system.logNumber) {
-        const logMsg = `♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart.`;
-        const baseId = config.system.logNumber.replace(/@.*/, '');
-        const trySend = async (id) => { try { await client.sendMessage(id, logMsg); return true; } catch { return false; } };
-        const sent = await trySend(`${baseId}@c.us`) || await trySend(`${baseId}@lid`);
-        if (sent) logger.info('Notif ke owner terkirim');
-        else logger.warn('Gagal kirim notif ke owner');
-    }
+    // Notif ke Owner (fire-and-forget, gak block ready)
+    sendOwnerNotif(`♻️ *SYSTEM ONLINE*\n${config.botName} berhasil restart.`)
+        .then(() => logger.info('Notif ke owner terkirim'))
+        .catch(() => logger.warn('Gagal kirim notif ke owner'));
+
+    // Warm-up LID cache (fire-and-forget)
+    warmUpLids(client).catch(() => {});
 
     // Restore reminders (jalan kalau DB udah ready)
     if (dbReady) {

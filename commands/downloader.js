@@ -42,7 +42,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
                 let videoUrl = data.play || data.wmplay;
                 if (videoUrl && !videoUrl.startsWith('http')) videoUrl = `https://www.tikwm.com${videoUrl}`;
 
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
+                await msg.reply(await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), undefined, {
                     caption: `🎵 *TikTok*\n👤 ${data.author?.nickname || '-'}`
                 });
                 await react(msg, '✅');
@@ -82,7 +82,7 @@ module.exports = async (client, msg, args, senderId, _namaPengirim, _text) => {
                 const videoUrl = data.hd || data.sd;
                 if (!videoUrl) return msg.reply("❌ Video FB tidak ditemukan.");
 
-                await client.sendMessage(msg.from, await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), {
+                await msg.reply(await MessageMedia.fromUrl(videoUrl, { unsafeMime: true }), undefined, {
                     caption: `💙 *Facebook Downloader*\nBot Created by ${config.creator[0] || config.creator}`
                 });
                 await react(msg, '✅');

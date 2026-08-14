@@ -68,7 +68,7 @@ module.exports = async (client, msg, args, senderId) => {
 
                 exec('npm install', (errInstall) => {
                     if (errInstall) {
-                        client.sendMessage(msg.from, "❌ Gagal npm install, coba manual.");
+                        msg.reply("❌ Gagal npm install, coba manual.");
                     } else {
                         restartBot("✅ *Install Library Selesai!*");
                     }
