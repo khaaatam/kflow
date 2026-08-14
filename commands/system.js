@@ -162,6 +162,8 @@ module.exports.metadata = {
         { command: '!owner', desc: 'Kartu Nama Owner', isPublic: true },
         { command: '!menu', desc: 'Daftar Menu (opsi: !menu <kategori>)', isPublic: true },
         { command: '!ping', desc: 'Cek Sinyal', isPublic: true },
-        { command: '!cekid', desc: 'Cek ID (sendiri/nomor)', isPublic: true }
+        { command: '!cekid', desc: 'Cek ID (sendiri/nomor)', isPublic: true },
+        { command: '!bot', desc: 'Daftar Menu (opsi: !bot <kategori>)', isPublic: true },
+        { command: '!help', desc: 'Daftar Menu (opsi: !help <kategori>)', isPublic: true }
     ]
 };

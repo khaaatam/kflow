@@ -24,6 +24,7 @@
     "openai": "^4.98.0",
     "puppeteer": "^24.36.1",
     "qrcode-terminal": "^0.12.0",
+    "sharp": "^0.35.3",
     "whatsapp-web.js": "github:lindionez/whatsapp-web.js#feat/fix-_serialized-id-fallback"
   },
   "devDependencies": {
