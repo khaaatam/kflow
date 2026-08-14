@@ -44,10 +44,10 @@ module.exports = async (client, msg, args) => {
             if (!media) return msg.reply('❌ Gagal download media.');
 
             let webpBuffer;
-            if (media.mimetype.includes('webp')) {
+            if (media.mimetype?.includes('webp')) {
                 webpBuffer = Buffer.from(media.data, 'base64');
             } else {
-                const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+                const ext = media.mimetype?.includes('png') ? 'png' : 'jpg';
                 const inputPath = tempPath('stkpack_in', ext);
                 const outputPath = tempPath('stkpack_out', 'webp');
                 fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
@@ -132,13 +132,13 @@ module.exports = async (client, msg, args) => {
                 return msg.reply('❌ Gagal download media.');
             }
 
-            if (media.mimetype.includes('webp')) {
+            if (media.mimetype?.includes('webp')) {
                 await msg.reply(media, undefined, { sendMediaAsSticker: true, stickerAuthor: 'ig: @khataaam_', stickerName: 'JikaeL the Creator' });
                 await react(msg, '✅');
                 return;
             }
 
-            const ext = media.mimetype.includes('png') ? 'png' : 'jpg';
+            const ext = media.mimetype?.includes('png') ? 'png' : 'jpg';
             const inputPath = tempPath('stk_in', ext);
             const outputPath = tempPath('stk_out', 'webp');
             fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
