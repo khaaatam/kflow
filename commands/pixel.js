@@ -19,8 +19,11 @@ module.exports = async (client, msg, _args, _senderId, _namaPengirim, _text) => 
     try {
         let targetMsg = isMedia ? msg : await msg.getQuotedMessage();
         const media = await downloadMedia(targetMsg);
+        if (!media) return msg.reply("❌ Gagal download media.");
 
-        if (media.mimetype && !media.mimetype.includes('video')) return msg.reply("❌ Khusus Video Bang!");
+        logger.debug(`Pixel: msg.type=${targetMsg.type}, mimetype=${media.mimetype}`);
+        const isVideo = targetMsg.type === 'video' || (media.mimetype && media.mimetype.includes('video'));
+        if (!isVideo) return msg.reply("❌ Khusus Video Bang!");
 
         const inputPath = tempPath('px_in', 'mp4');
         const outputPath = tempPath('px_out', 'mp4');
