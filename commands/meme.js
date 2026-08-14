@@ -1,12 +1,12 @@
 /* global Buffer */
-const Jimp = require('jimp');
+const fs = require('fs');
+const { Jimp } = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
 const { MessageMedia } = require('whatsapp-web.js');
 const { tempPath, cleanupFiles } = require('../lib/tempUtils');
-const fs = require('fs');
-const { svgToBuffer } = require('../lib/mediaEffects');
+const { svgToJpg } = require('../lib/mediaEffects');
 
 module.exports = async (client, msg, args) => {
     const input = args.slice(1).join(' ');
@@ -35,8 +35,8 @@ module.exports = async (client, msg, args) => {
             fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
         } else {
             inputPath = tempPath('meme_in', 'png');
-            const img = new Jimp(512, 512, 0x323232FF);
-            await img.writeAsync(inputPath);
+            const img = new Jimp({ width: 512, height: 512, color: 0x323232FF });
+            await img.write(inputPath);
         }
 
         const img = await Jimp.read(inputPath);
@@ -55,12 +55,12 @@ module.exports = async (client, msg, args) => {
         }
         svgOverlay += '</svg>';
 
-        const svgBuf = await svgToBuffer(svgOverlay, 'png');
+        const svgBuf = await svgToJpg(svgOverlay);
         const overlayImg = await Jimp.read(svgBuf);
         img.composite(overlayImg, 0, 0);
 
         const outputPath = tempPath('meme_out', 'png');
-        await img.writeAsync(outputPath);
+        await img.write(outputPath);
 
         const resultMedia = MessageMedia.fromFilePath(outputPath);
         await msg.reply(resultMedia);

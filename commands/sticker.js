@@ -1,6 +1,5 @@
 /* global Buffer */
 const fs = require('fs');
-const Jimp = require('jimp');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
@@ -148,17 +147,15 @@ module.exports = async (client, msg, args) => {
             const hasEffects = hasNegate || hasGrayscale || blurVal || brightnessVal || saturationVal;
 
             if (hasEffects) {
+                const { applyEffects } = require('../lib/mediaEffects');
                 const imgBuffer = Buffer.from(media.data, 'base64');
-                const img = await Jimp.read(imgBuffer);
-                img.resize(512, 512);
-
-                if (hasNegate) img.invert();
-                if (hasGrayscale) img.greyscale();
-                if (blurVal) img.blur(Math.min(Math.max(Number(blurVal.split('=')[1]), 1), 100));
-                if (brightnessVal) img.brightness((Number(brightnessVal.split('=')[1]) || 1) - 1);
-                if (saturationVal) img.color([{ apply: 'saturate', params: [((Number(saturationVal.split('=')[1]) || 1) - 1) * 100] }]);
-
-                const webpBuf = await img.getBufferAsync(Jimp.MIME_WEBP);
+                const webpBuf = await applyEffects(imgBuffer, {
+                    negate: hasNegate,
+                    grayscale: hasGrayscale,
+                    blur: blurVal ? Number(blurVal.split('=')[1]) : undefined,
+                    brightness: brightnessVal ? Number(brightnessVal.split('=')[1]) : undefined,
+                    saturation: saturationVal ? Number(saturationVal.split('=')[1]) : undefined,
+                });
                 const webpMedia = new MessageMedia('image/webp', webpBuf.toString('base64'));
                 await msg.reply(webpMedia, undefined, { sendMediaAsSticker: true, stickerAuthor: 'ig: @khataaam_', stickerName: 'JikaeL the Creator' });
             } else {

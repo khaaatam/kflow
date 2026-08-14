@@ -1,5 +1,5 @@
 /* global Buffer, FormData */
-const Jimp = require('jimp');
+const { Jimp } = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');

@@ -1,7 +1,9 @@
+const fs = require('fs');
+const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
-const { MessageMedia } = require('whatsapp-web.js');
-const { svgToBuffer } = require('../lib/mediaEffects');
+const { svgToJpg } = require('../lib/mediaEffects');
+const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 
 module.exports = async (client, msg, args) => {
     const text = args.slice(1).join(' ').trim();
@@ -50,8 +52,10 @@ module.exports = async (client, msg, args) => {
             ${textElements}
         </svg>`;
 
-        const pngBuffer = await svgToBuffer(svg, 'png');
-        const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
+        const jpgBuf = await svgToJpg(svg);
+        const outputPath = tempPath('nulis_out', 'jpg');
+        fs.writeFileSync(outputPath, jpgBuf);
+        const media = MessageMedia.fromFilePath(outputPath);
 
         await msg.reply(media, undefined, {
             caption: '✍️ Nulis di kertas',
@@ -59,6 +63,7 @@ module.exports = async (client, msg, args) => {
             stickerAuthor: 'K-Flow Bot',
             stickerName: 'Nulis',
         });
+        cleanupFiles(outputPath);
         await react(msg, '✅');
     } catch (e) {
         logger.error('Nulis Error:', e.message);

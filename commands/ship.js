@@ -1,7 +1,8 @@
-const Jimp = require('jimp');
+const { Jimp } = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const { MessageMedia } = require('whatsapp-web.js');
+const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 
 module.exports = async (client, msg) => {
     if (!msg.hasMentions || msg.mentionedIds.length < 2) {
@@ -30,27 +31,24 @@ module.exports = async (client, msg) => {
         const w = 512;
         const h = 512;
 
-        const img = new Jimp(w, h);
-        const bg = new Jimp(w, h, 0xff6b6bff);
-        img.composite(bg, 0, 0);
-
+        const img = new Jimp({ width: w, height: h, color: 0xff6b6bff });
         const font = await Jimp.loadFont(Jimp.FONT_SANS_64_WHITE);
-        img.print(font, 0, h * 0.35, { text: `${percentage}%`, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER, alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE }, w, h * 0.3);
+        img.print(font, 0, Math.floor(h * 0.35), { text: `${percentage}%`, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER });
 
         const verdictFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
-        img.print(verdictFont, 0, h * 0.6, { text: verdict, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+        img.print(verdictFont, 0, Math.floor(h * 0.6), { text: verdict, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER });
 
         const heartFont = await Jimp.loadFont(Jimp.FONT_SANS_28_WHITE);
-        img.print(heartFont, 0, h * 0.75, { text: heartStr, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+        img.print(heartFont, 0, Math.floor(h * 0.75), { text: heartStr, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER });
 
-        const outputPath = require('path').join(__dirname, '..', 'temp', `ship_${Date.now()}.png`);
-        await img.writeAsync(outputPath);
+        const outputPath = tempPath('ship_out', 'png');
+        await img.write(outputPath);
         const media = MessageMedia.fromFilePath(outputPath);
 
         await msg.reply(media, undefined, {
             caption: `💕 *SHIP CALCULATOR*\n\n${verdict}\nMatch: ${percentage}%`,
         });
-        require('fs').unlinkSync(outputPath);
+        cleanupFiles(outputPath);
         await react(msg, '✅');
     } catch (e) {
         logger.error('Ship Error:', e.message);
