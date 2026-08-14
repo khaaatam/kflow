@@ -92,7 +92,7 @@ module.exports = async (client, msg, args, senderId, namaPengirim) => {
     }
 
     // --- MENU ---
-    if (command === '!menu' || command === '!help') {
+    if (command === '!menu' || command === '!help' || command === '!bot') {
         const isGuest = namaPengirim === 'Guest';
         const commandFiles = fs.readdirSync(__dirname).filter(file => file.endsWith('.js'));
         const categories = {};

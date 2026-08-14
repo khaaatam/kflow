@@ -16,7 +16,7 @@ const isWindows = os.platform() === 'win32';
 const reminderCommand = require('./commands/reminder');
 const eventCommand = require('./commands/event');
 const tanggalCommand = require('./commands/tanggal');
-const Memory = require('../models/Memory');
+const Memory = require('./models/Memory');
 
 // --- 1. INISIALISASI DATABASE (fire-and-forget, gak block WhatsApp init) ---
 let dbReady = false;
