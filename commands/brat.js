@@ -1,6 +1,6 @@
 const logger = require('../lib/logger');
 const react = require('../lib/react');
-const { svgToPng, escapeXml } = require('../lib/mediaEffects');
+const { escapeXml } = require('../lib/mediaEffects');
 
 module.exports = async (client, msg, args) => {
     const text = args.slice(1).join(' ').trim();
@@ -9,18 +9,33 @@ module.exports = async (client, msg, args) => {
     await react(msg, '🎨');
     try {
         const words = text.split(' ');
-        const lineH = 50;
-        const padding = 30;
-        const w = 400;
-        const fontSize = 36;
-        const h = padding * 2 + Math.ceil(words.length / 3) * lineH + 10;
+        const lineH = 52;
+        const padding = 20;
+        const w = 350;
+        const fontSize = 34;
+
+        const lines = [];
+        let cur = [];
+        for (const word of words) {
+            cur.push(word);
+            if (cur.length >= 3 || cur.join(' ').length > 18) {
+                lines.push(cur);
+                cur = [];
+            }
+        }
+        if (cur.length) lines.push(cur);
+
+        const h = padding * 2 + lines.length * lineH;
 
         const textEls = [];
-        for (let i = 0; i < words.length; i++) {
-            const lineIdx = Math.floor(i / 3);
-            const y = padding + fontSize + lineIdx * lineH + (Math.random() * 10 - 5);
-            const x = 20 + Math.random() * (w - 60);
-            textEls.push(`<text x="${Math.floor(x)}" y="${Math.floor(y)}" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" fill="black" font-weight="bold">${escapeXml(words[i])}</text>`);
+        for (let li = 0; li < lines.length; li++) {
+            const lineWords = lines[li];
+            const y = padding + fontSize + li * lineH;
+            const gap = (w - 40) / (lineWords.length + 1);
+            for (let wi = 0; wi < lineWords.length; wi++) {
+                const x = 20 + gap * (wi + 1) + (Math.random() * 10 - 5);
+                textEls.push(`<text x="${Math.floor(x)}" y="${Math.floor(y + (Math.random() * 6 - 3))}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="${fontSize}" fill="black" font-weight="bold">${escapeXml(lineWords[wi])}</text>`);
+            }
         }
 
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">
@@ -28,7 +43,14 @@ module.exports = async (client, msg, args) => {
             ${textEls.join('\n')}
         </svg>`;
 
-        const pngBuf = svgToPng(svg);
+        const { Resvg } = require('@resvg/resvg-js');
+        const { getFontFiles } = require('../lib/mediaEffects');
+        const resvg = new Resvg(svg, {
+            font: { loadSystemFonts: false, fontFiles: getFontFiles(), defaultFontFamily: 'Arial' },
+            fitTo: { mode: 'width', value: Math.floor(w / 2) }
+        });
+        const pngBuf = resvg.render().asPng();
+
         const img = await require('jimp').Jimp.read(pngBuf);
         const webpBuf = await require('../lib/mediaEffects').imgToWebp(img);
 
