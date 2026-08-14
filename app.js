@@ -15,7 +15,8 @@ const isWindows = os.platform() === 'win32';
 // --- LOAD FITUR BACKGROUND ---
 const reminderCommand = require('./commands/reminder');
 const eventCommand = require('./commands/event');
-const Memory = require('./models/Memory');
+const tanggalCommand = require('./commands/tanggal');
+const Memory = require('../models/Memory');
 
 // --- 1. INISIALISASI DATABASE (fire-and-forget, gak block WhatsApp init) ---
 let dbReady = false;
@@ -98,6 +99,17 @@ client.on('ready', async () => {
 
     // Warm-up LID cache (fire-and-forget)
     warmUpLids(client).catch(() => {});
+
+    // Date checker (daily at 7 AM)
+    let lastDateCheck = null;
+    setInterval(() => {
+        const now = new Date();
+        const today = now.toDateString();
+        if (now.getHours() === 7 && now.getMinutes() === 0 && lastDateCheck !== today) {
+            lastDateCheck = today;
+            if (dbReady) tanggalCommand.checkUpcoming(client).catch(() => {});
+        }
+    }, 60000);
 
     // Restore reminders (jalan kalau DB udah ready)
     if (dbReady) {
