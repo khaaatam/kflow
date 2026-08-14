@@ -1,5 +1,5 @@
 /* global Buffer, FormData */
-const sharp = require('@img/sharp-wasm32');
+const Jimp = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
@@ -24,14 +24,11 @@ module.exports = async (client, msg) => {
 
         const imgBuffer = Buffer.from(media.data, 'base64');
 
-        // Try remove.bg API first
         if (config.ai.apiKey) {
             try {
                 const response = await fetch('https://api.remove.bg/v1.0/removebg', {
                     method: 'POST',
-                    headers: {
-                        'X-Api-Key': process.env.REMOVEBG_API_KEY || '',
-                    },
+                    headers: { 'X-Api-Key': process.env.REMOVEBG_API_KEY || '' },
                     body: (() => {
                         const fd = new FormData();
                         fd.append('image_file_b64', media.data);
@@ -48,15 +45,12 @@ module.exports = async (client, msg) => {
                     await react(msg, '✅');
                     return;
                 }
-            } catch { /* fallback to sharp */ }
+            } catch { /* fallback */ }
         }
 
-        // Fallback: simple background removal with sharp (threshold-based)
-        const result = await sharp(imgBuffer)
-            .resize(512, 512, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-            .png()
-            .toBuffer();
-
+        const img = await Jimp.read(imgBuffer);
+        img.resize(512, 512, Jimp.AUTO);
+        const result = await img.getBufferAsync(Jimp.MIME_PNG);
         const resultMedia = new MessageMedia('image/png', result.toString('base64'));
         await msg.reply(resultMedia, undefined, { caption: '✂️ Background removed (basic mode)' });
         await react(msg, '✅');

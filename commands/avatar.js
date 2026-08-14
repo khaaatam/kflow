@@ -1,4 +1,3 @@
-const sharp = require('@img/sharp-wasm32');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const { MessageMedia } = require('whatsapp-web.js');
@@ -15,7 +14,8 @@ module.exports = async (client, msg) => {
         if (!response.ok) throw new Error('DiceBear API unavailable');
 
         const svgBuffer = await response.buffer();
-        const pngBuffer = await sharp(svgBuffer).png().toBuffer();
+        const { svgToBuffer } = require('../lib/mediaEffects');
+        const pngBuffer = await svgToBuffer(svgBuffer.toString(), 'png');
 
         const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
         await msg.reply(media, undefined, {

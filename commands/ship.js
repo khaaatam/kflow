@@ -1,5 +1,4 @@
-/* global Buffer */
-const sharp = require('@img/sharp-wasm32');
+const Jimp = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const { MessageMedia } = require('whatsapp-web.js');
@@ -15,7 +14,6 @@ module.exports = async (client, msg) => {
         const user1 = msg.mentionedIds[0];
         const user2 = msg.mentionedIds[1];
 
-        // Generate deterministic "random" percentage
         const hash = (user1 + user2).split('').reduce((a, c) => a + c.charCodeAt(0), 0);
         const percentage = (hash % 101);
 
@@ -31,26 +29,28 @@ module.exports = async (client, msg) => {
 
         const w = 512;
         const h = 512;
-        const svg = `<svg width="${w}" height="${h}">
-            <defs>
-                <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" style="stop-color:#ff6b6b;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#ee5a24;stop-opacity:1" />
-                </linearGradient>
-            </defs>
-            <rect width="${w}" height="${h}" fill="url(#bg)"/>
-            <text x="50%" y="30%" text-anchor="middle" font-family="Impact, Arial, sans-serif" font-size="100" fill="white">💘</text>
-            <text x="50%" y="50%" text-anchor="middle" font-family="Impact, Arial, sans-serif" font-size="80" fill="white" paint-order="stroke" stroke="black" stroke-width="3">${percentage}%</text>
-            <text x="50%" y="65%" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" fill="white">${verdict}</text>
-            <text x="50%" y="80%" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="white">${heartStr}</text>
-        </svg>`;
 
-        const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
-        const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
+        const img = new Jimp(w, h);
+        const bg = new Jimp(w, h, 0xff6b6bff);
+        img.composite(bg, 0, 0);
+
+        const font = await Jimp.loadFont(Jimp.FONT_SANS_64_WHITE);
+        img.print(font, 0, h * 0.35, { text: `${percentage}%`, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER, alignmentY: Jimp.VERTICAL_ALIGN_MIDDLE }, w, h * 0.3);
+
+        const verdictFont = await Jimp.loadFont(Jimp.FONT_SANS_32_WHITE);
+        img.print(verdictFont, 0, h * 0.6, { text: verdict, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+
+        const heartFont = await Jimp.loadFont(Jimp.FONT_SANS_28_WHITE);
+        img.print(heartFont, 0, h * 0.75, { text: heartStr, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+
+        const outputPath = require('path').join(__dirname, '..', 'temp', `ship_${Date.now()}.png`);
+        await img.writeAsync(outputPath);
+        const media = MessageMedia.fromFilePath(outputPath);
 
         await msg.reply(media, undefined, {
             caption: `💕 *SHIP CALCULATOR*\n\n${verdict}\nMatch: ${percentage}%`,
         });
+        require('fs').unlinkSync(outputPath);
         await react(msg, '✅');
     } catch (e) {
         logger.error('Ship Error:', e.message);

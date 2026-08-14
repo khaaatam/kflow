@@ -1,5 +1,5 @@
 /* global Buffer */
-const sharp = require('@img/sharp-wasm32');
+const Jimp = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
@@ -24,7 +24,8 @@ module.exports = async (client, msg) => {
         if (!isSticker) return msg.reply('❌ Itu bukan sticker!');
 
         const imgBuffer = Buffer.from(media.data, 'base64');
-        const pngBuffer = await sharp(imgBuffer).png().toBuffer();
+        const img = await Jimp.read(imgBuffer);
+        const pngBuffer = await img.getBufferAsync(Jimp.MIME_PNG);
         const resultMedia = new MessageMedia('image/png', pngBuffer.toString('base64'));
 
         await msg.reply(resultMedia, undefined, { caption: '🖼️ Converted from sticker' });

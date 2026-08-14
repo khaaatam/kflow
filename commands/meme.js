@@ -1,12 +1,12 @@
 /* global Buffer */
-const sharp = require('@img/sharp-wasm32');
+const Jimp = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const downloadMedia = require('../lib/downloadMedia');
-const { escapeXml } = require('../lib/mediaEffects');
 const { MessageMedia } = require('whatsapp-web.js');
 const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 const fs = require('fs');
+const { svgToBuffer } = require('../lib/mediaEffects');
 
 module.exports = async (client, msg, args) => {
     const input = args.slice(1).join(' ');
@@ -34,33 +34,33 @@ module.exports = async (client, msg, args) => {
             inputPath = tempPath('meme_in', ext);
             fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
         } else {
-            const buf = await sharp({
-                create: { width: 512, height: 512, channels: 4, background: { r: 50, g: 50, b: 50, alpha: 1 } }
-            }).jpeg().toBuffer();
-            fs.writeFileSync(inputPath, buf);
+            inputPath = tempPath('meme_in', 'png');
+            const img = new Jimp(512, 512, 0x323232FF);
+            await img.writeAsync(inputPath);
         }
 
-        const metadata = await sharp(inputPath).metadata();
-        const w = metadata.width || 512;
-        const h = metadata.height || 512;
+        const img = await Jimp.read(inputPath);
+        const w = img.bitmap.width;
+        const h = img.bitmap.height;
         const fontSize = Math.max(24, Math.floor(w / 15));
 
         let svgOverlay = `<svg width="${w}" height="${h}">`;
         svgOverlay += `<style>text { font-family: Impact, Arial, sans-serif; font-size: ${fontSize}px; fill: white; text-anchor: middle; paint-order: stroke; stroke: black; stroke-width: 3px; }</style>`;
 
         if (topText) {
-            svgOverlay += `<text x="50%" y="${fontSize + 10}">${escapeXml(topText.toUpperCase())}</text>`;
+            svgOverlay += `<text x="50%" y="${fontSize + 10}">${escapeXmlLocal(topText.toUpperCase())}</text>`;
         }
         if (bottomText) {
-            svgOverlay += `<text x="50%" y="${h - 10}">${escapeXml(bottomText.toUpperCase())}</text>`;
+            svgOverlay += `<text x="50%" y="${h - 10}">${escapeXmlLocal(bottomText.toUpperCase())}</text>`;
         }
         svgOverlay += '</svg>';
 
+        const svgBuf = await svgToBuffer(svgOverlay, 'png');
+        const overlayImg = await Jimp.read(svgBuf);
+        img.composite(overlayImg, 0, 0);
+
         const outputPath = tempPath('meme_out', 'png');
-        await sharp(inputPath)
-            .composite([{ input: Buffer.from(svgOverlay) }])
-            .png()
-            .toFile(outputPath);
+        await img.writeAsync(outputPath);
 
         const resultMedia = MessageMedia.fromFilePath(outputPath);
         await msg.reply(resultMedia);
@@ -73,6 +73,10 @@ module.exports = async (client, msg, args) => {
         await msg.reply(`❌ Error: ${e.message}`);
     }
 };
+
+function escapeXmlLocal(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
 
 module.exports.metadata = {
     category: 'MEDIA',

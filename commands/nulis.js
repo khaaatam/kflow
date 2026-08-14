@@ -1,9 +1,7 @@
-/* global Buffer */
-const sharp = require('@img/sharp-wasm32');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const { MessageMedia } = require('whatsapp-web.js');
-const { escapeXml } = require('../lib/mediaEffects');
+const { svgToBuffer } = require('../lib/mediaEffects');
 
 module.exports = async (client, msg, args) => {
     const text = args.slice(1).join(' ').trim();
@@ -35,10 +33,9 @@ module.exports = async (client, msg, args) => {
 
         const textElements = lines.map((line, i) => {
             const y = startY + i * lineHeight;
-            // Slightly randomize position for handwriting effect
             const xOffset = Math.floor(Math.random() * 4) - 2;
             const yOffset = Math.floor(Math.random() * 4) - 2;
-            return `<text x="${100 + xOffset}" y="${y + yOffset}" font-family="serif" font-size="${fontSize}" fill="#333" transform="rotate(${Math.random() * 2 - 1}, ${100}, ${y})">${escapeXml(line)}</text>`;
+            return `<text x="${100 + xOffset}" y="${y + yOffset}" font-family="serif" font-size="${fontSize}" fill="#333" transform="rotate(${Math.random() * 2 - 1}, ${100}, ${y})">${escapeXmlLocal(line)}</text>`;
         }).join('\n');
 
         const svg = `<svg width="${w}" height="${h}">
@@ -53,7 +50,7 @@ module.exports = async (client, msg, args) => {
             ${textElements}
         </svg>`;
 
-        const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
+        const pngBuffer = await svgToBuffer(svg, 'png');
         const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
 
         await msg.reply(media, undefined, {
@@ -69,6 +66,10 @@ module.exports = async (client, msg, args) => {
         await msg.reply(`❌ Error: ${e.message}`);
     }
 };
+
+function escapeXmlLocal(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
 
 module.exports.metadata = {
     category: 'MEDIA',

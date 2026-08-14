@@ -1,6 +1,6 @@
 /* global Buffer */
 const fs = require('fs');
-const sharp = require('@img/sharp-wasm32');
+const Jimp = require('jimp');
 const { MessageMedia } = require('whatsapp-web.js');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
@@ -21,12 +21,6 @@ const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
         .on('end', resolve)
         .on('error', reject);
 });
-
-const SHAPES = {
-    circle: (size) => `<svg width="${size}" height="${size}"><defs><clipPath id="c"><circle cx="${size/2}" cy="${size/2}" r="${size/2}"/></clipPath></defs><rect width="${size}" height="${size}" clip-path="url(#c)"/></svg>`,
-    rounded: (size) => `<svg width="${size}" height="${size}"><defs><clipPath id="r"><rect x="0" y="0" width="${size}" height="${size}" rx="${size/8}" ry="${size/8}"/></clipPath></defs><rect width="${size}" height="${size}" clip-path="url(#r)"/></svg>`,
-    crop: (size) => `<svg width="${size}" height="${size}"><defs><clipPath id="cp"><rect x="${size*0.05}" y="${size*0.05}" width="${size*0.9}" height="${size*0.9}"/></clipPath></defs><rect width="${size}" height="${size}" clip-path="url(#cp)"/></svg>`,
-};
 
 module.exports = async (client, msg, args) => {
     const sub = args[1];
@@ -115,7 +109,6 @@ module.exports = async (client, msg, args) => {
     }
 
     if (sub) {
-        // Search by name
         const [rows] = await db.query('SELECT id, nama, webp_data, mimetype FROM sticker_packs WHERE nama LIKE ? ORDER BY id DESC LIMIT 1', [`%${sub}%`]);
         if (!rows.length) return msg.reply('❌ Sticker gak ditemukan.');
         try {
@@ -145,56 +138,30 @@ module.exports = async (client, msg, args) => {
                 return;
             }
 
-            // Parse effects from args (skip !sticker itself)
             const effects = args.slice(1).map(a => a.toLowerCase());
-            const hasShape = effects.find(e => SHAPES[e]);
             const hasNegate = effects.includes('negate');
             const hasGrayscale = effects.includes('grayscale');
             const blurVal = effects.find(e => e.startsWith('blur='));
-            const bgVal = effects.find(e => e.startsWith('bg='));
-            const textVal = effects.find(e => e.startsWith('text='));
             const brightnessVal = effects.find(e => e.startsWith('brightness='));
             const saturationVal = effects.find(e => e.startsWith('saturation='));
 
-            const hasEffects = hasShape || hasNegate || hasGrayscale || blurVal || bgVal || textVal || brightnessVal || saturationVal;
+            const hasEffects = hasNegate || hasGrayscale || blurVal || brightnessVal || saturationVal;
 
             if (hasEffects) {
-                // Sharp-based processing
                 const imgBuffer = Buffer.from(media.data, 'base64');
-                const size = 512;
-                let image = sharp(imgBuffer).resize(size, size, { fit: 'cover' });
+                const img = await Jimp.read(imgBuffer);
+                img.resize(512, 512);
 
-                if (hasNegate) image = image.negate();
-                if (hasGrayscale) image = image.grayscale();
-                if (blurVal) image = image.blur(Math.min(Math.max(Number(blurVal.split('=')[1]), 0.3), 1000));
-                if (brightnessVal) image = image.modulate({ brightness: Number(brightnessVal.split('=')[1]) || 1 });
-                if (saturationVal) image = image.modulate({ saturation: Number(saturationVal.split('=')[1]) || 1 });
+                if (hasNegate) img.invert();
+                if (hasGrayscale) img.greyscale();
+                if (blurVal) img.blur(Math.min(Math.max(Number(blurVal.split('=')[1]), 1), 100));
+                if (brightnessVal) img.brightness((Number(brightnessVal.split('=')[1]) || 1) - 1);
+                if (saturationVal) img.color([{ apply: 'saturate', params: [((Number(saturationVal.split('=')[1]) || 1) - 1) * 100] }]);
 
-                // Background color
-                if (bgVal) {
-                    const color = bgVal.split('=')[1] || 'white';
-                    const svgBg = `<svg width="${size}" height="${size}"><rect width="${size}" height="${size}" fill="${color}"/></svg>`;
-                    image = image.composite([{ input: Buffer.from(svgBg), blend: 'dest-over' }]);
-                }
-
-                // Shape mask
-                if (hasShape) {
-                    const maskSvg = SHAPES[hasShape](size);
-                    image = image.composite([{ input: Buffer.from(maskSvg), blend: 'dest-in' }]);
-                }
-
-                // Text overlay
-                if (textVal) {
-                    const text = textVal.split('=').slice(1).join('=').replace(/['"]/g, '');
-                    const svgText = `<svg width="${size}" height="${size}"><style>text { font-family: Impact, Arial, sans-serif; font-size: 48px; fill: white; text-anchor: middle; paint-order: stroke; stroke: black; stroke-width: 3px; }</style><text x="50%" y="50%">${text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</text></svg>`;
-                    image = image.composite([{ input: Buffer.from(svgText) }]);
-                }
-
-                const webpBuffer = await image.webp({ quality: 80 }).toBuffer();
-                const webpMedia = new MessageMedia('image/webp', webpBuffer.toString('base64'));
+                const webpBuf = await img.getBufferAsync(Jimp.MIME_WEBP);
+                const webpMedia = new MessageMedia('image/webp', webpBuf.toString('base64'));
                 await msg.reply(webpMedia, undefined, { sendMediaAsSticker: true, stickerAuthor: 'ig: @khataaam_', stickerName: 'JikaeL the Creator' });
             } else {
-                // Default ffmpeg processing
                 const ext = media.mimetype?.includes('png') ? 'png' : 'jpg';
                 const inputPath = tempPath('stk_in', ext);
                 const outputPath = tempPath('stk_out', 'webp');
@@ -222,17 +189,12 @@ module.exports = async (client, msg, args) => {
         '• `!sticker <id/nama>` — Kirim sticker\n' +
         '• `!sticker hapus <id>` — Hapus sticker\n\n' +
         '*Effects:*\n' +
-        '• `!sticker circle` — Bulat\n' +
-        '• `!sticker rounded` — Bulat sudut\n' +
-        '• `!sticker crop` — Crop pinggir\n' +
         '• `!sticker negate` — Invert warna\n' +
         '• `!sticker grayscale` — B&W\n' +
         '• `!sticker blur=5` — Blur\n' +
-        '• `!sticker bg=red` — Background merah\n' +
-        '• `!sticker text=halo` — Tambah teks\n' +
         '• `!sticker brightness=1.5` — Terang\n' +
         '• `!sticker saturation=2` — Saturated\n\n' +
-        'Gabungkan: `!sticker circle text=halo bg=blue`'
+        'Gabungkan: `!sticker blur=3 brightness=1.2`'
     );
 };
 

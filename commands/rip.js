@@ -1,9 +1,7 @@
-/* global Buffer */
-const sharp = require('@img/sharp-wasm32');
+const Jimp = require('jimp');
 const logger = require('../lib/logger');
 const react = require('../lib/react');
 const { MessageMedia } = require('whatsapp-web.js');
-const { escapeXml } = require('../lib/mediaEffects');
 
 module.exports = async (client, msg, args) => {
     let targetName;
@@ -25,27 +23,26 @@ module.exports = async (client, msg, args) => {
     try {
         const w = 512;
         const h = 512;
-        const svg = `<svg width="${w}" height="${h}">
-            <defs>
-                <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:#2c2c2c;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#1a1a1a;stop-opacity:1" />
-                </linearGradient>
-            </defs>
-            <rect width="${w}" height="${h}" fill="url(#bg)"/>
-            <text x="50%" y="15%" text-anchor="middle" font-family="serif" font-size="40" fill="white">R.I.P</text>
-            <text x="50%" y="45%" text-anchor="middle" font-family="serif" font-size="36" fill="white" font-style="italic">${escapeXml(targetName)}</text>
-            <text x="50%" y="60%" text-anchor="middle" font-family="serif" font-size="24" fill="#aaa">${year1} — ${year2}</text>
-            <text x="50%" y="80%" text-anchor="middle" font-family="serif" font-size="20" fill="#666">Rest In Peace</text>
-            <line x1="100" y1="70%" x2="412" y2="70%" stroke="#555" stroke-width="2"/>
-        </svg>`;
+        const img = new Jimp(w, h, 0x2c2c2cff);
 
-        const pngBuffer = await sharp(Buffer.from(svg)).png().toBuffer();
-        const media = new MessageMedia('image/png', pngBuffer.toString('base64'));
+        const bgFont = await Jimp.loadFont(Jimp.FONT_SERIF_42_WHITE);
+        img.print(bgFont, 0, h * 0.1, { text: 'R.I.P', alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
 
-        await msg.reply(media, undefined, {
-            caption: `💀 R.I.P ${targetName}`,
-        });
+        const nameFont = await Jimp.loadFont(Jimp.FONT_SERIF_36_WHITE);
+        img.print(nameFont, 0, h * 0.4, { text: targetName, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+
+        const yearFont = await Jimp.loadFont(Jimp.FONT_SERIF_24_GRAY);
+        img.print(yearFont, 0, h * 0.55, { text: `${year1} — ${year2}`, alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+
+        const smallFont = await Jimp.loadFont(Jimp.FONT_SERIF_20_DARK_GRAY);
+        img.print(smallFont, 0, h * 0.75, { text: 'Rest In Peace', alignmentX: Jimp.HORIZONTAL_ALIGN_CENTER }, w);
+
+        const outputPath = require('path').join(__dirname, '..', 'temp', `rip_${Date.now()}.png`);
+        await img.writeAsync(outputPath);
+        const media = MessageMedia.fromFilePath(outputPath);
+
+        await msg.reply(media, undefined, { caption: `💀 R.I.P ${targetName}` });
+        require('fs').unlinkSync(outputPath);
         await react(msg, '✅');
     } catch (e) {
         logger.error('RIP Error:', e.message);
