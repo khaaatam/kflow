@@ -1,5 +1,6 @@
 const logger = require('../lib/logger');
 const react = require('../lib/react');
+const config = require('../config');
 const { createQuoteCard } = require('../lib/mediaEffects');
 const { MessageMedia } = require('whatsapp-web.js');
 
@@ -10,7 +11,8 @@ module.exports = async (client, msg, args) => {
     if (msg.hasQuotedMsg) {
         const quoted = await msg.getQuotedMessage();
         quoteText = quoted.body || '';
-        authorName = quoted.pushName || quoted.author || 'Anonymous';
+        const rawAuthor = quoted.pushName || quoted.author || 'Anonymous';
+        authorName = config.users[rawAuthor] || rawAuthor;
     }
 
     if (!quoteText) return msg.reply('Reply pesan pake caption `!quote` atau `!quote [nama]`');

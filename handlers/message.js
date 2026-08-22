@@ -16,8 +16,6 @@ const { sendVoiceNote } = require('../lib/tts');
 const TYPING_DELAY_MIN_MS = 1000;
 const TYPING_DELAY_MAX_MS = 3000;
 const VOICE_REPLY_CHANCE = 0.25; // 25% chance to reply with voice
-const AUTO_REACT_CHANCE = 0.3;  // 30% chance to auto-react
-const AUTO_REACT_EMOJI = ['❤️', '😍', '🥰', '😘', '💕', '✨', '😊', '💗', '🔥', '💐'];
 
 // --- Relationship features: only for Dini ---
 const DINI_IDS = ['6283806618448@c.us', '129428856242227@lid', '6283806618448@lid'];
@@ -44,13 +42,6 @@ async function humanLikeDelay(client, msg) {
             await client.sendPresenceUnavailable();
         } catch { /* best-effort */ }
     }
-}
-
-async function autoReact(msg) {
-    if (msg.fromMe || msg.isGroup || !isDini(msg.from)) return;
-    if (Math.random() > AUTO_REACT_CHANCE) return;
-    const emoji = AUTO_REACT_EMOJI[Math.floor(Math.random() * AUTO_REACT_EMOJI.length)];
-    await react(msg, emoji);
 }
 
 const mentionLimiter = new RateLimiter(AI_RATE_WINDOW_MS, AI_RATE_MAX);
@@ -327,7 +318,6 @@ const messageHandler = async (client, msg) => {
             () => parseContext(ctx, msg),
             () => filterBotResponse(ctx),
             () => logMessage(ctx, msg),
-            () => autoReact(msg),
             () => humanLikeDelay(client, msg),
             () => filterGuest(ctx),
             (c) => handleCommand(c, client, msg),
