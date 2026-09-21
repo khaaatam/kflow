@@ -180,6 +180,8 @@ chmod +x start.sh 2>/dev/null || true
 # IP mobile data (rmnet_data, 10.x) yang tidak reachable dari PC.
 get_wlan_ip() {
     local ip=""
+    ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '192\.168\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)

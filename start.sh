@@ -17,15 +17,24 @@ cd ~/k-flow 2>/dev/null || cd "$(dirname "$0")"
 # reachable dari PC satu WiFi.
 get_wlan_ip() {
     local ip=""
-    # Prioritas 1: interface wlan0 langsung
+    # Prioritas 1: IP 192.168.x di wlan0 (satu subnet dengan PC umumnya)
+    ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '192\.168\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    # Prioritas 2: IP apa saja di wlan0
     ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
-    # Prioritas 2: source IP untuk route ke LAN
+    # Prioritas 3: source IP untuk route ke LAN 192.168.1.x
     ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     # Fallback: cara lama (interface apa saja selain loopback)
     ip=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
     echo "$ip"
+}
+
+# Tampilkan semua IP untuk debug (biar ketahuan kalau beda subnet)
+show_all_ips() {
+    echo -e "${YELLOW}Semua IP HP:${NC}"
+    ip -4 addr show 2>/dev/null | grep -E '^[0-9]+: |inet ' | sed 's/^ *//' || ifconfig 2>/dev/null | grep -E '^[a-z]|inet '
 }
 
 # ============================================
@@ -97,7 +106,13 @@ if [ -n "$TMUX" ]; then
     WLAN_IP=$(get_wlan_ip)
     if [ -n "$WLAN_IP" ]; then
         echo -e "SSH dari PC: ${CYAN}ssh $(whoami)@$WLAN_IP -p 8022${NC}"
+        # Warning kalau HP dan PC beda subnet (misal HP 10.x, PC 192.168.1.x)
+        case "$WLAN_IP" in
+            192.168.1.*) ;;
+            *) echo -e "${YELLOW}WARNING: IP HP ($WLAN_IP) beda subnet dengan PC (192.168.1.x). Pastikan satu WiFi yang sama, atau pakai Tailscale.${NC}" ;;
+        esac
     fi
+    show_all_ips
     echo ""
     return 2>/dev/null || exit 0
 fi
@@ -127,7 +142,12 @@ if command -v tmux &>/dev/null; then
         WLAN_IP=$(get_wlan_ip)
         if [ -n "$WLAN_IP" ]; then
             echo -e "SSH dari PC: ${CYAN}ssh $(whoami)@$WLAN_IP -p 8022${NC}"
+            case "$WLAN_IP" in
+                192.168.1.*) ;;
+                *) echo -e "${YELLOW}WARNING: IP HP ($WLAN_IP) beda subnet dengan PC (192.168.1.x). Pastikan satu WiFi yang sama, atau pakai Tailscale.${NC}" ;;
+            esac
         fi
+        show_all_ips
         echo ""
     fi
 else
