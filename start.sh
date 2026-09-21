@@ -12,6 +12,22 @@ NC='\033[0m'
 
 cd ~/k-flow 2>/dev/null || cd "$(dirname "$0")"
 
+# Ambil IP wlan0 (WiFi lokal). Jangan pakai IP pertama generik
+# karena bisa dapat IP mobile data (rmnet_data, 10.x) yang tidak
+# reachable dari PC satu WiFi.
+get_wlan_ip() {
+    local ip=""
+    # Prioritas 1: interface wlan0 langsung
+    ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    # Prioritas 2: source IP untuk route ke LAN
+    ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    # Fallback: cara lama (interface apa saja selain loopback)
+    ip=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
+    echo "$ip"
+}
+
 # ============================================
 # START MYSQL (MariaDB)
 # ============================================
@@ -78,9 +94,9 @@ if [ -n "$TMUX" ]; then
     echo -e "Dashboard: ${CYAN}http://localhost:3000${NC}"
     echo ""
     # Tampilkan IP
-    LOCAL_IP=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
-    if [ -n "$LOCAL_IP" ]; then
-        echo -e "SSH dari PC: ${CYAN}ssh $LOCAL_IP -p 8022${NC}"
+    WLAN_IP=$(get_wlan_ip)
+    if [ -n "$WLAN_IP" ]; then
+        echo -e "SSH dari PC: ${CYAN}ssh $(whoami)@$WLAN_IP -p 8022${NC}"
     fi
     echo ""
     return 2>/dev/null || exit 0
@@ -107,10 +123,10 @@ if command -v tmux &>/dev/null; then
         echo -e "Log out dari tmux (bot tetap jalan):"
         echo -e "  ${CYAN}Ctrl+B lalu d${NC}"
         echo ""
-        # Tampilkan IP
-        LOCAL_IP=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
-        if [ -n "$LOCAL_IP" ]; then
-            echo -e "SSH dari PC: ${CYAN}ssh $LOCAL_IP -p 8022${NC}"
+        # Tampilkan IP wlan0
+        WLAN_IP=$(get_wlan_ip)
+        if [ -n "$WLAN_IP" ]; then
+            echo -e "SSH dari PC: ${CYAN}ssh $(whoami)@$WLAN_IP -p 8022${NC}"
         fi
         echo ""
     fi

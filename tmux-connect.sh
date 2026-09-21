@@ -14,8 +14,8 @@
 #   3. Buka terminal baru, ketik: tmux
 #
 
-# Ganti IP ini dengan IP Termux kamu
-# Cek IP di Termux: ifconfig
+# Ganti IP ini dengan IP wlan0 Termux kamu (bukan IP 10.x mobile data)
+# Cek IP di Termux: ip -4 addr show wlan0
 TERMUX_IP="192.168.1.100"
 TERMUX_PORT=8022
 
@@ -29,7 +29,7 @@ if [ $? -ne 0 ]; then
     echo "[ERROR] Gagal connect. Pastikan:"
     echo "  1. Termux sudah jalan"
     echo "  2. SSH server aktif (ketik 'sshd' di Termux)"
-    echo "  3. IP benar (cek dengan 'ifconfig' di Termux)"
+    echo "  3. IP benar (cek dengan 'ip -4 addr show wlan0' di Termux)"
     echo "  4. HP dan PC di WiFi yang sama"
     echo ""
 fi

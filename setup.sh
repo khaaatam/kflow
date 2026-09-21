@@ -176,10 +176,20 @@ chmod +x start.sh 2>/dev/null || true
 # ============================================
 # SELESAI — TAMPILKAN INFO
 # ============================================
-# Ambil IP address
-LOCAL_IP=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
+# Ambil IP wlan0 (WiFi lokal). Prioritas wlan0 agar tidak dapat
+# IP mobile data (rmnet_data, 10.x) yang tidak reachable dari PC.
+get_wlan_ip() {
+    local ip=""
+    ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    ip=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
+    echo "$ip"
+}
+LOCAL_IP=$(get_wlan_ip)
 if [ -z "$LOCAL_IP" ]; then
-    LOCAL_IP="(gagal detect — jalankan 'ifconfig' manual)"
+    LOCAL_IP="(gagal detect — jalankan 'ip -4 addr show wlan0' manual)"
 fi
 
 ok "Setup selesai!"
@@ -205,7 +215,7 @@ echo -e "IP Termux: ${CYAN}$LOCAL_IP${NC}"
 echo -e "SSH Port:  ${CYAN}8022${NC}"
 echo ""
 echo -e "Di PC, ketik:"
-echo -e "  ${CYAN}ssh ${LOCAL_IP} -p 8022${NC}"
+echo -e "  ${CYAN}ssh $(whoami)@${LOCAL_IP} -p 8022${NC}"
 echo ""
 echo -e "Setelah login, bot langsung jalan di tmux."
 echo -e "Kalau mau sambung ke session yang sama:"
