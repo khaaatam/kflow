@@ -51,27 +51,16 @@ get_wlan_ip() {
     echo "$ip"
 }
 
-# Tampilkan semua IP untuk debug (biar ketahuan kalau beda subnet)
-# NOTE: `ip addr` diblokir Android 10+ (Permission denied), jadi pakai
-# getprop/ifconfig yang tidak butuh netlink.
+# Ringkas: satu baris per interface. Cuma dipanggil kalau IP terdeteksi
+# bermasalah (bukan 192.168.1.x) — happy path tidak nge-print ini.
 show_all_ips() {
-    echo -e "${YELLOW}Semua IP HP:${NC}"
-    if command -v getprop >/dev/null 2>&1; then
-        echo "wlan0 (getprop): $(getprop dhcp.wlan0.ipaddress 2>/dev/null || echo '?')"
-        echo "gateway (getprop): $(getprop dhcp.wlan0.gateway 2>/dev/null || echo '?')"
-    fi
+    echo -e "${YELLOW}IP tiap interface:${NC}"
     if command -v ifconfig >/dev/null 2>&1; then
-        ifconfig wlan0 2>&1 | head -10
-        echo "---"
-        ifconfig 2>&1 | grep -E '^[a-z]|inet ' | head -20
+        ifconfig 2>/dev/null | awk '
+            /^[a-zA-Z0-9_.-]+:/ { iface=$1; sub(/:$/, "", iface) }
+            /inet / { ip=$2; sub(/^addr:/, "", ip); if (ip != "127.0.0.1") print "  " iface ": " ip }'
     else
         echo "(ifconfig tidak tersedia, install: pkg install net-tools)"
-    fi
-    if command -v termux-wifi-connectioninfo >/dev/null 2>&1; then
-        echo -e "${YELLOW}WiFi info:${NC}"
-        termux-wifi-connectioninfo 2>&1 | head -20
-    else
-        echo "(tip: pkg install termux-api + install Termux:API apk untuk info WiFi akurat)"
     fi
 }
 
@@ -140,17 +129,22 @@ if [ -n "$TMUX" ]; then
     echo -e "Lihat log: ${CYAN}pm2 logs k-flow${NC}"
     echo -e "Dashboard: ${CYAN}http://localhost:3000${NC}"
     echo ""
-    # Tampilkan IP
+    # Tampilkan IP (dump detail cuma kalau bermasalah biar log tetap bersih)
     WLAN_IP=$(get_wlan_ip)
     if [ -n "$WLAN_IP" ]; then
         echo -e "SSH dari PC: ${CYAN}ssh $(whoami)@$WLAN_IP -p 8022${NC}"
         # Warning kalau HP dan PC beda subnet (misal HP 10.x, PC 192.168.1.x)
         case "$WLAN_IP" in
             192.168.1.*) ;;
-            *) echo -e "${YELLOW}WARNING: IP HP ($WLAN_IP) beda subnet dengan PC (192.168.1.x). Pastikan satu WiFi yang sama, atau pakai Tailscale.${NC}" ;;
+            *)
+                echo -e "${YELLOW}WARNING: IP HP ($WLAN_IP) beda subnet dengan PC (192.168.1.x). Pastikan satu WiFi yang sama, atau pakai Tailscale.${NC}"
+                show_all_ips
+                ;;
         esac
+    else
+        echo -e "${YELLOW}IP tidak terdeteksi.${NC}"
+        show_all_ips
     fi
-    show_all_ips
     echo ""
     return 2>/dev/null || exit 0
 fi
@@ -176,16 +170,21 @@ if command -v tmux &>/dev/null; then
         echo -e "Log out dari tmux (bot tetap jalan):"
         echo -e "  ${CYAN}Ctrl+B lalu d${NC}"
         echo ""
-        # Tampilkan IP wlan0
+        # Tampilkan IP (dump detail cuma kalau bermasalah biar log tetap bersih)
         WLAN_IP=$(get_wlan_ip)
         if [ -n "$WLAN_IP" ]; then
             echo -e "SSH dari PC: ${CYAN}ssh $(whoami)@$WLAN_IP -p 8022${NC}"
             case "$WLAN_IP" in
                 192.168.1.*) ;;
-                *) echo -e "${YELLOW}WARNING: IP HP ($WLAN_IP) beda subnet dengan PC (192.168.1.x). Pastikan satu WiFi yang sama, atau pakai Tailscale.${NC}" ;;
+                *)
+                    echo -e "${YELLOW}WARNING: IP HP ($WLAN_IP) beda subnet dengan PC (192.168.1.x). Pastikan satu WiFi yang sama, atau pakai Tailscale.${NC}"
+                    show_all_ips
+                    ;;
             esac
+        else
+            echo -e "${YELLOW}IP tidak terdeteksi.${NC}"
+            show_all_ips
         fi
-        show_all_ips
         echo ""
     fi
 else
