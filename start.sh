@@ -43,9 +43,10 @@ get_wlan_ip() {
 show_all_ips() {
     echo -e "${YELLOW}Semua IP HP:${NC}"
     if command -v ip >/dev/null 2>&1; then
-        ip addr 2>&1 | grep -E '^[0-9]+: |inet '
+        # Dump mentah dulu (jangan langsung grep, biar kalau format beda tetap kelihatan)
+        ip addr 2>&1 | head -40
     elif command -v ifconfig >/dev/null 2>&1; then
-        ifconfig 2>&1
+        ifconfig 2>&1 | head -40
     else
         echo "(ip/ifconfig tidak tersedia, install: pkg install iproute2 net-tools)"
     fi
