@@ -195,6 +195,10 @@ get_wlan_ip() {
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     ip=$(ifconfig wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    # ifconfig polos kadang jalan walau `ifconfig wlan0` kosong —
+    # ambil 192.168.x dulu supaya tidak dapat IP mobile data (rmnet_data, 10.x).
+    ip=$(ifconfig 2>/dev/null | grep -oE '192\.168\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     ip=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)

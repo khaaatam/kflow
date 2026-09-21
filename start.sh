@@ -28,19 +28,25 @@ get_wlan_ip() {
         ip=$(termux-wifi-connectioninfo 2>/dev/null | grep -oE '"ip"[[:space:]]*:[[:space:]]*"[^"]+"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
         if [ -n "$ip" ] && [ "$ip" != "0.0.0.0" ]; then echo "$ip"; return 0; fi
     fi
-    # Prioritas 1: IP 192.168.x di wlan0 (satu subnet dengan PC umumnya)
+    # Prioritas 2: IP 192.168.x di wlan0 (satu subnet dengan PC umumnya)
     ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '192\.168\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
-    # Prioritas 2: IP apa saja di wlan0
+    # Prioritas 3: IP apa saja di wlan0
     ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
-    # Prioritas 3: ifconfig wlan0 spesifik (kalau paket iproute2 tidak ada)
+    # Prioritas 4: ifconfig wlan0 spesifik (kalau paket iproute2 tidak ada)
     ip=$(ifconfig wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
-    # Prioritas 4: source IP untuk route ke LAN 192.168.1.x
+    # Prioritas 5: IP 192.168.x dari ifconfig SEMUA interface.
+    # Penting: `ifconfig wlan0` ber-argumen kadang kosong di sebagian device,
+    # tapi `ifconfig` polos jalan — ambil yang satu subnet LAN dulu supaya
+    # tidak dapat IP mobile data (rmnet_data, 10.x).
+    ip=$(ifconfig 2>/dev/null | grep -oE '192\.168\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    # Prioritas 6: source IP untuk route ke LAN 192.168.1.x
     ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
-    # Fallback: cara lama (interface apa saja selain loopback)
+    # Fallback terakhir: IP apa saja selain loopback (bisa IP mobile data)
     ip=$(ifconfig 2>/dev/null | grep -oE 'inet (addr:)?([0-9]*\.){3}[0-9]*' | grep -v '127.0.0.1' | awk '{print $2}' | head -1)
     echo "$ip"
 }
