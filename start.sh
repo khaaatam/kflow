@@ -17,7 +17,13 @@ cd ~/k-flow 2>/dev/null || cd "$(dirname "$0")"
 # reachable dari PC satu WiFi.
 get_wlan_ip() {
     local ip=""
-    # Prioritas 0: termux-api wifi info (paling akurat kalau terinstall)
+    # Prioritas 0: Android system property (works tanpa root, anti Permission denied)
+    # `ip addr` diblokir di Android 10+, getprop selalu bisa dibaca.
+    if command -v getprop >/dev/null 2>&1; then
+        ip=$(getprop dhcp.wlan0.ipaddress 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+        if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    fi
+    # Prioritas 1: termux-api wifi info (kalau terinstall)
     if command -v termux-wifi-connectioninfo >/dev/null 2>&1; then
         ip=$(termux-wifi-connectioninfo 2>/dev/null | grep -oE '"ip"[[:space:]]*:[[:space:]]*"[^"]+"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
         if [ -n "$ip" ] && [ "$ip" != "0.0.0.0" ]; then echo "$ip"; return 0; fi
@@ -40,15 +46,20 @@ get_wlan_ip() {
 }
 
 # Tampilkan semua IP untuk debug (biar ketahuan kalau beda subnet)
+# NOTE: `ip addr` diblokir Android 10+ (Permission denied), jadi pakai
+# getprop/ifconfig yang tidak butuh netlink.
 show_all_ips() {
     echo -e "${YELLOW}Semua IP HP:${NC}"
-    if command -v ip >/dev/null 2>&1; then
-        # Dump mentah dulu (jangan langsung grep, biar kalau format beda tetap kelihatan)
-        ip addr 2>&1 | head -40
-    elif command -v ifconfig >/dev/null 2>&1; then
-        ifconfig 2>&1 | head -40
+    if command -v getprop >/dev/null 2>&1; then
+        echo "wlan0 (getprop): $(getprop dhcp.wlan0.ipaddress 2>/dev/null || echo '?')"
+        echo "gateway (getprop): $(getprop dhcp.wlan0.gateway 2>/dev/null || echo '?')"
+    fi
+    if command -v ifconfig >/dev/null 2>&1; then
+        ifconfig wlan0 2>&1 | head -10
+        echo "---"
+        ifconfig 2>&1 | grep -E '^[a-z]|inet ' | head -20
     else
-        echo "(ip/ifconfig tidak tersedia, install: pkg install iproute2 net-tools)"
+        echo "(ifconfig tidak tersedia, install: pkg install net-tools)"
     fi
     if command -v termux-wifi-connectioninfo >/dev/null 2>&1; then
         echo -e "${YELLOW}WiFi info:${NC}"
