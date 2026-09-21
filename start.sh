@@ -17,13 +17,21 @@ cd ~/k-flow 2>/dev/null || cd "$(dirname "$0")"
 # reachable dari PC satu WiFi.
 get_wlan_ip() {
     local ip=""
+    # Prioritas 0: termux-api wifi info (paling akurat kalau terinstall)
+    if command -v termux-wifi-connectioninfo >/dev/null 2>&1; then
+        ip=$(termux-wifi-connectioninfo 2>/dev/null | grep -oE '"ip"[[:space:]]*:[[:space:]]*"[^"]+"' | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -1)
+        if [ -n "$ip" ] && [ "$ip" != "0.0.0.0" ]; then echo "$ip"; return 0; fi
+    fi
     # Prioritas 1: IP 192.168.x di wlan0 (satu subnet dengan PC umumnya)
     ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '192\.168\.[0-9]{1,3}\.[0-9]{1,3}' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     # Prioritas 2: IP apa saja di wlan0
     ip=$(ip -4 addr show wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
-    # Prioritas 3: source IP untuk route ke LAN 192.168.1.x
+    # Prioritas 3: ifconfig wlan0 spesifik (kalau paket iproute2 tidak ada)
+    ip=$(ifconfig wlan0 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | grep -v '255\.' | head -1)
+    if [ -n "$ip" ]; then echo "$ip"; return 0; fi
+    # Prioritas 4: source IP untuk route ke LAN 192.168.1.x
     ip=$(ip -4 route get 192.168.1.1 2>/dev/null | grep -oE 'src ([0-9]{1,3}\.){3}[0-9]{1,3}' | awk '{print $2}' | head -1)
     if [ -n "$ip" ]; then echo "$ip"; return 0; fi
     # Fallback: cara lama (interface apa saja selain loopback)
@@ -34,7 +42,19 @@ get_wlan_ip() {
 # Tampilkan semua IP untuk debug (biar ketahuan kalau beda subnet)
 show_all_ips() {
     echo -e "${YELLOW}Semua IP HP:${NC}"
-    ip -4 addr show 2>/dev/null | grep -E '^[0-9]+: |inet ' | sed 's/^ *//' || ifconfig 2>/dev/null | grep -E '^[a-z]|inet '
+    if command -v ip >/dev/null 2>&1; then
+        ip addr 2>&1 | grep -E '^[0-9]+: |inet '
+    elif command -v ifconfig >/dev/null 2>&1; then
+        ifconfig 2>&1
+    else
+        echo "(ip/ifconfig tidak tersedia, install: pkg install iproute2 net-tools)"
+    fi
+    if command -v termux-wifi-connectioninfo >/dev/null 2>&1; then
+        echo -e "${YELLOW}WiFi info:${NC}"
+        termux-wifi-connectioninfo 2>&1 | head -20
+    else
+        echo "(tip: pkg install termux-api + install Termux:API apk untuk info WiFi akurat)"
+    fi
 }
 
 # ============================================
