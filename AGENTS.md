@@ -79,3 +79,12 @@ Copy `.env.example` to `.env`. Required: `DB_*`, `LOG_NUMBER`, `ROUTER_API_KEY`.
 ## Lint rules
 
 ESLint flat config. Key overrides: `no-unused-vars` warn with `argsIgnorePattern: ^_`, `no-empty` allows empty catch, `no-console` off.
+
+## Agent workflow (owner rule, 2026-09-22)
+
+- **NEVER `git commit` / `git push`** tanpa disuruh eksplisit. Semua perubahan dibiarkan uncommitted agar owner review + push manual.
+- Setiap selesai mengubah file, tampilkan ringkasan review dengan format:
+  1. `git status --short` — file apa aja yang berubah.
+  2. `git diff <file>` per file, tiap hunk dijelaskan baris-per-baris dengan bahasa sederhana (tujuan belajar, bukan sekadar changelog).
+- Format penjelasan: **satu tabel per file** dengan kolom `File | Before | After` (isi Before/After = potongan kode sebelum & sesudah, diringkas kalau panjang). Di bawah tiap tabel tulis penjelasan: kenapa diubah + konsep buat belajar. Bahasa sederhana.
+- Verifikasi (syntax check / lint / test) tetap jalan sebelum lapor selesai, tapi hasilnya juga diringkas, bukan paste mentah.
