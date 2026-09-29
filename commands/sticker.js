@@ -151,10 +151,15 @@ module.exports = async (client, msg, args) => {
         return;
     }
 
-    if (msg.hasMedia) {
+    // Convert polos: dukung media langsung MAUPUN reply gambar
+    // (sebelumnya reply jatuh ke menu help di bawah).
+    const isDirectMedia = msg.hasMedia;
+    const isQuotedMedia = !isDirectMedia && msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
+    if (isDirectMedia || isQuotedMedia) {
         try {
             await react(msg, '⏳');
-            const media = await downloadMedia(msg);
+            const targetMsg = isDirectMedia ? msg : await msg.getQuotedMessage();
+            const media = await downloadMedia(targetMsg);
             if (!media) { await react(msg, '❌'); return msg.reply('❌ Gagal download media.'); }
 
             if (media.mimetype?.includes('webp')) {
