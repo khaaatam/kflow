@@ -89,6 +89,56 @@ module.exports = async (client, msg, args) => {
         return;
     }
 
+    // Meme-text mode: !sticker teks atas;teks bawah (kirim/reply gambar).
+    // Cek di sini (sebelum lookup nama pack) supaya teks ber-`;` tidak
+    // dikira nama sticker pack. Pola overlay sama kayak commands/meme.js:
+    // font putih stroke hitam ala meme (Impact).
+    const memeInput = args.slice(1).join(' ');
+    if (memeInput.includes(';')) {
+        const parts = memeInput.split(';').map(s => s.trim());
+        const topText = parts[0] || '';
+        const bottomText = parts[1] || '';
+        if (!topText && !bottomText) return msg.reply('Contoh: `!sticker teks atas;teks bawah` (kirim/reply gambar)');
+        const isMedia = msg.hasMedia;
+        const isQuotedMedia = msg.hasQuotedMsg && (await msg.getQuotedMessage()).hasMedia;
+        if (!isMedia && !isQuotedMedia) return msg.reply('Kirim/reply gambar dengan caption `!sticker atas;bawah`');
+        await react(msg, '⏳');
+        try {
+            const { Jimp } = require('jimp');
+            const { svgToPng, escapeXml } = require('../lib/mediaEffects');
+            const targetMsg = isMedia ? msg : await msg.getQuotedMessage();
+            const media = await downloadMedia(targetMsg);
+            if (!media) { await react(msg, '❌'); return msg.reply('❌ Gagal download media.'); }
+            const img = await Jimp.read(Buffer.from(media.data, 'base64'));
+            const w = img.bitmap.width;
+            const h = img.bitmap.height;
+            const fontSize = Math.max(28, Math.floor(w / 12));
+            let svgOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`;
+            if (topText) {
+                svgOverlay += `<text x="${w / 2}" y="${fontSize + 10}" text-anchor="middle" font-family="Impact, Arial, sans-serif" font-size="${fontSize}" fill="white" paint-order="stroke" stroke="black" stroke-width="4">${escapeXml(topText.toUpperCase())}</text>`;
+            }
+            if (bottomText) {
+                svgOverlay += `<text x="${w / 2}" y="${h - 10}" text-anchor="middle" font-family="Impact, Arial, sans-serif" font-size="${fontSize}" fill="white" paint-order="stroke" stroke="black" stroke-width="4">${escapeXml(bottomText.toUpperCase())}</text>`;
+            }
+            svgOverlay += '</svg>';
+            const overlayImg = await Jimp.read(svgToPng(svgOverlay));
+            img.composite(overlayImg, 0, 0);
+            const memePath = tempPath('stk_meme', 'jpg');
+            const outputPath = tempPath('stk_out', 'webp');
+            await img.write(memePath);
+            await toWebp(memePath, outputPath);
+            const webpMedia = MessageMedia.fromFilePath(outputPath);
+            await msg.reply(webpMedia, undefined, { sendMediaAsSticker: true, stickerAuthor: 'ig: @khataaam_', stickerName: 'JikaeL the Creator' });
+            cleanupFiles(memePath, outputPath);
+            await react(msg, '✅');
+        } catch (e) {
+            logger.error('Sticker Meme Error:', e.message || e);
+            await react(msg, '❌');
+            await msg.reply('❌ Gagal bikin stiker meme.');
+        }
+        return;
+    }
+
     if (sub) {
         const db = require('../lib/database');
         const [rows] = await db.query('SELECT id, nama, webp_data, mimetype FROM sticker_packs WHERE nama LIKE ? ORDER BY id DESC LIMIT 1', [`%${sub}%`]);
@@ -154,6 +204,7 @@ module.exports = async (client, msg, args) => {
     await msg.reply(
         '🎨 *STICKER*\n\n' +
         '• `!sticker` (kirim gambar) — Convert ke stiker\n' +
+        '• `!sticker atas;bawah` — Stiker meme (font putih stroke hitam)\n' +
         '• `!sticker add <nama>` — Simpan ke pack\n' +
         '• `!sticker list` — Lihat semua sticker\n' +
         '• `!sticker <id/nama>` — Kirim sticker\n' +
