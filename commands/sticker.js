@@ -7,10 +7,11 @@ const downloadMedia = require('../lib/downloadMedia');
 const { tempPath, cleanupFiles } = require('../lib/tempUtils');
 const ffmpeg = require('fluent-ffmpeg');
 
-const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
+const DEFAULT_VF = 'scale=512:512:force_original_aspect_ratio=increase,crop=512:512';
+const toWebp = (inputPath, outputPath, vf = DEFAULT_VF) => new Promise((resolve, reject) => {
     ffmpeg(inputPath)
         .outputOptions([
-            '-vf', 'scale=512:512:force_original_aspect_ratio=increase,crop=512:512',
+            '-vf', vf,
             '-vcodec', 'libwebp', '-lossless', '0', '-compression_level', '6',
             '-q:v', '50', '-loop', '0', '-preset', 'default', '-an', '-vsync', '0'
         ])
@@ -91,11 +92,12 @@ module.exports = async (client, msg, args) => {
 
     // Meme-text mode: !sticker teks atas;teks bawah (kirim/reply gambar).
     // Cek di sini (sebelum lookup nama pack) supaya teks ber-`;` tidak
-    // dikira nama sticker pack. Pola overlay sama kayak commands/meme.js:
-    // font putih stroke hitam ala meme (Impact).
+    // dikira nama sticker pack. Teks digambar via ffmpeg drawtext (font Impact
+    // putih stroke hitam) — BUKAN via SVG/resvg, karena resvg ngerender teks
+    // jadi blank di Termux (terbukti di !meme).
     const memeInput = args.slice(1).join(' ');
     if (memeInput.includes(';')) {
-        const parts = memeInput.split(';').map(s => s.trim());
+        const parts = memeInput.split(';').map(s => s.trim().toUpperCase());
         const topText = parts[0] || '';
         const bottomText = parts[1] || '';
         if (!topText && !bottomText) return msg.reply('Contoh: `!sticker teks atas;teks bawah` (kirim/reply gambar)');
@@ -104,32 +106,28 @@ module.exports = async (client, msg, args) => {
         if (!isMedia && !isQuotedMedia) return msg.reply('Kirim/reply gambar dengan caption `!sticker atas;bawah`');
         await react(msg, '⏳');
         try {
-            const { Jimp } = require('jimp');
-            const { svgToPng, escapeXml } = require('../lib/mediaEffects');
+            const { FONT_PATH } = require('../lib/mediaEffects');
             const targetMsg = isMedia ? msg : await msg.getQuotedMessage();
             const media = await downloadMedia(targetMsg);
             if (!media) { await react(msg, '❌'); return msg.reply('❌ Gagal download media.'); }
-            const img = await Jimp.read(Buffer.from(media.data, 'base64'));
-            const w = img.bitmap.width;
-            const h = img.bitmap.height;
-            const fontSize = Math.max(28, Math.floor(w / 12));
-            let svgOverlay = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}">`;
-            if (topText) {
-                svgOverlay += `<text x="${w / 2}" y="${fontSize + 10}" text-anchor="middle" font-family="Impact, Arial, sans-serif" font-size="${fontSize}" fill="white" paint-order="stroke" stroke="black" stroke-width="4">${escapeXml(topText.toUpperCase())}</text>`;
-            }
-            if (bottomText) {
-                svgOverlay += `<text x="${w / 2}" y="${h - 10}" text-anchor="middle" font-family="Impact, Arial, sans-serif" font-size="${fontSize}" fill="white" paint-order="stroke" stroke="black" stroke-width="4">${escapeXml(bottomText.toUpperCase())}</text>`;
-            }
-            svgOverlay += '</svg>';
-            const overlayImg = await Jimp.read(svgToPng(svgOverlay));
-            img.composite(overlayImg, 0, 0);
-            const memePath = tempPath('stk_meme', 'jpg');
+            // Escape khusus parser filter ffmpeg (argumen dilempar langsung
+            // tanpa shell, jadi cukup backslash + kutip satu).
+            const escapeDrawtext = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+            // Normalisasi path font (Windows `C:\...` → lolos parser filter).
+            const fontFile = FONT_PATH.replace(/\\/g, '/').replace(/:/g, '\\:');
+            const maxLen = Math.max(topText.length, bottomText.length, 1);
+            const fontSize = Math.max(28, Math.min(48, Math.floor(560 / maxLen)));
+            const drawBase = `fontfile='${fontFile}':fontcolor=white:fontsize=${fontSize}:borderw=3:bordercolor=black:x=(w-text_w)/2`;
+            const vfParts = [DEFAULT_VF];
+            if (topText) vfParts.push(`drawtext=${drawBase}:text='${escapeDrawtext(topText)}':y=20`);
+            if (bottomText) vfParts.push(`drawtext=${drawBase}:text='${escapeDrawtext(bottomText)}':y=h-text_h-20`);
+            const inputPath = tempPath('stk_meme_in', 'jpg');
             const outputPath = tempPath('stk_out', 'webp');
-            await img.write(memePath);
-            await toWebp(memePath, outputPath);
+            fs.writeFileSync(inputPath, Buffer.from(media.data, 'base64'));
+            await toWebp(inputPath, outputPath, vfParts.join(','));
             const webpMedia = MessageMedia.fromFilePath(outputPath);
             await msg.reply(webpMedia, undefined, { sendMediaAsSticker: true, stickerAuthor: 'ig: @khataaam_', stickerName: 'JikaeL the Creator' });
-            cleanupFiles(memePath, outputPath);
+            cleanupFiles(inputPath, outputPath);
             await react(msg, '✅');
         } catch (e) {
             logger.error('Sticker Meme Error:', e.message || e);
