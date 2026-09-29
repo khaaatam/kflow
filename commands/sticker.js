@@ -10,7 +10,7 @@ const ffmpeg = require('fluent-ffmpeg');
 const toWebp = (inputPath, outputPath) => new Promise((resolve, reject) => {
     ffmpeg(inputPath)
         .outputOptions([
-            '-vf', 'scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000',
+            '-vf', 'scale=512:512:force_original_aspect_ratio=increase,crop=512:512',
             '-vcodec', 'libwebp', '-lossless', '0', '-compression_level', '6',
             '-q:v', '50', '-loop', '0', '-preset', 'default', '-an', '-vsync', '0'
         ])
